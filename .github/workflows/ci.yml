@@ -37,6 +37,7 @@ jobs:
         with:
           build-dir: ./.release-check/configops
           strict: true
+          wp-version: '7.0.3'
 
       - name: Create release checksum
         run: |
