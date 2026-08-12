@@ -70,6 +70,8 @@ try {
 
 	await startCapture('Configure SMTP delivery');
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wp-mail-smtp`, { waitUntil: 'domcontentloaded' });
+	const initialSenderEmail = await page.locator('#wp-mail-smtp-setting-from_email').inputValue();
+	const initialDefaultMailer = await page.locator('#wp-mail-smtp-setting-mailer-mail').isChecked();
 	await page.locator('#wp-mail-smtp-setting-from_email').fill('noreply@agency.example');
 	await page.locator('#wp-mail-smtp-setting-from_name').fill('Agency Mail');
 	await page.locator('#wp-mail-smtp-setting-mailer-smtp').check();
@@ -103,8 +105,8 @@ try {
 
 	await undoVisibleSetting('Undo 7 safe settings');
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wp-mail-smtp`, { waitUntil: 'domcontentloaded' });
-	assert.equal(await page.locator('#wp-mail-smtp-setting-from_email').inputValue(), 'admin@localhost.com', 'Safe undo should restore the previous sender email.');
-	assert.equal(await page.locator('#wp-mail-smtp-setting-mailer-mail').isChecked(), true, 'Safe undo should restore the previous delivery method.');
+	assert.equal(await page.locator('#wp-mail-smtp-setting-from_email').inputValue(), initialSenderEmail, 'Safe undo should restore the site’s actual previous sender email.');
+	assert.equal(await page.locator('#wp-mail-smtp-setting-mailer-mail').isChecked(), initialDefaultMailer, 'Safe undo should restore the site’s actual previous delivery method.');
 
 	await startCapture('Turn off XML sitemaps');
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wpseo_page_settings#/site-features`, { waitUntil: 'domcontentloaded' });

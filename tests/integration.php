@@ -7,17 +7,18 @@
 
 declare(strict_types=1);
 
-require_once '/wordpress/wp-load.php';
+$wordpressRoot = rtrim((string) (getenv('CONFIGOPS_WP_ROOT') ?: '/wordpress'), '/');
+require_once $wordpressRoot . '/wp-load.php';
 require_once ABSPATH . 'wp-admin/includes/plugin.php';
 
 if (! defined('CONFIGOPS_FILE')) {
-	require_once '/wordpress/wp-content/plugins/configops/configops.php';
+	require_once WP_PLUGIN_DIR . '/configops/configops.php';
 }
 
 \ConfigOps\Plugin::activate();
 \ConfigOps\Plugin::boot();
 
-$fixturePlugin = '/wordpress/wp-content/plugins/configops-hostile-fixture/configops-hostile-fixture.php';
+$fixturePlugin = WP_PLUGIN_DIR . '/configops-hostile-fixture/configops-hostile-fixture.php';
 if (! is_file($fixturePlugin)) {
 	throw new RuntimeException('The hostile ConfigOps fixture plugin was not mounted.');
 }
