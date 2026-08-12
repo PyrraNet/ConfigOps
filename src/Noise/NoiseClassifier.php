@@ -30,6 +30,13 @@ final class NoiseClassifier implements MutationClassifier
 			);
 		}
 
+		if (in_array($optionName, array('update_comment_type.lock', 'finished_updating_comment_type'), true)) {
+			return array(
+				'classification' => 'derived',
+				'reason'         => 'WordPress comment-type migration lock or completion state.',
+			);
+		}
+
 		if (1 === preg_match('/(^|_)(cache|cached|lock|heartbeat|last_checked|update_status)(_|$)/i', $optionName)) {
 			return array(
 				'classification' => 'derived',

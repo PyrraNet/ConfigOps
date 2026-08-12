@@ -151,6 +151,12 @@ $yoastMultisite = $yoastAdapter->analyze('wpseo_ms', array(array('path' => '/acc
 $assert('unsupported' === $yoastMultisite->classification, 'The Yoast adapter should make the Multisite boundary explicit.');
 $assert(6 === count($yoastAdapter->manifest()->capabilities), 'Yoast support should disclose every current product capability.');
 
+$noise = new NoiseClassifier();
+$commentMigrationLock = $noise->classify('update_comment_type.lock');
+$commentMigrationFinished = $noise->classify('finished_updating_comment_type');
+$assert('derived' === $commentMigrationLock['classification'], 'A WordPress comment-type migration lock must not appear as a user setting.');
+$assert('derived' === $commentMigrationFinished['classification'], 'WordPress comment-type migration completion state must stay in the technical filter.');
+
 $registry = new AdapterRegistry(array($mailAdapter, $yoastAdapter), new NoiseClassifier(), new HeuristicSensitiveValueDetector());
 $assert(null !== $registry->field('wp-mail-smtp', 2, 'wp_mail_smtp', '/smtp/host'), 'The current adapter schema should enrich matching historical evidence.');
 $assert(null === $registry->field('wp-mail-smtp', 1, 'wp_mail_smtp', '/smtp/host'), 'Field-aware adapter changes must not reinterpret captures stored under the previous schema.');
