@@ -1,0 +1,10 @@
+.git
+.github
+.wordpress-org
+artifacts
+coverage
+dist
+node_modules
+playwright-report
+test-results
+*.log

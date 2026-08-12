@@ -72,6 +72,42 @@ Release Packs, Plans, Policies, and Drift are the direction after the recorder e
 
 ## Development
 
+For a persistent local WordPress installation with MariaDB, WP-CLI, Query Monitor,
+Xdebug, Mailpit, and the supported WP Mail SMTP and Yoast versions:
+
+```bash
+npm ci
+npm run wp:start
+```
+
+Open `http://localhost:8888/wp-admin/` and sign in with `admin` / `password`.
+The repository is mounted directly as the active `configops` plugin, so PHP changes
+are available immediately. Rebuild UI changes with `npm run build:ui`.
+
+Useful commands:
+
+```bash
+npm run wp:cli -- plugin list       # Run WP-CLI in the container
+npm run wp:debug-log                # Follow wp-content/debug.log
+npm run wp:logs                     # Follow Apache/PHP container output
+npm run wp:stop                     # Keep data, stop containers
+npm run wp:down                     # Keep data, remove containers
+npm run wp:reset                    # Delete the local database/site and recreate it
+```
+
+Xdebug listens on port `9003` and uses the server path
+`/var/www/html/wp-content/plugins/configops`. It starts only when an IDE/browser
+debug trigger is present. Start the IDE listener and add `?XDEBUG_TRIGGER=1` to a
+request to debug it. Copy `.env.example` to `.env` to change host ports or set
+`XDEBUG_MODE=off`. MariaDB is reachable on `127.0.0.1:3307` with database/user/
+password `wordpress` / `configops` / `configops`.
+
+Captured development mail is available at `http://localhost:8025`. To exercise the
+WP Mail SMTP adapter, select its **Other SMTP** mailer and use host `mailpit`, port
+`1025`, no encryption, and no authentication.
+
+For a disposable, in-memory WordPress Playground instead:
+
 ```bash
 npm install
 npm test
