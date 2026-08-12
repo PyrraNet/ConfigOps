@@ -16,7 +16,8 @@ final readonly class ReviewViewModel
 	 *   index: string,
 	 *   request_id: string,
 	 *   head: object,
-	 *   mutations: list<array{mutation: object, diff: list<array<string, mixed>>, classification_label: string}>
+	 *   title: string,
+	 *   mutations: list<array{mutation: object, diff: list<array<string, mixed>>, classification_label: string, adapter: ?array<string, mixed>}>
 	 * }> $groups Prepared request groups.
 	 */
 	public function __construct(

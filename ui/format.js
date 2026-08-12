@@ -1,6 +1,6 @@
 export const formatValue = (value) => {
 	if (typeof value === 'boolean') {
-		return value ? 'true' : 'false';
+		return value ? 'On (true)' : 'Off (false)';
 	}
 	if (value === null) {
 		return 'null';

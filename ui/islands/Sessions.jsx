@@ -11,7 +11,7 @@ export default function Sessions() {
 				<div>
 					<h2>{__('Captures', 'configops')}</h2>
 					<Hint label={__('What is a capture?', 'configops')}>
-						{__('The explicit start-to-stop window that groups settings requests into one review and restore boundary.', 'configops')}
+						{__('Everything ConfigOps observes between Record and Stop, kept together as one review.', 'configops')}
 					</Hint>
 				</div>
 				<span aria-label={sprintf(__('%d captures', 'configops'), state.sessions.length)}>{state.sessions.length}</span>
@@ -40,7 +40,7 @@ export default function Sessions() {
 									<span className="configops-session-meta">
 										<span>
 											{sprintf(__('%d changes', 'configops'), session.mutationCount)}
-											{session.writeSignalCount > 0 && <em>{sprintf(__(' · %d DB', 'configops'), session.writeSignalCount)}</em>}
+											{session.writeSignalCount > 0 && <em>{sprintf(__(' · %d outside API', 'configops'), session.writeSignalCount)}</em>}
 										</span>
 										<time dateTime={session.startedAt}>{sprintf(__('%s ago', 'configops'), session.startedAtLabel)}</time>
 									</span>

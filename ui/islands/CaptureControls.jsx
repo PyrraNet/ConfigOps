@@ -27,12 +27,12 @@ export default function CaptureControls() {
 					</div>
 					<div className="configops-recording-tally">
 						<strong>{state.active.mutationCount}</strong>
-						<span>{__('mutations', 'configops')}</span>
+						<span>{__('changes found', 'configops')}</span>
 						{state.active.writeSignalCount > 0 && (
-							<span className="configops-recording-writes">{`+ ${state.active.writeSignalCount} ${__('unmanaged DB', 'configops')}`}</span>
+							<span className="configops-recording-writes">{`+ ${state.active.writeSignalCount} ${__('outside the settings API', 'configops')}`}</span>
 						)}
-						<Hint label={__('What counts as a mutation?', 'configops')} align="end">
-							{__('Mutations are Options API adds, updates, or deletes. Unmanaged database writes are counted separately without retaining SQL or values.', 'configops')}
+						<Hint label={__('What counts as a change?', 'configops')} align="end">
+							{__('ConfigOps counts settings saved through WordPress. Database writes outside that standard route are listed separately without storing their query or values.', 'configops')}
 						</Hint>
 					</div>
 					<button className="button button-primary button-large" type="button" disabled={busy} onClick={stopCapture}>
@@ -47,7 +47,7 @@ export default function CaptureControls() {
 							<div className="configops-field-label">
 								<label htmlFor="configops-capture-name">{__('Capture name', 'configops')}</label>
 								<Hint label={__('Why name a capture?', 'configops')}>
-									{__('Use the task or intent, not the plugin name. It becomes the audit and restore boundary.', 'configops')}
+									{__('Name the task you are about to do. ConfigOps will keep everything until Stop together in one review.', 'configops')}
 								</Hint>
 							</div>
 							<input

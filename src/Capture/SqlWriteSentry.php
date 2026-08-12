@@ -46,7 +46,11 @@ final class SqlWriteSentry
 		$this->observing = true;
 		try {
 			$sessionId = $this->captures->activeId();
-			if (null === $sessionId || $this->isManagedOptionsApiWrite($write['table'])) {
+			if (
+				null === $sessionId
+				|| $this->isUncorrelatedCoreCronRequest()
+				|| $this->isManagedOptionsApiWrite($write['table'])
+			) {
 				return $query;
 			}
 
@@ -101,6 +105,11 @@ final class SqlWriteSentry
 		}
 
 		return false;
+	}
+
+	private function isUncorrelatedCoreCronRequest(): bool
+	{
+		return 0 === $this->request->actorId() && '/wp-cron.php' === $this->request->uri();
 	}
 
 	private function record(int $sessionId, string $operation, string $table): void

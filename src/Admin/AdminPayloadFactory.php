@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ConfigOps\Admin;
 
+use ConfigOps\Adapter\AdapterRegistry;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\DatabaseWriteSignalRepository;
 use ConfigOps\Database\MutationRepository;
@@ -22,8 +23,19 @@ final class AdminPayloadFactory
 		private readonly CaptureRepository $captures,
 		private readonly MutationRepository $mutations,
 		private readonly DatabaseWriteSignalRepository $writeSignals,
-		private readonly ReviewPresenter $presenter
+		private readonly ReviewPresenter $presenter,
+		private readonly AdapterRegistry $adapters
 	) {
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	public function support(): array
+	{
+		return array(
+			'adapters' => $this->adapters->supportPayload(),
+		);
 	}
 
 	/**
@@ -176,6 +188,7 @@ final class AdminPayloadFactory
 		return array(
 			'index'      => $group['index'],
 			'requestId'  => $group['request_id'],
+			'title'      => (string) ($group['title'] ?? ''),
 			'head'       => array(
 				'adminScreen' => (string) $head->admin_screen,
 				'requestUri'  => (string) $head->request_uri,
@@ -194,9 +207,11 @@ final class AdminPayloadFactory
 						'classification'       => (string) $mutation->classification,
 						'classificationLabel'  => $prepared['classification_label'],
 						'classificationReason' => (string) $mutation->classification_reason,
-						'restorable'           => 1 === (int) $mutation->restorable,
+						'restorable'           => 1 === (int) $mutation->restorable && 'derived' !== (string) $mutation->classification,
 						'redacted'              => 1 === (int) $mutation->is_redacted,
 						'diff'                  => $prepared['diff'],
+						'adapter'               => $prepared['adapter'],
+						'displayName'           => (string) ($prepared['diff'][0]['label'] ?? ''),
 						'source'                => array(
 							'type'      => (string) $mutation->source_type,
 							'component' => (string) $mutation->source_component,

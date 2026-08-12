@@ -33,12 +33,12 @@ final class ValueCodec
 			'limited'    => false,
 		);
 
-		if ($this->sensitiveValues->isSensitiveKey($optionName)) {
+		if ($this->sensitiveValues->isSensitive($optionName, array())) {
 			$state['restorable'] = false;
 			$state['redacted']   = true;
 			$node                = array('type' => 'redacted');
 		} else {
-			$node = $this->encodeNode($value, $state, 0, null);
+			$node = $this->encodeNode($value, $state, 0, $optionName, array());
 		}
 
 		if ($state['limited']) {
@@ -111,7 +111,7 @@ final class ValueCodec
 	 * @param array{restorable: bool, redacted: bool, nodes: int, limited: bool} $state Encoding state.
 	 * @return array<string, mixed>
 	 */
-	private function encodeNode(mixed $value, array &$state, int $depth, int|string|null $key): array
+	private function encodeNode(mixed $value, array &$state, int $depth, string $optionName, array $path): array
 	{
 		++$state['nodes'];
 		if ($state['nodes'] > self::MAX_NODES) {
@@ -127,7 +127,7 @@ final class ValueCodec
 			return array('type' => 'unsupported', 'label' => 'maximum depth exceeded');
 		}
 
-		if (null !== $key && is_string($key) && $this->sensitiveValues->isSensitiveKey($key)) {
+		if (! empty($path) && $this->sensitiveValues->isSensitive($optionName, $path)) {
 			$state['restorable'] = false;
 			$state['redacted']   = true;
 
@@ -168,7 +168,7 @@ final class ValueCodec
 					'key'   => is_int($itemKey)
 						? array('type' => 'int', 'value' => $itemKey)
 						: array('type' => 'string', 'value' => $itemKey),
-					'value' => $this->encodeNode($itemValue, $state, $depth + 1, $itemKey),
+					'value' => $this->encodeNode($itemValue, $state, $depth + 1, $optionName, array_merge($path, array($itemKey))),
 				);
 				if ($state['limited']) {
 					break;
@@ -182,7 +182,7 @@ final class ValueCodec
 			foreach (get_object_vars($value) as $itemKey => $itemValue) {
 				$items[] = array(
 					'key'   => array('type' => 'string', 'value' => $itemKey),
-					'value' => $this->encodeNode($itemValue, $state, $depth + 1, $itemKey),
+					'value' => $this->encodeNode($itemValue, $state, $depth + 1, $optionName, array_merge($path, array($itemKey))),
 				);
 				if ($state['limited']) {
 					break;

@@ -11,8 +11,9 @@
     "lint:php": "wp-playground-cli php --php=8.3 --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/lint.php",
     "test:unit": "wp-playground-cli php --php=8.3 --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/run.php",
     "test:integration": "wp-playground-cli php --php=8.3 --mount=.:/wordpress/wp-content/plugins/configops --mount=tests/fixtures/configops-hostile-fixture:/wordpress/wp-content/plugins/configops-hostile-fixture -- /wordpress/wp-content/plugins/configops/tests/integration.php",
+    "test:adapters": "wp-playground-cli php --php=8.3 --wp=latest --blueprint=tests/adapters.blueprint.json --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/adapters-integration.php",
     "test:visual": "node tests/visual-check.mjs",
-    "test": "npm run build:ui && npm run check:ui-budget && npm run lint:php && npm run test:unit && npm run test:integration"
+    "test": "npm run build:ui && npm run check:ui-budget && npm run lint:php && npm run test:unit && npm run test:integration && npm run test:adapters"
   },
   "devDependencies": {
     "@wp-playground/cli": "3.1.49",

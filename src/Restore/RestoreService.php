@@ -193,9 +193,9 @@ final class RestoreService
 
 	private function assertRestorable(object $mutation): void
 	{
-		if (1 !== (int) $mutation->restorable) {
+		if (1 !== (int) $mutation->restorable || 'derived' === (string) ($mutation->classification ?? '')) {
 			throw new RuntimeException(
-				'This mutation contains a redacted, oversized, or unsupported value and cannot be restored safely.'
+				'This mutation is technical, redacted, oversized, or unsupported and cannot be restored safely.'
 			);
 		}
 	}

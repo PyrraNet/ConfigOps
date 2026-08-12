@@ -36,7 +36,12 @@ $assert = static function (bool $condition, string $message) use (&$assertions):
 $captures  = new \ConfigOps\Database\CaptureRepository($wpdb);
 $mutations = new \ConfigOps\Database\MutationRepository($wpdb);
 $writeSignals = new \ConfigOps\Database\DatabaseWriteSignalRepository($wpdb);
-$codec     = new \ConfigOps\Capture\ValueCodec();
+$adapters = new \ConfigOps\Adapter\AdapterRegistry(
+	array(new \ConfigOps\Adapter\WpMailSmtpAdapter(), new \ConfigOps\Adapter\YoastSeoAdapter()),
+	new \ConfigOps\Noise\NoiseClassifier(),
+	new \ConfigOps\Capture\HeuristicSensitiveValueDetector()
+);
+$codec     = new \ConfigOps\Capture\ValueCodec($adapters);
 $metadata  = new \ConfigOps\Database\OptionMetadataRepository($wpdb);
 $operationLock = new \ConfigOps\Execution\OperationLock($wpdb);
 $restore       = new \ConfigOps\Restore\RestoreService($captures, $mutations, $codec, $metadata, $operationLock);
@@ -72,7 +77,7 @@ try {
 		new \ConfigOps\Capture\InternalOptionPolicy(),
 		$codec,
 		new \ConfigOps\Diff\NestedDiff(),
-		new \ConfigOps\Noise\NoiseClassifier(),
+		$adapters,
 		new \ConfigOps\Capture\SourceAttributor(CONFIGOPS_PATH),
 		new \ConfigOps\Capture\RequestContext()
 	);
@@ -220,6 +225,35 @@ $assert(
 );
 $assert(false === get_option('fixture_deleted', false), 'Session restore should delete an option that did not exist at capture start.');
 
+update_option('fixture_restore_meaningful', 'baseline', false);
+update_option('_transient_fixture_restore_runtime', 'baseline-runtime', false);
+$derivedRestoreSession = $captures->start('Derived restore exclusion', 0, '/wp-admin/options-general.php');
+update_option('fixture_restore_meaningful', 'changed', false);
+update_option('_transient_fixture_restore_runtime', 'changed-runtime', false);
+$captures->stop();
+$derivedRestoreRows = $mutations->forSession($derivedRestoreSession);
+$derivedRestoreByName = array_column($derivedRestoreRows, null, 'option_name');
+$assert(0 === (int) $derivedRestoreByName['_transient_fixture_restore_runtime']->restorable, 'Technical runtime values should never expose individual undo.');
+$wpdb->update(
+	$wpdb->prefix . 'configops_mutations',
+	array('restorable' => 1),
+	array('id' => (int) $derivedRestoreByName['_transient_fixture_restore_runtime']->id),
+	array('%d'),
+	array('%d')
+);
+$legacyDerivedRejected = false;
+try {
+	$restore->restoreMutation((int) $derivedRestoreByName['_transient_fixture_restore_runtime']->id);
+} catch (RuntimeException) {
+	$legacyDerivedRejected = true;
+}
+$assert($legacyDerivedRejected, 'Technical mutations from an older schema must remain ineligible for individual undo.');
+$derivedRestoreSummary = $mutations->summaryForSession($derivedRestoreSession);
+$assert(0 === $derivedRestoreSummary['not_restorable'], 'Technical values skipped by design should not falsely block safe session undo.');
+$assert(1 === $restore->restoreSession($derivedRestoreSession), 'Session undo should plan only meaningful configuration options.');
+$assert('baseline' === get_option('fixture_restore_meaningful'), 'Session undo should restore the meaningful configuration value.');
+$assert('changed-runtime' === get_option('_transient_fixture_restore_runtime'), 'Session undo should leave plugin-generated runtime state alone.');
+
 delete_option('fixture_compensated_add');
 update_option('fixture_compensation_failure', 'baseline', false);
 $compensationSession = $captures->start('Partial restore compensation', 0, '/wp-admin/options-general.php');
@@ -250,6 +284,8 @@ delete_option('fixture_credentials');
 delete_option('_transient_fixture_cache');
 delete_option('fixture_semantic_reorder');
 delete_option('fixture_compensation_failure');
+delete_option('fixture_restore_meaningful');
+delete_option('_transient_fixture_restore_runtime');
 delete_transient('configops_flash_integration');
 
 \ConfigOpsHostileFixture\SettingsFixture::cleanup();
@@ -353,11 +389,29 @@ $assert(
 );
 $hostileCapture = $captures->find($hostileSession);
 $assert(2 === (int) $hostileCapture->write_signal_count, 'Capture summaries should count every unmanaged write occurrence.');
+
+$originalActorId = get_current_user_id();
+$originalCronUri = $_SERVER['REQUEST_URI'] ?? null;
+wp_set_current_user(0);
+$_SERVER['REQUEST_URI'] = '/wp-cron.php?doing_wp_cron=fixture';
+$cronNoiseSession = $captures->start('Uncorrelated cron noise', 0, '/wp-cron.php');
+update_user_meta(1, 'configops_cron_noise_probe', 'runtime');
+$captures->stop();
+$assert(array() === $writeSignals->forSession($cronNoiseSession), 'Unauthenticated core cron writes should not contaminate an explicit admin capture.');
+delete_user_meta(1, 'configops_cron_noise_probe');
+wp_set_current_user($originalActorId);
+if (null === $originalCronUri) {
+	unset($_SERVER['REQUEST_URI']);
+} else {
+	$_SERVER['REQUEST_URI'] = $originalCronUri;
+}
+
 $hostilePayloadFactory = new \ConfigOps\Admin\AdminPayloadFactory(
 	$captures,
 	$mutations,
 	$writeSignals,
-	new \ConfigOps\Admin\ReviewPresenter()
+	new \ConfigOps\Admin\ReviewPresenter($adapters),
+	$adapters
 );
 $hostilePayload = $hostilePayloadFactory->mutationPage($hostileSession);
 $hostilePayloadSignals = array_merge(
@@ -458,7 +512,8 @@ $payloadFactory = new \ConfigOps\Admin\AdminPayloadFactory(
 	$freshCaptures,
 	$mutations,
 	$writeSignals,
-	new \ConfigOps\Admin\ReviewPresenter()
+	new \ConfigOps\Admin\ReviewPresenter($adapters),
+	$adapters
 );
 $shellPayload = $payloadFactory->state($bulkSession, '', '', false);
 $assert(true === $shellPayload['review']['deferred'], 'The PHP shell must defer mutation history instead of inflating initial HTML.');

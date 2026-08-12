@@ -10,12 +10,16 @@ declare(strict_types=1);
 namespace ConfigOps;
 
 use ConfigOps\Access\CapabilityManager;
+use ConfigOps\Adapter\AdapterRegistry;
+use ConfigOps\Adapter\WpMailSmtpAdapter;
+use ConfigOps\Adapter\YoastSeoAdapter;
 use ConfigOps\Admin\AdminPayloadFactory;
 use ConfigOps\Admin\AdminController;
 use ConfigOps\Admin\FlashNoticeStore;
 use ConfigOps\Admin\ReviewPresenter;
 use ConfigOps\Api\RestController;
 use ConfigOps\Capture\InternalOptionPolicy;
+use ConfigOps\Capture\HeuristicSensitiveValueDetector;
 use ConfigOps\Capture\MutationObserver;
 use ConfigOps\Capture\RequestContext;
 use ConfigOps\Capture\SqlWriteSentry;
@@ -47,7 +51,23 @@ final class Plugin
 		$mutations = new MutationRepository($wpdb);
 		$signals   = new DatabaseWriteSignalRepository($wpdb);
 		$metadata  = new OptionMetadataRepository($wpdb);
-		$codec     = new ValueCodec();
+		$builtInAdapters = array(new WpMailSmtpAdapter(), new YoastSeoAdapter());
+		try {
+			$adapterList = apply_filters('configops_adapters', $builtInAdapters);
+		} catch (\Throwable $error) {
+			try {
+				do_action('configops_adapter_registration_error', $error);
+			} catch (\Throwable) {
+				// Extension diagnostics cannot break ConfigOps boot.
+			}
+			$adapterList = $builtInAdapters;
+		}
+		$adapters  = new AdapterRegistry(
+			is_array($adapterList) ? $adapterList : $builtInAdapters,
+			new NoiseClassifier(),
+			new HeuristicSensitiveValueDetector()
+		);
+		$codec     = new ValueCodec($adapters);
 		$source    = new SourceAttributor(CONFIGOPS_PATH);
 		$request   = new RequestContext();
 
@@ -60,15 +80,15 @@ final class Plugin
 			new InternalOptionPolicy(),
 			$codec,
 			new NestedDiff(),
-			new NoiseClassifier(),
+			$adapters,
 			$source,
 			$request
 		);
 		$observer->register();
 
 		$restore   = new RestoreService($captures, $mutations, $codec, $metadata, new OperationLock($wpdb));
-		$presenter = new ReviewPresenter();
-		$payloads  = new AdminPayloadFactory($captures, $mutations, $signals, $presenter);
+		$presenter = new ReviewPresenter($adapters);
+		$payloads  = new AdminPayloadFactory($captures, $mutations, $signals, $presenter, $adapters);
 
 		(new RestController($captures, $mutations, $restore, $payloads))->register();
 		(new AdminController($captures, $restore, new FlashNoticeStore(), $payloads))->register();

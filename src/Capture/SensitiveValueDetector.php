@@ -11,5 +11,8 @@ namespace ConfigOps\Capture;
 
 interface SensitiveValueDetector
 {
-	public function isSensitiveKey(string $key): bool;
+	/**
+	 * @param list<int|string> $path Full path from the option root.
+	 */
+	public function isSensitive(string $optionName, array $path): bool;
 }

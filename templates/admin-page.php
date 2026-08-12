@@ -5,6 +5,7 @@
  * @package ConfigOps
  *
  * @var array<string, mixed> $bootstrap Initial state; prevents a first-render request waterfall.
+ * @var string $view Current server-routed workspace view.
  */
 
 declare(strict_types=1);
@@ -31,39 +32,47 @@ $bootstrapJson = wp_json_encode(
 				height="32"
 			>
 			<span class="configops-app-divider" aria-hidden="true"></span>
-			<h1><?php esc_html_e('Change review', 'configops'); ?></h1>
+			<h1><?php echo 'support' === $view ? esc_html__('Plugin support', 'configops') : esc_html__('Change review', 'configops'); ?></h1>
 		</div>
-		<button class="configops-static-hint configops-static-hint--end" type="button" aria-describedby="configops-options-api-hint">
-			<span><?php esc_html_e('Options API scope', 'configops'); ?></span>
-			<span id="configops-options-api-hint" class="configops-static-tooltip" role="tooltip"><?php esc_html_e('Captures add_option(), update_option(), and delete_option() calls. Direct writes to custom tables require an adapter.', 'configops'); ?></span>
-		</button>
+		<nav class="configops-app-nav" aria-label="<?php esc_attr_e('ConfigOps sections', 'configops'); ?>">
+			<a class="<?php echo esc_attr('review' === $view ? 'is-current' : ''); ?>" <?php if ('review' === $view) : ?>aria-current="page"<?php endif; ?> href="<?php echo esc_url(admin_url('admin.php?page=configops')); ?>"><?php esc_html_e('Changes', 'configops'); ?></a>
+			<a class="<?php echo esc_attr('support' === $view ? 'is-current' : ''); ?>" <?php if ('support' === $view) : ?>aria-current="page"<?php endif; ?> href="<?php echo esc_url(admin_url('admin.php?page=configops&view=support')); ?>"><?php esc_html_e('Plugin support', 'configops'); ?></a>
+		</nav>
 	</header>
 
-	<div id="configops-capture-island" class="configops-island" aria-live="polite" aria-busy="true">
-		<div class="configops-island-placeholder configops-island-placeholder--controls">
-			<span></span><span></span>
-		</div>
-	</div>
-
-	<div class="configops-workspace">
-		<aside id="configops-sessions-island" class="configops-session-rail configops-island" aria-label="<?php esc_attr_e('Capture sessions', 'configops'); ?>" aria-busy="true">
-			<div class="configops-island-placeholder configops-island-placeholder--sessions">
-				<span></span><span></span><span></span>
-			</div>
-		</aside>
-
-		<main id="configops-review-island" class="configops-review configops-island" aria-live="polite" aria-busy="true">
+	<?php if ('support' === $view) : ?>
+		<main id="configops-support-island" class="configops-support configops-island" aria-live="polite" aria-busy="true">
 			<div class="configops-island-placeholder configops-island-placeholder--review">
 				<span></span><span></span><span></span>
 			</div>
 		</main>
-	</div>
+	<?php else : ?>
+		<div id="configops-capture-island" class="configops-island" aria-live="polite" aria-busy="true">
+			<div class="configops-island-placeholder configops-island-placeholder--controls">
+				<span></span><span></span>
+			</div>
+		</div>
+
+		<div class="configops-workspace">
+			<aside id="configops-sessions-island" class="configops-session-rail configops-island" aria-label="<?php esc_attr_e('Capture sessions', 'configops'); ?>" aria-busy="true">
+				<div class="configops-island-placeholder configops-island-placeholder--sessions">
+					<span></span><span></span><span></span>
+				</div>
+			</aside>
+
+			<main id="configops-review-island" class="configops-review configops-island" aria-live="polite" aria-busy="true">
+				<div class="configops-island-placeholder configops-island-placeholder--review">
+					<span></span><span></span><span></span>
+				</div>
+			</main>
+		</div>
+	<?php endif; ?>
 
 	<noscript>
 		<section class="configops-no-script">
-			<h2><?php esc_html_e('JavaScript is required for the ConfigOps review interface.', 'configops'); ?></h2>
-			<p><?php esc_html_e('The recorder remains server-authoritative, but its paged forensic interface is delivered as isolated React instruments.', 'configops'); ?></p>
-			<?php if (null !== ($bootstrap['active'] ?? null)) : ?>
+			<h2><?php esc_html_e('JavaScript is required for the ConfigOps interface.', 'configops'); ?></h2>
+			<p><?php esc_html_e('Capture remains server-authoritative; the interactive review and support views load as small React islands.', 'configops'); ?></p>
+			<?php if ('review' === $view && null !== ($bootstrap['active'] ?? null)) : ?>
 				<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
 					<input type="hidden" name="action" value="configops_stop_capture">
 					<?php wp_nonce_field('configops_stop_capture'); ?>

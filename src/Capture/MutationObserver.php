@@ -9,11 +9,11 @@ declare(strict_types=1);
 
 namespace ConfigOps\Capture;
 
+use ConfigOps\Adapter\AdapterRegistry;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\MutationRepository;
 use ConfigOps\Database\OptionMetadataRepository;
 use ConfigOps\Diff\NestedDiff;
-use ConfigOps\Noise\MutationClassifier;
 use Throwable;
 
 final class MutationObserver
@@ -33,7 +33,7 @@ final class MutationObserver
 		private readonly InternalOptionPolicy $internalOptions,
 		private readonly ValueCodec $codec,
 		private readonly NestedDiff $diff,
-		private readonly MutationClassifier $noise,
+		private readonly AdapterRegistry $adapters,
 		private readonly SourceAttributor $source,
 		private readonly RequestContext $request
 	) {
@@ -188,7 +188,7 @@ final class MutationObserver
 			);
 		}
 
-		$classification = $this->noise->classify($option);
+		$classification = $this->adapters->analyze($option, $changes);
 		$source         = $this->source->capture();
 		$diffJson       = wp_json_encode($changes, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 		if (! is_string($diffJson) || strlen($diffJson) > self::MAX_DIFF_BYTES) {
@@ -213,10 +213,13 @@ final class MutationObserver
 				'diff'                  => is_string($diffJson) ? $diffJson : '[]',
 				'old_autoload'          => $oldAutoload,
 				'new_autoload'          => $newAutoload,
-				'restorable'            => $before->restorable && $after->restorable ? 1 : 0,
+				'restorable'            => $before->restorable && $after->restorable && $classification['allows_restore'] ? 1 : 0,
 				'is_redacted'           => $before->redacted || $after->redacted ? 1 : 0,
 				'classification'        => $classification['classification'],
 				'classification_reason' => $classification['reason'],
+				'adapter_id'             => $classification['adapter_id'],
+				'adapter_schema_version' => $classification['adapter_schema_version'],
+				'component_version'      => $classification['component_version'],
 				'source_type'           => $source['type'],
 				'source_component'      => $source['component'],
 				'source_file'           => $source['file'],

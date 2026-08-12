@@ -40,13 +40,13 @@ try {
 	if (brandContract.appbarBackgroundImage !== 'none') {
 		throw new Error(`ConfigOps app bar must remain gradient-free: ${brandContract.appbarBackgroundImage}.`);
 	}
-	const scopeHint = page.locator('.configops-static-hint');
-	await scopeHint.focus();
-	const scopeTooltip = scopeHint.locator('[role="tooltip"]');
-	if ((await scopeTooltip.evaluate((element) => getComputedStyle(element).visibility)) !== 'visible') {
-		throw new Error('Options API explanation is not exposed on keyboard focus.');
+	const appNavigation = page.locator('.configops-app-nav');
+	if ((await appNavigation.getByRole('link', { name: 'Changes' }).getAttribute('aria-current')) !== 'page') {
+		throw new Error('Server-routed navigation does not expose the current page to assistive technology.');
 	}
-	await scopeHint.evaluate((element) => element.blur());
+	if (!await appNavigation.getByRole('link', { name: 'Plugin support' }).isVisible()) {
+		throw new Error('The honest plugin support contract is missing from the product navigation.');
+	}
 	const bootstrap = await page.locator('#configops-bootstrap').evaluate((element) => ({
 		bytes: new TextEncoder().encode(element.textContent || '').byteLength,
 		data: JSON.parse(element.textContent || '{}'),
@@ -136,11 +136,13 @@ try {
 		throw new Error('React noise filter left review mutations in the noise candidate set.');
 	}
 	await page.locator('.configops-review-filters button').first().click();
-	const restoreOption = blogDescriptionRow.getByRole('button', { name: 'Restore option' });
+	const restoreOption = blogDescriptionRow.getByRole('button', { name: 'Undo this setting' });
 	await restoreOption.focus();
 	if ((await restoreOption.locator('xpath=..').getByRole('tooltip').evaluate((element) => getComputedStyle(element).visibility)) !== 'visible') {
 		throw new Error('Restore safety explanation is not attached to the risky action on keyboard focus.');
 	}
+	await page.locator('.configops-review-header h2').click();
+	await page.locator('.configops-review-filters button').nth(1).click();
 	await page.locator('.configops-review-header h2').click();
 
 	await page.screenshot({ path: new URL('configops-review-desktop.png', artifacts).pathname, fullPage: true });
@@ -166,6 +168,36 @@ try {
 	}
 	await page.screenshot({ path: new URL('configops-review-mobile.png', artifacts).pathname, fullPage: true });
 
+	await page.setViewportSize({ width: 1440, height: 1100 });
+	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops&view=support`, { waitUntil: 'networkidle' });
+	await page.getByRole('heading', { name: 'Plugin support', exact: true }).waitFor();
+	await page.getByRole('heading', { name: 'Know what ConfigOps understands.', exact: true }).waitFor();
+	if (await page.locator('.configops-support-row').count() !== 2) {
+		throw new Error('The support contract should list exactly the two shipped real-plugin adapters.');
+	}
+	const firstSupport = page.locator('.configops-support-row').first();
+	await firstSupport.locator('summary').click();
+	if (await firstSupport.locator('.configops-support-capability').count() !== 6) {
+		throw new Error('The expanded adapter contract does not disclose all six current capability levels.');
+	}
+	const supportHint = firstSupport.getByRole('button', { name: /Find changes:/ }).first();
+	await supportHint.focus();
+	if ((await supportHint.locator('xpath=..').getByRole('tooltip').evaluate((element) => getComputedStyle(element).visibility)) !== 'visible') {
+		throw new Error('Adapter limits are not exposed on keyboard focus.');
+	}
+	await page.locator('.configops-support-intro h2').click();
+	await page.screenshot({ path: new URL('configops-support-desktop.png', artifacts).pathname, fullPage: true });
+
+	await page.setViewportSize({ width: 390, height: 844 });
+	const supportViewport = await page.evaluate(() => ({
+		clientWidth: document.documentElement.clientWidth,
+		scrollWidth: document.documentElement.scrollWidth,
+	}));
+	if (supportViewport.scrollWidth > supportViewport.clientWidth) {
+		throw new Error(`Plugin support caused page-level horizontal overflow on mobile: ${JSON.stringify(supportViewport)}.`);
+	}
+	await page.screenshot({ path: new URL('configops-support-mobile.png', artifacts).pathname, fullPage: true });
+
 	await page.goto(`${baseUrl}/wp-admin/options-general.php`, { waitUntil: 'networkidle' });
 	await page.locator('#blogdescription').fill(previousDescription);
 	await page.locator('#submit').click();
@@ -175,7 +207,7 @@ try {
 		throw new Error(`Browser runtime errors:\n${runtimeErrors.join('\n')}`);
 	}
 
-	process.stdout.write('ConfigOps visual flow passed; desktop and mobile screenshots written to artifacts/.\n');
+	process.stdout.write('ConfigOps review and plugin-support visual flow passed; responsive screenshots written to artifacts/.\n');
 } finally {
 	await browser.close();
 }

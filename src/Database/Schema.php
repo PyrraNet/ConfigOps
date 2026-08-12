@@ -13,7 +13,7 @@ use wpdb;
 
 final class Schema
 {
-	private const VERSION = 3;
+	private const VERSION = 4;
 
 	public function __construct(private readonly wpdb $database)
 	{
@@ -64,6 +64,9 @@ final class Schema
 			is_redacted tinyint(1) unsigned NOT NULL DEFAULT 0,
 			classification varchar(20) NOT NULL DEFAULT 'unknown',
 			classification_reason varchar(255) NULL,
+			adapter_id varchar(191) NULL,
+			adapter_schema_version int(10) unsigned NULL,
+			component_version varchar(64) NULL,
 			source_type varchar(20) NOT NULL DEFAULT 'unknown',
 			source_component varchar(191) NULL,
 			source_file text NULL,

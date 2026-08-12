@@ -28,6 +28,7 @@ This repository is an early technical preview of the local recorder:
 - Options API mutations with nested JSON Pointer diffs;
 - value-free signals for direct database writes, without storing raw SQL;
 - source attribution, conservative noise classification and secret redaction;
+- versioned capture adapters for WP Mail SMTP Free 4.9.x and Yoast SEO Free 28.2.x, with an in-product support contract;
 - individual and session restore with conflict checks;
 - a performance-budgeted React review interface inside WordPress.
 
@@ -45,7 +46,7 @@ npm run dev
 
 The recorder is PHP because it must observe the WordPress hook lifecycle directly. The interface uses independently loaded React islands, with React supplied by WordPress rather than bundled again.
 
-Architecture decisions live in [docs/architecture.md](docs/architecture.md) and [docs/frontend.md](docs/frontend.md).
+Architecture decisions live in [docs/architecture.md](docs/architecture.md), [docs/frontend.md](docs/frontend.md), and [docs/adapters.md](docs/adapters.md).
 
 ## License
 

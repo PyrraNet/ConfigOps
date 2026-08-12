@@ -21,8 +21,8 @@ PHP 8.3 is a deliberate product constraint, not an accidental use of new syntax
 | --- | --- | --- |
 | Persisted mutation | WordPress Options API hooks; value-free signal for unmanaged writes | Adapter-owned custom tables and APIs |
 | Human intent | Explicit session name and request context | Admin field and fetch/REST correlation |
-| Value semantics | Type-preserving codec and JSON Pointer diff | Adapter schemas and semantic references |
-| Noise | Conservative built-in rules | Versioned adapter normalization |
+| Value semantics | Type-preserving codec, JSON Pointer diff, and versioned adapter field schemas | Semantic references and release transforms |
+| Noise | Conservative built-in rules plus pinned WP Mail SMTP and Yoast contracts | Registry fixtures and adapter normalization |
 | Secrets | Redact before persistence; block restore | Secret references and target-local resolution |
 | Rollback | Conflict-checked compensating restore | Adapter-declared safety and verification |
 | Storage | Dedicated session, mutation, and write-signal tables | Packs, runs, snapshots, and drift tables when used |
@@ -52,8 +52,11 @@ PHP 8.3 is a deliberate product constraint, not an accidental use of new syntax
 - **Hot reads have matching indexes.** Session review, stop-time recounts, and keyset restore iteration share a `(session_id, id)` index instead of degrading into table scans as history grows.
 - **Internal operations are invisible.** Schema, lock, capability, and flash-notice options never appear in captures.
 - **Error reporting is also isolated.** Even a third-party listener that throws during `configops_capture_error` cannot escape into the settings request being observed.
-- **Adapter seams exist before the registry.** Secret detection and mutation classification use small interfaces so later adapters replace heuristics rather than patching the observer.
+- **Adapters are capability-scoped.** Capture ownership, field meaning, secret detection, and rollback eligibility form the current contract. Apply and verification do not appear on the interface until those engines exist, so recorder support cannot be mistaken for deployment support.
+- **Adapter meaning is pinned at capture time.** Mutations retain adapter ID, schema version, and installed component version. Historical fields are enriched only when the matching schema is still available; newer adapters cannot silently reinterpret old evidence.
+- **Derived state stays out of rollback.** Cache, migration, tracking, version, and other adapter-declared runtime values remain visible under Technical but are skipped by full-session restore planning.
 - **Direct writes fail visibly, not magically.** During an active capture, the SQL Sentry recognizes common write statements, ignores ConfigOps-owned tables and Options API duplicates, and stores only operation, table, count, provenance, and safe request metadata. Raw SQL and values never enter persistence. Fifty unique signals per request form a hard ceiling; repeated signals collapse by source.
+- **Uncorrelated core cron stays out of an admin task.** Anonymous `/wp-cron.php` writes are not attributed to an explicit operator capture. Synchronous plugin side effects in the user’s Save request remain visible; future async correlation requires an adapter-owned job token instead of timing guesses.
 - **Unknown effects limit rollback.** Any unmanaged database write disables full-session restore in the review contract. Individually supported Options API mutations remain conflict-checkable and restorable.
 
 ## Admin direction
@@ -74,4 +77,4 @@ The deliberately hostile fixture plugin now exercises simple and nested options,
 
 ## Next boundary
 
-Iteration 0 now needs captures from one Core screen and two real design-partner plugins. Those runs must produce understandable request groups, correct nested diffs, useful ownership, and honest noise treatment before Release Packs begin. The next work is real-plugin evidence and classifier fixtures—not fleet UI.
+Iteration 0 now runs exact-release contract checks against WP Mail SMTP Free 4.9.0 and Yoast SEO Free 28.2. The next boundary is repeated design-partner evidence across real settings screens, followed by reviewed mutations becoming Release Changes—not fleet UI.

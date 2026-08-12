@@ -64,3 +64,24 @@ jobs:
           --mount=.:/wordpress/wp-content/plugins/configops
           --mount=tests/fixtures/configops-hostile-fixture:/wordpress/wp-content/plugins/configops-hostile-fixture
           -- /wordpress/wp-content/plugins/configops/tests/integration.php
+
+  adapters:
+    name: Real plugin adapter contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install test tooling
+        run: npm ci
+
+      - name: Test exact WP Mail SMTP and Yoast releases
+        run: npm run test:adapters

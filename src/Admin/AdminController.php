@@ -110,14 +110,21 @@ final class AdminController
 			wp_die(esc_html__('You are not allowed to view ConfigOps.', 'configops'));
 		}
 
-		$requested = isset($_GET['session']) ? absint($_GET['session']) : 0;
-		$flash     = $this->notices->pull();
-		$bootstrap = $this->payloads->state(
-			$requested > 0 ? $requested : null,
-			$flash['code'],
-			$flash['message'],
-			false
-		);
+		$view = isset($_GET['view']) ? sanitize_key(wp_unslash($_GET['view'])) : 'review';
+		$view = 'support' === $view ? 'support' : 'review';
+		if ('support' === $view) {
+			$bootstrap = $this->payloads->support();
+		} else {
+			$requested = isset($_GET['session']) ? absint($_GET['session']) : 0;
+			$flash     = $this->notices->pull();
+			$bootstrap = $this->payloads->state(
+				$requested > 0 ? $requested : null,
+				$flash['code'],
+				$flash['message'],
+				false
+			);
+		}
+		$bootstrap['view'] = $view;
 
 		include CONFIGOPS_PATH . '/templates/admin-page.php';
 	}

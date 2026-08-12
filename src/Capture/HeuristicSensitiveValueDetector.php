@@ -11,8 +11,9 @@ namespace ConfigOps\Capture;
 
 final class HeuristicSensitiveValueDetector implements SensitiveValueDetector
 {
-	public function isSensitiveKey(string $key): bool
+	public function isSensitive(string $optionName, array $path): bool
 	{
+		$key = empty($path) ? $optionName : (string) $path[array_key_last($path)];
 		$withBoundaries = preg_replace('/(?<=[a-z0-9])(?=[A-Z])/', '_', $key) ?? $key;
 		$normalized     = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $withBoundaries) ?? $withBoundaries);
 

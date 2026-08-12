@@ -130,7 +130,7 @@ final class MutationRepository
 				$this->database->prepare(
 					"SELECT id, option_name, old_value, new_value, old_autoload, new_autoload, restorable
 					FROM {$this->table}
-					WHERE session_id = %d AND id > %d
+					WHERE session_id = %d AND id > %d AND classification <> 'derived'
 					ORDER BY id ASC
 					LIMIT %d",
 					$sessionId,
@@ -157,7 +157,7 @@ final class MutationRepository
 					COUNT(*) AS total,
 					COALESCE(SUM(CASE WHEN classification = 'derived' THEN 1 ELSE 0 END), 0) AS derived,
 					COALESCE(SUM(CASE WHEN is_redacted = 1 THEN 1 ELSE 0 END), 0) AS redacted,
-					COALESCE(SUM(CASE WHEN restorable <> 1 THEN 1 ELSE 0 END), 0) AS not_restorable
+					COALESCE(SUM(CASE WHEN classification <> 'derived' AND restorable <> 1 THEN 1 ELSE 0 END), 0) AS not_restorable
 				FROM {$this->table}
 				WHERE session_id = %d",
 				$sessionId

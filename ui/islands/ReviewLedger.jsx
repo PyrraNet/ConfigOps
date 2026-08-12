@@ -8,6 +8,18 @@ import {
 import Hint from '../components/Hint.jsx';
 import { formatValue } from '../format.js';
 
+const fieldKindLabel = (kind, __) => {
+	switch (kind) {
+		case 'portable': return __('Reusable', 'configops');
+		case 'environment': return __('Check per website', 'configops');
+		case 'secret': return __('Secret', 'configops');
+		case 'reference': return __('Website link', 'configops');
+		case 'runtime': return __('Technical', 'configops');
+		case 'unsupported': return __('Outside scope', 'configops');
+		default: return __('Needs review', 'configops');
+	}
+};
+
 const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canRestore, busy }) {
 	const { __ } = window.wp.i18n;
 	const sourceLabel = mutation.source.file || mutation.source.type;
@@ -34,8 +46,8 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 				<span className={`configops-op configops-op--${mutation.type}`} title={operationLabel} aria-hidden="true">{mutation.type.slice(0, 1).toUpperCase()}</span>
 				<span className="screen-reader-text">{operationLabel}</span>
 				<span className="configops-option">
-					<code>{mutation.optionName}</code>
-					<span>{mutation.source.component || mutation.source.type}</span>
+					<strong>{mutation.adapter?.name || mutation.displayName || mutation.optionName}</strong>
+					<span><code>{mutation.optionName}</code>{mutation.adapter?.componentVersion ? ` · v${mutation.adapter.componentVersion}` : ''}</span>
 				</span>
 				<span className={`configops-badge configops-badge--${mutation.classification}`} data-tooltip={mutation.classificationReason}>{mutation.classificationLabel}</span>
 				<span id={classificationDescriptionId} className="screen-reader-text">{mutation.classificationReason}</span>
@@ -43,17 +55,26 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 			</summary>
 			<div className="configops-mutation-body">
 				{mutation.redacted && (
-					<p className="configops-secret-note"><span aria-hidden="true">●</span> {__('Secret redacted before storage. Restore is unavailable.', 'configops')}</p>
+					<p className="configops-secret-note"><span aria-hidden="true">●</span> {__('This option contains a secret. ConfigOps excluded it before storage, so full-value undo is unavailable.', 'configops')}</p>
 				)}
 				<div className="configops-diff-table" role="table" aria-label={__('Nested value changes', 'configops')}>
 					<div className="configops-diff-row configops-diff-head" role="row">
-						<span role="columnheader">{__('Path', 'configops')}</span>
+						<span role="columnheader">{__('Setting', 'configops')}</span>
 						<span role="columnheader">{__('Before', 'configops')}</span>
 						<span role="columnheader">{__('After', 'configops')}</span>
 					</div>
 					{mutation.diff.map((change, index) => (
 						<div className="configops-diff-row" role="row" key={`${change.path || '/'}-${change.op || ''}-${index}`}>
-							<code role="cell">{change.path || '/'}</code>
+							<div className="configops-diff-field" role="cell">
+								<div>
+									<strong>{change.label || change.path || '/'}</strong>
+									{change.explanation && (
+										<Hint label={__('About this setting', 'configops')}>{change.explanation}</Hint>
+									)}
+								</div>
+								{change.group && <span>{change.group}{change.kind ? ` · ${fieldKindLabel(change.kind, __)}` : ''}</span>}
+								{change.label && <code>{change.path || '/'}</code>}
+							</div>
 							<pre role="cell" data-label={__('Before', 'configops')}>{Object.hasOwn(change, 'before') ? formatValue(change.before) : '—'}</pre>
 							<pre role="cell" data-label={__('After', 'configops')}>{Object.hasOwn(change, 'after') ? formatValue(change.after) : '—'}</pre>
 						</div>
@@ -61,9 +82,14 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 				</div>
 				<footer className="configops-provenance">
 					<div>
-						<span>{__('Source', 'configops')}</span>
+						<span>{__('Changed by', 'configops')}</span>
 						<code>{sourceLabel}{mutation.source.line > 0 ? `:${mutation.source.line}` : ''}</code>
 					</div>
+					{!mutation.restorable && !mutation.redacted && (
+						<Hint label={__('Why can’t this be undone?', 'configops')} align="end" trigger={__('Undo unavailable', 'configops')}>
+							{__('The adapter marks this as technical, unsupported, or outside its tested version range. ConfigOps keeps the evidence but will not guess during rollback.', 'configops')}
+						</Hint>
+					)}
 					{canRestore && mutation.restorable && (
 						<span className="configops-action-hint">
 							<button
@@ -72,15 +98,15 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 								disabled={busy}
 								aria-describedby={restoreDescriptionId}
 								onClick={() => {
-									if (window.confirm(__('Restore this option to its previous value? A newer value will be treated as a conflict.', 'configops'))) {
+									if (window.confirm(__('Undo this setting? ConfigOps will stop if it has changed again since the capture.', 'configops'))) {
 										restoreMutation(mutation.id);
 									}
 								}}
 							>
-								{busy ? __('Restoring…', 'configops') : __('Restore option', 'configops')}
+								{busy ? __('Undoing…', 'configops') : __('Undo this setting', 'configops')}
 							</button>
 							<span id={restoreDescriptionId} className="configops-action-tooltip" role="tooltip">
-								{__('Restore proceeds only if the current option still matches this captured after-state. Files and custom tables are outside this generic rollback.', 'configops')}
+								{__('ConfigOps first checks that the setting still has the value shown here. Files and custom database tables are not part of this undo.', 'configops')}
 							</span>
 						</span>
 					)}
@@ -106,12 +132,12 @@ const DatabaseWriteSignal = window.wp.element.memo(function DatabaseWriteSignal(
 				{signal.occurrenceCount > 1 && (
 					<strong aria-label={sprintf(__('%d occurrences', 'configops'), signal.occurrenceCount)}>×{signal.occurrenceCount}</strong>
 				)}
-				<Hint label={__('Why is there no diff or restore?', 'configops')} align="end" trigger={__('Unmanaged write', 'configops')}>
-					{__('ConfigOps observed write intent outside a supported configuration API. It retained no query text or values; semantic diff and rollback require an adapter.', 'configops')}
+				<Hint label={__('Why is there no comparison or undo?', 'configops')} align="end" trigger={__('Outside standard settings', 'configops')}>
+					{__('This plugin wrote directly to the database. ConfigOps kept no query or value; understanding and undoing it safely requires a dedicated adapter.', 'configops')}
 				</Hint>
 			</header>
 			<footer>
-				<span>{__('Write intent observed · No values retained · No generic rollback', 'configops')}</span>
+				<span>{__('Database write seen · No value stored · No automatic undo', 'configops')}</span>
 				<code>{sourceLabel}{signal.source.line > 0 ? `:${signal.source.line}` : ''}</code>
 			</footer>
 		</article>
@@ -120,7 +146,11 @@ const DatabaseWriteSignal = window.wp.element.memo(function DatabaseWriteSignal(
 
 const RequestGroup = window.wp.element.memo(function RequestGroup({ group, canRestore, pending }) {
 	const { __, sprintf } = window.wp.i18n;
-	const title = group.head.adminScreen || group.head.requestUri || __('Background request', 'configops');
+	const screenLabels = {
+		options: __('Saved WordPress settings', 'configops'),
+		'options-general': __('General settings', 'configops'),
+	};
+	const title = group.title || screenLabels[group.head.adminScreen] || group.head.adminScreen || group.head.requestUri || __('Background request', 'configops');
 	const writeSignals = group.writeSignals || [];
 	const unmanagedWriteCount = writeSignals.reduce((total, signal) => total + signal.occurrenceCount, 0);
 
@@ -133,11 +163,11 @@ const RequestGroup = window.wp.element.memo(function RequestGroup({ group, canRe
 						<div className="configops-request-title">
 							<h3>{title}</h3>
 							<Hint label={__('Why are these changes grouped?', 'configops')}>
-								{__('These writes occurred inside the same WordPress request and are reviewed as one causal group.', 'configops')}
+								{__('These changes happened after the same Save action, so ConfigOps keeps them together.', 'configops')}
 							</Hint>
 						</div>
 						<p>
-							<code>{group.head.method}</code> {group.head.requestUri} <span aria-hidden="true">·</span>{' '}{sprintf(__('%d mutations', 'configops'), group.mutations.length)}
+							<code>{group.head.method}</code> {group.head.requestUri} <span aria-hidden="true">·</span>{' '}{sprintf(__('%d recorded changes', 'configops'), group.mutations.length)}
 							{unmanagedWriteCount > 0 && (
 								<> <span aria-hidden="true">·</span>{' '}{sprintf(__('%d unmanaged DB writes', 'configops'), unmanagedWriteCount)}</>
 							)}
@@ -185,7 +215,7 @@ export default function ReviewLedger() {
 	const selected = state.selected;
 	const review = state.review;
 	const canRestore = !state.active && state.capabilities.rollback;
-	const [filter, setFilter] = window.wp.element.useState('all');
+	const [filter, setFilter] = window.wp.element.useState('review');
 	const filteredGroups = window.wp.element.useMemo(() => {
 		const matches = (mutation) => (
 			filter === 'all'
@@ -209,7 +239,7 @@ export default function ReviewLedger() {
 	}, [selected?.id, review.deferred, state.ui.pending]);
 
 	window.wp.element.useEffect(() => {
-		setFilter('all');
+		setFilter('review');
 	}, [selected?.id]);
 
 	if (review.deferred) {
@@ -250,12 +280,12 @@ export default function ReviewLedger() {
 						type="button"
 						disabled={!review.summary.allRestorable || Boolean(state.ui.pending)}
 						onClick={() => {
-							if (window.confirm(__('Restore the baseline for every option in this session? ConfigOps will stop if it detects a newer value.', 'configops'))) {
+							if (window.confirm(__('Undo every safe setting in this capture? ConfigOps will stop before making changes if anything changed again.', 'configops'))) {
 								restoreSession(selected.id);
 							}
 						}}
 					>
-						{state.ui.pending === `restore-session-${selected.id}` ? __('Restoring…', 'configops') : __('Restore session', 'configops')}
+						{state.ui.pending === `restore-session-${selected.id}` ? __('Undoing…', 'configops') : __('Undo this capture', 'configops')}
 					</button>
 				)}
 			</header>
@@ -266,28 +296,28 @@ export default function ReviewLedger() {
 						active={filter === 'all'}
 						count={review.summary.total + review.summary.unmanagedWrites}
 						description={__('Every recorded Options API mutation plus any unmanaged database write signal.', 'configops')}
-						label={__('Changes', 'configops')}
+						label={__('All', 'configops')}
 						onSelect={() => setFilter('all')}
 					/>
 					<ReviewFilter
 						active={filter === 'review'}
 						count={review.summary.needsReview + review.summary.unmanagedWrites}
-						description={__('Unknown or secret-bearing mutations plus unmanaged database writes that need a decision.', 'configops')}
-						label={__('Review', 'configops')}
+						description={__('Settings worth reading. Technical cache and maintenance values are left out.', 'configops')}
+						label={__('Settings', 'configops')}
 						onSelect={() => setFilter('review')}
 					/>
 					<ReviewFilter
 						active={filter === 'noise'}
 						count={review.summary.derived}
-						description={__('Likely cache, transient, or runtime side effects. Verify before excluding them.', 'configops')}
-						label={__('Noise', 'configops')}
+						description={__('Cache, migration, timestamp, and maintenance values generated by WordPress or a plugin.', 'configops')}
+						label={__('Technical', 'configops')}
 						onSelect={() => setFilter('noise')}
 					/>
 				</div>
 				<div className="configops-review-safety">
 					{review.summary.unmanagedWrites > 0 && (
 						<Hint label={__('What is an unmanaged write?', 'configops')} align="end" trigger={`${review.summary.unmanagedWrites} ${__('unmanaged DB', 'configops')}`}>
-							{__('Write intent was observed outside a supported configuration API. ConfigOps stored no SQL or values and disabled full-session restore.', 'configops')}
+							{__('A plugin wrote outside WordPress settings. ConfigOps kept no query or values, so undoing the whole capture is disabled.', 'configops')}
 						</Hint>
 					)}
 					{review.summary.redacted > 0 && (
@@ -296,8 +326,10 @@ export default function ReviewLedger() {
 						</Hint>
 					)}
 					{review.summary.total > 0 && (
-						<Hint label={__('What does limited rollback mean?', 'configops')} align="end" trigger={__('Rollback limited', 'configops')}>
-							{__('Options API values and autoload intent can be restored with conflict checks. Side effects in files or custom tables may remain.', 'configops')}
+						<Hint label={__('How safe is undo?', 'configops')} align="end" trigger={review.summary.allRestorable ? __('Undo checked', 'configops') : __('Undo has limits', 'configops')}>
+							{review.summary.allRestorable
+								? __('ConfigOps will undo only when the current value still matches this capture. Files and custom tables remain outside generic rollback.', 'configops')
+								: __('At least one setting cannot be reconstructed safely. Open the change to see why; full-session undo stays disabled.', 'configops')}
 						</Hint>
 					)}
 				</div>

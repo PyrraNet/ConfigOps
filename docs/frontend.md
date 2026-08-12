@@ -5,11 +5,12 @@ Date: 2026-08-12
 
 ## Decision
 
-ConfigOps uses three independent React roots inside a minimal PHP shell:
+ConfigOps uses route-specific React roots inside a minimal PHP shell:
 
 1. **Capture controls** hydrate immediately because starting and stopping are the primary actions.
 2. **Sessions** hydrate when the browser is idle.
 3. **Review ledger** imports only near the viewport, then requests its first mutation connection.
+4. **Plugin support** loads only on its server-routed view and renders the live adapter compatibility contract.
 
 The shell includes real headings, product orientation, bounded placeholders, an initial capture/session snapshot, and a minimal no-script stop action. It does not serialize diff history. This keeps first paint independent from capture size and still avoids a request waterfall for the primary control.
 
@@ -21,7 +22,7 @@ The admin UI consumes the company design system as a scoped CSS layer instead of
 
 The visual model is an evidence ledger rather than a dashboard. A compact sticky product bar leads directly into the bounded capture command; capture history and request-grouped evidence form one continuous work surface. Light surfaces carry review work, dark fields are reserved for active recording and typed diff headers, and Brand Blue marks the primary command or current selection. The system remains gradient-free.
 
-Specialist explanations are local, not permanent prose. Capture scope, request grouping, review/noise semantics, redaction, classification reasons, and rollback limits are attached to their terms or actions as hover and keyboard-focus tooltips with accessible descriptions. On narrow screens the session rail becomes a contained horizontal scroller so history does not push the selected review below a long list or create page-level overflow.
+Specialist explanations are local, not permanent prose. Request grouping, setting semantics, redaction, classification reasons, adapter limits, and rollback safety are attached to their terms or actions as hover and keyboard-focus tooltips with accessible descriptions. Adapter-backed diffs lead with the field label and keep the option name and JSON Pointer as secondary expert evidence. On narrow screens the session rail becomes a contained horizontal scroller so history does not push the selected review below a long list or create page-level overflow.
 
 ## Why not Astro inside wp-admin
 
