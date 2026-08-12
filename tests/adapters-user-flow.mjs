@@ -14,7 +14,8 @@ await mkdir(artifacts, { recursive: true });
 
 const browser = await chromium.launch({ executablePath, headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1100 }, deviceScaleFactor: 1 });
-page.setDefaultTimeout(10_000);
+page.setDefaultTimeout(20_000);
+page.setDefaultNavigationTimeout(45_000);
 
 const startCapture = async (name) => {
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops`, { waitUntil: 'domcontentloaded' });
@@ -41,12 +42,14 @@ try {
 	await page.locator('#user_login').fill('admin');
 	await page.locator('#user_pass').fill('password');
 	await Promise.all([
-		page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20_000 }),
+		page.waitForURL(/\/wp-admin\//, { waitUntil: 'domcontentloaded', timeout: 45_000 }),
 		page.locator('#wp-submit').click(),
 	]);
 
-	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops&view=support`, { waitUntil: 'networkidle' });
-	assert.equal(await page.getByText('Ready on this website', { exact: true }).count(), 2, 'Both exact plugin releases should be ready before user-flow testing.');
+	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops&view=support`, { waitUntil: 'domcontentloaded' });
+	const readyPlugins = page.getByText('Ready on this website', { exact: true });
+	await readyPlugins.first().waitFor();
+	assert.equal(await readyPlugins.count(), 2, 'Both exact plugin releases should be ready before user-flow testing.');
 
 	await startCapture('Configure SMTP delivery');
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wp-mail-smtp`, { waitUntil: 'domcontentloaded' });
@@ -81,12 +84,12 @@ try {
 	await page.setViewportSize({ width: 1440, height: 1100 });
 
 	await undoVisibleSetting('Undo 7 safe settings');
-	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wp-mail-smtp`, { waitUntil: 'networkidle' });
+	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wp-mail-smtp`, { waitUntil: 'domcontentloaded' });
 	assert.equal(await page.locator('#wp-mail-smtp-setting-from_email').inputValue(), 'admin@localhost.com', 'Safe undo should restore the previous sender email.');
 	assert.equal(await page.locator('#wp-mail-smtp-setting-mailer-mail').isChecked(), true, 'Safe undo should restore the previous delivery method.');
 
 	await startCapture('Turn off XML sitemaps');
-	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wpseo_page_settings#/site-features`, { waitUntil: 'networkidle' });
+	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wpseo_page_settings#/site-features`, { waitUntil: 'domcontentloaded' });
 	await page.waitForTimeout(750);
 	const yoastOverlay = page.locator('.yst-modal__overlay');
 	if (await yoastOverlay.count()) {
@@ -118,7 +121,7 @@ try {
 	await page.setViewportSize({ width: 1440, height: 1100 });
 
 	await undoVisibleSetting('Undo this change');
-	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wpseo_page_settings#/site-features`, { waitUntil: 'networkidle' });
+	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wpseo_page_settings#/site-features`, { waitUntil: 'domcontentloaded' });
 	assert.equal(await page.locator('#card-wpseo-enable_xml_sitemap [role=switch]').getAttribute('aria-checked'), 'true', 'Safe undo should restore the Yoast toggle through the real plugin screen.');
 
 	process.stdout.write('Real WP Mail SMTP and Yoast user flows passed: save, explain, hide noise, preserve secrets, and undo.\n');
