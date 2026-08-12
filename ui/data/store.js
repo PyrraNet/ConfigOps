@@ -67,6 +67,7 @@ const mergeGroups = (current, incoming) => {
 		merged[merged.length - 1] = {
 			...lastCurrent,
 			mutations: [...lastCurrent.mutations, ...firstIncoming.mutations],
+			writeSignals: [...(lastCurrent.writeSignals || []), ...(firstIncoming.writeSignals || [])],
 		};
 		merged.push(...incoming.slice(1));
 	} else {

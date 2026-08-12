@@ -26,6 +26,7 @@ This repository is an early technical preview of the local recorder:
 
 - explicit capture sessions and request correlation;
 - Options API mutations with nested JSON Pointer diffs;
+- value-free signals for direct database writes, without storing raw SQL;
 - source attribution, conservative noise classification and secret redaction;
 - individual and session restore with conflict checks;
 - a performance-budgeted React review interface inside WordPress.

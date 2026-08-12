@@ -71,6 +71,11 @@ final class RestoreService
 		if (! $session) {
 			throw new RuntimeException('The capture session no longer exists.');
 		}
+		if ((int) ($session->write_signal_count ?? 0) > 0) {
+			throw new RuntimeException(
+				'This capture contains unmanaged database writes. Restore reviewed Options API mutations individually or add an adapter.'
+			);
+		}
 
 		/** @var array<string, array{first: object, last: object}> $states */
 		$states = array();

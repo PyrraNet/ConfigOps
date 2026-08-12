@@ -90,9 +90,39 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 	);
 });
 
+const DatabaseWriteSignal = window.wp.element.memo(function DatabaseWriteSignal({ signal }) {
+	const { __, sprintf } = window.wp.i18n;
+	const sourceLabel = signal.source.file || signal.source.type;
+	const operationLabel = `${signal.operation} ${signal.table}`;
+
+	return (
+		<article className="configops-write-signal">
+			<header>
+				<span className="configops-sql-mark" aria-hidden="true">SQL</span>
+				<div className="configops-write-identity">
+					<code>{operationLabel}</code>
+					<span>{signal.source.component || signal.source.type}</span>
+				</div>
+				{signal.occurrenceCount > 1 && (
+					<strong aria-label={sprintf(__('%d occurrences', 'configops'), signal.occurrenceCount)}>×{signal.occurrenceCount}</strong>
+				)}
+				<Hint label={__('Why is there no diff or restore?', 'configops')} align="end" trigger={__('Unmanaged write', 'configops')}>
+					{__('ConfigOps observed write intent outside a supported configuration API. It retained no query text or values; semantic diff and rollback require an adapter.', 'configops')}
+				</Hint>
+			</header>
+			<footer>
+				<span>{__('Write intent observed · No values retained · No generic rollback', 'configops')}</span>
+				<code>{sourceLabel}{signal.source.line > 0 ? `:${signal.source.line}` : ''}</code>
+			</footer>
+		</article>
+	);
+});
+
 const RequestGroup = window.wp.element.memo(function RequestGroup({ group, canRestore, pending }) {
 	const { __, sprintf } = window.wp.i18n;
 	const title = group.head.adminScreen || group.head.requestUri || __('Background request', 'configops');
+	const writeSignals = group.writeSignals || [];
+	const unmanagedWriteCount = writeSignals.reduce((total, signal) => total + signal.occurrenceCount, 0);
 
 	return (
 		<section className="configops-request-group">
@@ -108,12 +138,18 @@ const RequestGroup = window.wp.element.memo(function RequestGroup({ group, canRe
 						</div>
 						<p>
 							<code>{group.head.method}</code> {group.head.requestUri} <span aria-hidden="true">·</span>{' '}{sprintf(__('%d mutations', 'configops'), group.mutations.length)}
+							{unmanagedWriteCount > 0 && (
+								<> <span aria-hidden="true">·</span>{' '}{sprintf(__('%d unmanaged DB writes', 'configops'), unmanagedWriteCount)}</>
+							)}
 						</p>
 					</div>
 				</div>
 				<time dateTime={group.head.occurredAt}>{group.head.timeLabel}</time>
 			</header>
 			<div className="configops-mutation-list">
+				{writeSignals.map((signal) => (
+					<DatabaseWriteSignal key={signal.id} signal={signal} />
+				))}
 				{group.mutations.map((mutation) => (
 					<MutationRow
 						key={mutation.id}
@@ -158,8 +194,12 @@ export default function ReviewLedger() {
 		);
 
 		return review.groups
-			.map((group) => ({ ...group, mutations: group.mutations.filter(matches) }))
-			.filter((group) => group.mutations.length > 0);
+			.map((group) => ({
+				...group,
+				mutations: group.mutations.filter(matches),
+				writeSignals: filter === 'noise' ? [] : (group.writeSignals || []),
+			}))
+			.filter((group) => group.mutations.length > 0 || group.writeSignals.length > 0);
 	}, [filter, review.groups]);
 
 	window.wp.element.useEffect(() => {
@@ -224,15 +264,15 @@ export default function ReviewLedger() {
 				<div className="configops-review-filters" role="group" aria-label={__('Filter changes', 'configops')}>
 					<ReviewFilter
 						active={filter === 'all'}
-						count={review.summary.total}
-						description={__('Every recorded mutation in this capture.', 'configops')}
+						count={review.summary.total + review.summary.unmanagedWrites}
+						description={__('Every recorded Options API mutation plus any unmanaged database write signal.', 'configops')}
 						label={__('Changes', 'configops')}
 						onSelect={() => setFilter('all')}
 					/>
 					<ReviewFilter
 						active={filter === 'review'}
-						count={review.summary.needsReview}
-						description={__('Unknown, secret-bearing, or otherwise non-derived changes that need a decision.', 'configops')}
+						count={review.summary.needsReview + review.summary.unmanagedWrites}
+						description={__('Unknown or secret-bearing mutations plus unmanaged database writes that need a decision.', 'configops')}
 						label={__('Review', 'configops')}
 						onSelect={() => setFilter('review')}
 					/>
@@ -245,6 +285,11 @@ export default function ReviewLedger() {
 					/>
 				</div>
 				<div className="configops-review-safety">
+					{review.summary.unmanagedWrites > 0 && (
+						<Hint label={__('What is an unmanaged write?', 'configops')} align="end" trigger={`${review.summary.unmanagedWrites} ${__('unmanaged DB', 'configops')}`}>
+							{__('Write intent was observed outside a supported configuration API. ConfigOps stored no SQL or values and disabled full-session restore.', 'configops')}
+						</Hint>
+					)}
 					{review.summary.redacted > 0 && (
 						<Hint label={__('What was redacted?', 'configops')} align="end" trigger={`${review.summary.redacted} ${__('redacted', 'configops')}`}>
 							{__('Probable secrets were removed before persistence. Their raw values are not available to this review.', 'configops')}
@@ -261,7 +306,7 @@ export default function ReviewLedger() {
 			{review.groups.length === 0 && (
 				<section className="configops-empty-state configops-empty-state--compact">
 					<h3>{__('No changes', 'configops')}</h3>
-					<p>{selected.status === 'active' ? __('Change a setting while recording.', 'configops') : __('This capture contains no Options API mutation.', 'configops')}</p>
+					<p>{selected.status === 'active' ? __('Change a setting while recording.', 'configops') : __('This capture contains no supported mutation or unmanaged database write signal.', 'configops')}</p>
 				</section>
 			)}
 

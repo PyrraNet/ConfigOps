@@ -417,6 +417,14 @@ body.toplevel_page_configops #wpbody-content {
 	font-size: 12px;
 }
 
+.configops-recording-tally > .configops-recording-writes {
+	padding-left: 9px;
+	border-left: 1px solid var(--co-ink-700);
+	color: #ffc266;
+	font-size: 11px;
+	font-weight: 650;
+}
+
 .configops-recording-tally .configops-hint-trigger {
 	color: var(--co-ink-400);
 }
@@ -590,6 +598,12 @@ body.toplevel_page_configops #wpbody-content {
 	gap: 8px;
 	color: var(--co-text-muted);
 	font-size: 10px;
+}
+
+.configops-session-meta em {
+	color: var(--co-warning);
+	font-style: normal;
+	font-weight: 650;
 }
 
 .configops-review {
@@ -842,6 +856,97 @@ body.toplevel_page_configops #wpbody-content {
 	display: grid;
 	gap: 14px;
 	padding-top: 14px;
+}
+
+.configops-write-signal {
+	margin: 0;
+	border: 1px solid #e5c58d;
+	border-left: 4px solid var(--co-warning);
+	border-radius: 0 7px 7px 0;
+	background: #fffaf0;
+}
+
+.configops-write-signal > header {
+	display: grid;
+	grid-template-columns: 34px minmax(0, 1fr) auto auto;
+	gap: 11px;
+	align-items: center;
+	min-height: 56px;
+	padding: 9px 12px 9px 10px;
+}
+
+.configops-sql-mark {
+	display: grid;
+	place-items: center;
+	width: 30px;
+	height: 22px;
+	border: 1px solid var(--co-warning);
+	color: var(--co-warning);
+	font-family: var(--co-font-code);
+	font-size: 8px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+}
+
+.configops-write-identity {
+	display: flex;
+	min-width: 0;
+	gap: 10px;
+	align-items: baseline;
+}
+
+.configops-write-identity code {
+	overflow: hidden;
+	padding: 0;
+	background: transparent;
+	color: var(--co-text);
+	font-family: var(--co-font-code);
+	font-size: 11px;
+	font-weight: 650;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.configops-write-identity > span {
+	color: var(--co-text-muted);
+	font-size: 10px;
+}
+
+.configops-write-signal > header > strong {
+	color: var(--co-warning);
+	font-family: var(--co-font-code);
+	font-size: 10px;
+	font-variant-numeric: tabular-nums;
+}
+
+.configops-write-signal .configops-hint-trigger.is-text {
+	color: var(--co-warning);
+	font-size: 9px;
+	font-weight: 700;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+}
+
+.configops-write-signal > footer {
+	display: flex;
+	justify-content: space-between;
+	gap: 20px;
+	padding: 8px 12px 9px 10px;
+	border-top: 1px solid #ead8b7;
+	color: var(--co-text-muted);
+	font-size: 9px;
+}
+
+.configops-write-signal > footer > span {
+	font-weight: 650;
+}
+
+.configops-write-signal > footer code {
+	overflow-wrap: anywhere;
+	padding: 0;
+	background: transparent;
+	font-family: var(--co-font-code);
+	font-size: 9px;
 }
 
 .configops-mutation summary {
@@ -1415,6 +1520,20 @@ body.toplevel_page_configops #wpbody-content {
 		padding: 12px;
 	}
 
+	.configops-write-signal > header {
+		grid-template-columns: 34px minmax(0, 1fr) auto;
+	}
+
+	.configops-write-signal > header .configops-hint {
+		grid-column: 2 / -1;
+	}
+
+	.configops-write-signal > footer {
+		align-items: flex-start;
+		flex-direction: column;
+		gap: 5px;
+	}
+
 	.configops-provenance {
 		gap: 12px;
 	}
@@ -1452,6 +1571,10 @@ body.toplevel_page_configops #wpbody-content {
 	}
 
 	.configops-option > span {
+		display: none;
+	}
+
+	.configops-write-identity > span {
 		display: none;
 	}
 

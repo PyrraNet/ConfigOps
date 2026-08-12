@@ -99,6 +99,9 @@ try {
 	if (await page.getByText('There has been a critical error on this website.').count()) {
 		throw new Error('WordPress rendered a critical error in the ConfigOps review.');
 	}
+	if (await page.locator('.configops-write-signal').count()) {
+		throw new Error('An ordinary Options API save was duplicated as an unmanaged database write signal.');
+	}
 
 	const layout = await page.locator('.configops-workspace').evaluate((element) => getComputedStyle(element).display);
 	if (layout !== 'grid') {

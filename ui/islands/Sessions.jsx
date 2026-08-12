@@ -38,7 +38,10 @@ export default function Sessions() {
 										<code>#{session.id}</code>
 									</span>
 									<span className="configops-session-meta">
-										<span>{sprintf(__('%d changes', 'configops'), session.mutationCount)}</span>
+										<span>
+											{sprintf(__('%d changes', 'configops'), session.mutationCount)}
+											{session.writeSignalCount > 0 && <em>{sprintf(__(' · %d DB', 'configops'), session.writeSignalCount)}</em>}
+										</span>
 										<time dateTime={session.startedAt}>{sprintf(__('%s ago', 'configops'), session.startedAtLabel)}</time>
 									</span>
 								</a>

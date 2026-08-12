@@ -87,16 +87,21 @@ final class CaptureRepository
 		$mutationCount = (int) $this->database->get_var(
 			$this->database->prepare("SELECT COUNT(*) FROM {$mutationTable} WHERE session_id = %d", $id)
 		);
+		$signalTable = $this->database->prefix . 'configops_write_signals';
+		$writeSignalCount = (int) $this->database->get_var(
+			$this->database->prepare("SELECT COALESCE(SUM(occurrence_count), 0) FROM {$signalTable} WHERE session_id = %d", $id)
+		);
 
 		$updated = $this->database->update(
 			$this->table,
 			array(
-				'status'         => 'completed',
-				'mutation_count' => $mutationCount,
-				'ended_at'       => current_time('mysql', true),
+				'status'             => 'completed',
+				'mutation_count'     => $mutationCount,
+				'write_signal_count' => $writeSignalCount,
+				'ended_at'           => current_time('mysql', true),
 			),
 			array('id' => $id),
-			array('%s', '%d', '%s'),
+			array('%s', '%d', '%d', '%s'),
 			array('%d')
 		);
 		if (false === $updated) {
@@ -179,6 +184,23 @@ final class CaptureRepository
 
 		if ($this->activeSession && (int) $this->activeSession->id === $sessionId) {
 			++$this->activeSession->mutation_count;
+		}
+	}
+
+	public function incrementWriteSignalCount(int $sessionId): void
+	{
+		$updated = $this->database->query(
+			$this->database->prepare(
+				"UPDATE {$this->table} SET write_signal_count = write_signal_count + 1 WHERE id = %d",
+				$sessionId
+			)
+		);
+		if (false === $updated) {
+			throw new RuntimeException('The database write signal counter could not be updated.');
+		}
+
+		if ($this->activeSession && (int) $this->activeSession->id === $sessionId) {
+			++$this->activeSession->write_signal_count;
 		}
 	}
 

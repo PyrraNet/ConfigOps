@@ -28,8 +28,11 @@ export default function CaptureControls() {
 					<div className="configops-recording-tally">
 						<strong>{state.active.mutationCount}</strong>
 						<span>{__('mutations', 'configops')}</span>
+						{state.active.writeSignalCount > 0 && (
+							<span className="configops-recording-writes">{`+ ${state.active.writeSignalCount} ${__('unmanaged DB', 'configops')}`}</span>
+						)}
 						<Hint label={__('What counts as a mutation?', 'configops')} align="end">
-							{__('One Options API add, update, or delete recorded inside the active capture.', 'configops')}
+							{__('Mutations are Options API adds, updates, or deletes. Unmanaged database writes are counted separately without retaining SQL or values.', 'configops')}
 						</Hint>
 					</div>
 					<button className="button button-primary button-large" type="button" disabled={busy} onClick={stopCapture}>

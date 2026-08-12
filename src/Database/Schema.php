@@ -13,7 +13,7 @@ use wpdb;
 
 final class Schema
 {
-	private const VERSION = 2;
+	private const VERSION = 3;
 
 	public function __construct(private readonly wpdb $database)
 	{
@@ -33,6 +33,7 @@ final class Schema
 		$charsetCollate = $this->database->get_charset_collate();
 		$sessions       = $this->database->prefix . 'configops_capture_sessions';
 		$mutations      = $this->database->prefix . 'configops_mutations';
+		$writeSignals   = $this->database->prefix . 'configops_write_signals';
 
 		$sql = "CREATE TABLE {$sessions} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -41,6 +42,7 @@ final class Schema
 			actor_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			initial_url text NULL,
 			mutation_count bigint(20) unsigned NOT NULL DEFAULT 0,
+			write_signal_count bigint(20) unsigned NOT NULL DEFAULT 0,
 			started_at datetime NOT NULL,
 			ended_at datetime NULL,
 			PRIMARY KEY  (id),
@@ -76,6 +78,28 @@ final class Schema
 			KEY session_request (session_id, request_id),
 			KEY option_occurred (option_name, occurred_at),
 			KEY occurred_at (occurred_at)
+		) {$charsetCollate};
+
+		CREATE TABLE {$writeSignals} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			session_id bigint(20) unsigned NOT NULL,
+			request_id char(36) NOT NULL,
+			operation varchar(16) NOT NULL,
+			table_name varchar(191) NOT NULL,
+			occurrence_count bigint(20) unsigned NOT NULL DEFAULT 1,
+			source_type varchar(20) NOT NULL DEFAULT 'unknown',
+			source_component varchar(191) NULL,
+			source_file text NULL,
+			source_line int(10) unsigned NULL,
+			request_method varchar(12) NULL,
+			request_uri text NULL,
+			admin_screen varchar(191) NULL,
+			actor_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			occurred_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			KEY session_order (session_id, id),
+			KEY session_request (session_id, request_id),
+			KEY table_occurred (table_name, occurred_at)
 		) {$charsetCollate};";
 
 		dbDelta($sql);

@@ -18,9 +18,11 @@ use ConfigOps\Api\RestController;
 use ConfigOps\Capture\InternalOptionPolicy;
 use ConfigOps\Capture\MutationObserver;
 use ConfigOps\Capture\RequestContext;
+use ConfigOps\Capture\SqlWriteSentry;
 use ConfigOps\Capture\SourceAttributor;
 use ConfigOps\Capture\ValueCodec;
 use ConfigOps\Database\CaptureRepository;
+use ConfigOps\Database\DatabaseWriteSignalRepository;
 use ConfigOps\Database\MutationRepository;
 use ConfigOps\Database\OptionMetadataRepository;
 use ConfigOps\Database\Schema;
@@ -43,8 +45,13 @@ final class Plugin
 
 		$captures  = new CaptureRepository($wpdb);
 		$mutations = new MutationRepository($wpdb);
+		$signals   = new DatabaseWriteSignalRepository($wpdb);
 		$metadata  = new OptionMetadataRepository($wpdb);
 		$codec     = new ValueCodec();
+		$source    = new SourceAttributor(CONFIGOPS_PATH);
+		$request   = new RequestContext();
+
+		(new SqlWriteSentry($wpdb, $captures, $signals, $source, $request))->register();
 
 		$observer = new MutationObserver(
 			$captures,
@@ -54,14 +61,14 @@ final class Plugin
 			$codec,
 			new NestedDiff(),
 			new NoiseClassifier(),
-			new SourceAttributor(CONFIGOPS_PATH),
-			new RequestContext()
+			$source,
+			$request
 		);
 		$observer->register();
 
 		$restore   = new RestoreService($captures, $mutations, $codec, $metadata, new OperationLock($wpdb));
 		$presenter = new ReviewPresenter();
-		$payloads  = new AdminPayloadFactory($captures, $mutations, $presenter);
+		$payloads  = new AdminPayloadFactory($captures, $mutations, $signals, $presenter);
 
 		(new RestController($captures, $mutations, $restore, $payloads))->register();
 		(new AdminController($captures, $restore, new FlashNoticeStore(), $payloads))->register();

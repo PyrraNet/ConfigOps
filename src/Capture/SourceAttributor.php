@@ -75,7 +75,7 @@ final class SourceAttributor
 		}
 
 		return 1 !== preg_match(
-			'#^wp-includes/(class-wp-hook|plugin|option)\.php$#',
+			'#^(?:wp-includes/(class-wp-hook|class-wpdb|plugin|option)\.php|(?:.*/)?class-wp-sqlite-db\.php)$#',
 			$relativeFile
 		);
 	}

@@ -35,6 +35,7 @@ $assert = static function (bool $condition, string $message) use (&$assertions):
 
 $captures  = new \ConfigOps\Database\CaptureRepository($wpdb);
 $mutations = new \ConfigOps\Database\MutationRepository($wpdb);
+$writeSignals = new \ConfigOps\Database\DatabaseWriteSignalRepository($wpdb);
 $codec     = new \ConfigOps\Capture\ValueCodec();
 $metadata  = new \ConfigOps\Database\OptionMetadataRepository($wpdb);
 $operationLock = new \ConfigOps\Execution\OperationLock($wpdb);
@@ -261,6 +262,7 @@ $_SERVER['REQUEST_URI'] = '/wp-admin/admin.php?page=configops-hostile-fixture';
 $hostileSession = $captures->start('Hostile fixture settings save', 0, '/wp-admin/admin.php?page=configops-hostile-fixture');
 \ConfigOpsHostileFixture\SettingsFixture::saveSettings(321);
 \ConfigOpsHostileFixture\SettingsFixture::migrateToVersionTwo();
+\ConfigOpsHostileFixture\SettingsFixture::writeDirectly('intermediate');
 \ConfigOpsHostileFixture\SettingsFixture::writeDirectly('after');
 $captures->stop();
 
@@ -334,6 +336,70 @@ $assert(
 
 $assert('after' === get_option($directOption), 'The fixture direct SQL write should actually change its target value.');
 $assert(! isset($hostileByName[$directOption]), 'Direct SQL writes must remain explicitly outside generic Options API capture.');
+$hostileSignals = $writeSignals->forSession($hostileSession);
+$assert(1 === count($hostileSignals), 'Repeated direct writes from one source should collapse into one database write signal.');
+$assert(
+	'UPDATE' === strtoupper((string) $hostileSignals[0]->operation)
+	&& $wpdb->options === (string) $hostileSignals[0]->table_name
+	&& 2 === (int) $hostileSignals[0]->occurrence_count,
+	'The SQL Sentry should retain only operation, table, and a bounded occurrence count.'
+);
+$assert(
+	'configops-hostile-fixture' === (string) $hostileSignals[0]->source_component
+	&& ! property_exists($hostileSignals[0], 'query')
+	&& ! property_exists($hostileSignals[0], 'sql'),
+	'Database write signals should retain plugin provenance without persisting raw SQL. Received: '
+	. wp_json_encode($hostileSignals[0])
+);
+$hostileCapture = $captures->find($hostileSession);
+$assert(2 === (int) $hostileCapture->write_signal_count, 'Capture summaries should count every unmanaged write occurrence.');
+$hostilePayloadFactory = new \ConfigOps\Admin\AdminPayloadFactory(
+	$captures,
+	$mutations,
+	$writeSignals,
+	new \ConfigOps\Admin\ReviewPresenter()
+);
+$hostilePayload = $hostilePayloadFactory->mutationPage($hostileSession);
+$hostilePayloadSignals = array_merge(
+	...array_map(
+		static fn (array $group): array => $group['writeSignals'],
+		$hostilePayload['groups']
+	)
+);
+$assert(
+	2 === $hostilePayload['summary']['unmanagedWrites']
+	&& false === $hostilePayload['summary']['allRestorable'],
+	'Unmanaged writes should make the transport contract and full-session rollback boundary explicit.'
+);
+$assert(
+	1 === count($hostilePayloadSignals)
+	&& $wpdb->options === $hostilePayloadSignals[0]['table']
+	&& 2 === $hostilePayloadSignals[0]['occurrenceCount'],
+	'The review payload should attach a bounded database write signal to its causal request group.'
+);
+$hostileState = $hostilePayloadFactory->state($hostileSession);
+$assert(
+	2 === $hostileState['selected']['writeSignalCount'],
+	'Session transport should expose the unmanaged-write occurrence count without loading signal rows.'
+);
+$unmanagedSessionRejected = false;
+try {
+	$restore->restoreSession($hostileSession);
+} catch (RuntimeException $error) {
+	$unmanagedSessionRejected = str_contains($error->getMessage(), 'unmanaged database writes');
+}
+$assert($unmanagedSessionRejected, 'The domain service must reject full-session restore when unmanaged writes were observed.');
+
+$separateDirectSession = $captures->start('Separate direct write capture', 0, '/wp-admin/admin.php?page=configops-hostile-fixture');
+\ConfigOpsHostileFixture\SettingsFixture::writeDirectly('separate-capture');
+$captures->stop();
+$separateSignals = $writeSignals->forSession($separateDirectSession);
+$assert(
+	1 === count($separateSignals)
+	&& 1 === (int) $separateSignals[0]->occurrence_count
+	&& (int) $hostileSignals[0]->id !== (int) $separateSignals[0]->id,
+	'In-request deduplication must never merge identical write signatures across separate capture sessions.'
+);
 
 $_SERVER['REQUEST_METHOD'] = 'POST';
 $_SERVER['REQUEST_URI'] = '/wp-admin/admin-ajax.php?action=configops_fixture_save';
@@ -342,6 +408,7 @@ do_action('wp_ajax_configops_fixture_save');
 $captures->stop();
 $ajaxRows = $mutations->forSession($ajaxSession);
 $assert(1 === count($ajaxRows), 'An AJAX handler writing through update_option() should remain observable.');
+$assert(0 === $writeSignals->occurrenceCountForSession($ajaxSession), 'Options API writes must not be duplicated as unmanaged SQL signals.');
 $assert(
 	'POST' === (string) $ajaxRows[0]->request_method
 	&& '/wp-admin/admin-ajax.php' === (string) $ajaxRows[0]->request_uri
@@ -390,6 +457,7 @@ wp_set_current_user(1);
 $payloadFactory = new \ConfigOps\Admin\AdminPayloadFactory(
 	$freshCaptures,
 	$mutations,
+	$writeSignals,
 	new \ConfigOps\Admin\ReviewPresenter()
 );
 $shellPayload = $payloadFactory->state($bulkSession, '', '', false);

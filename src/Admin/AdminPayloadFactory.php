@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace ConfigOps\Admin;
 
 use ConfigOps\Database\CaptureRepository;
+use ConfigOps\Database\DatabaseWriteSignalRepository;
 use ConfigOps\Database\MutationRepository;
 
 final class AdminPayloadFactory
@@ -20,6 +21,7 @@ final class AdminPayloadFactory
 	public function __construct(
 		private readonly CaptureRepository $captures,
 		private readonly MutationRepository $mutations,
+		private readonly DatabaseWriteSignalRepository $writeSignals,
 		private readonly ReviewPresenter $presenter
 	) {
 	}
@@ -97,19 +99,24 @@ final class AdminPayloadFactory
 			array_pop($rows);
 		}
 
-		$view   = $this->presenter->present($rows, $summary, '', '');
-		$groups = array_map($this->groupPayload(...), $view->groups);
+		$view          = $this->presenter->present($rows, $summary, '', '');
+		$groups        = array_map($this->groupPayload(...), $view->groups);
 		$lastAvailable = empty($rows) ? $afterId : (int) $rows[array_key_last($rows)]->id;
 		[$groups, $last] = $this->fitGroupsToResponseBudget($groups, $afterId);
 		$hasMore = $hasMore || $last < $lastAvailable;
+		$signalCount = $this->writeSignals->occurrenceCountForSession($sessionId);
+		if (0 === $afterId) {
+			$groups = $this->attachWriteSignals($groups, $this->writeSignals->forSession($sessionId));
+		}
 
 		return array(
 			'summary'  => array(
-				'total'         => $view->totalCount,
-				'needsReview'   => $view->needsReviewCount,
-				'derived'       => $view->derivedCount,
-				'redacted'      => $view->redactedCount,
-				'allRestorable' => $view->allRestorable,
+				'total'           => $view->totalCount,
+				'needsReview'     => $view->needsReviewCount,
+				'derived'         => $view->derivedCount,
+				'redacted'        => $view->redactedCount,
+				'unmanagedWrites' => $signalCount,
+				'allRestorable'   => $view->allRestorable && 0 === $signalCount,
 			),
 			'groups'   => $groups,
 			'pageInfo' => array(
@@ -200,6 +207,68 @@ final class AdminPayloadFactory
 				},
 				$group['mutations']
 			),
+			'writeSignals' => array(),
+		);
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $groups Mutation request groups.
+	 * @param list<object> $signals Value-free database write signals.
+	 * @return list<array<string, mixed>>
+	 */
+	private function attachWriteSignals(array $groups, array $signals): array
+	{
+		$groupIndexes = array();
+		foreach ($groups as $index => $group) {
+			$groupIndexes[(string) $group['requestId']] = $index;
+		}
+
+		foreach ($signals as $signal) {
+			$requestId = (string) $signal->request_id;
+			if (! isset($groupIndexes[$requestId])) {
+				$groupIndexes[$requestId] = count($groups);
+				$groups[] = array(
+					'index'        => '',
+					'requestId'    => $requestId,
+					'head'         => $this->requestHead($signal),
+					'mutations'    => array(),
+					'writeSignals' => array(),
+				);
+			}
+
+			$groups[$groupIndexes[$requestId]]['writeSignals'][] = array(
+				'id'              => (int) $signal->id,
+				'operation'       => strtoupper((string) $signal->operation),
+				'table'           => (string) $signal->table_name,
+				'occurrenceCount' => (int) $signal->occurrence_count,
+				'source'          => array(
+					'type'      => (string) $signal->source_type,
+					'component' => (string) $signal->source_component,
+					'file'      => (string) $signal->source_file,
+					'line'      => (int) $signal->source_line,
+				),
+			);
+		}
+
+		foreach ($groups as $index => &$group) {
+			$group['index'] = str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT);
+		}
+		unset($group);
+
+		return $groups;
+	}
+
+	/**
+	 * @return array<string, string>
+	 */
+	private function requestHead(object $row): array
+	{
+		return array(
+			'adminScreen' => (string) $row->admin_screen,
+			'requestUri'  => (string) $row->request_uri,
+			'method'      => (string) $row->request_method,
+			'occurredAt'  => $this->isoDate((string) $row->occurred_at),
+			'timeLabel'   => get_date_from_gmt((string) $row->occurred_at, 'H:i:s'),
 		);
 	}
 
@@ -211,14 +280,15 @@ final class AdminPayloadFactory
 		$actor = $withActor ? get_userdata((int) $session->actor_id) : null;
 
 		return array(
-			'id'             => (int) $session->id,
-			'name'           => (string) $session->name,
-			'status'         => (string) $session->status,
-			'mutationCount'  => (int) $session->mutation_count,
-			'startedAt'      => $this->isoDate((string) $session->started_at),
-			'startedAtLabel' => human_time_diff(strtotime((string) $session->started_at . ' UTC'), time()),
-			'startedDisplay' => $withActor ? get_date_from_gmt((string) $session->started_at, 'Y-m-d H:i:s') : null,
-			'actorName'      => $withActor ? ($actor ? (string) $actor->display_name : __('System', 'configops')) : null,
+			'id'               => (int) $session->id,
+			'name'             => (string) $session->name,
+			'status'           => (string) $session->status,
+			'mutationCount'    => (int) $session->mutation_count,
+			'writeSignalCount' => (int) ($session->write_signal_count ?? 0),
+			'startedAt'        => $this->isoDate((string) $session->started_at),
+			'startedAtLabel'   => human_time_diff(strtotime((string) $session->started_at . ' UTC'), time()),
+			'startedDisplay'   => $withActor ? get_date_from_gmt((string) $session->started_at, 'Y-m-d H:i:s') : null,
+			'actorName'        => $withActor ? ($actor ? (string) $actor->display_name : __('System', 'configops')) : null,
 		);
 	}
 
@@ -229,11 +299,12 @@ final class AdminPayloadFactory
 	{
 		return array(
 			'summary'  => array(
-				'total'         => 0,
-				'needsReview'   => 0,
-				'derived'       => 0,
-				'redacted'      => 0,
-				'allRestorable' => true,
+				'total'           => 0,
+				'needsReview'     => 0,
+				'derived'         => 0,
+				'redacted'        => 0,
+				'unmanagedWrites' => 0,
+				'allRestorable'   => true,
 			),
 			'groups'   => array(),
 			'pageInfo' => array('hasNext' => false, 'nextCursor' => null),

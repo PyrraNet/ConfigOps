@@ -19,13 +19,13 @@ PHP 8.3 is a deliberate product constraint, not an accidental use of new syntax
 
 | Concern | Iteration 0 authority | Later extension |
 | --- | --- | --- |
-| Persisted mutation | WordPress Options API hooks | Adapter-owned custom tables and APIs |
+| Persisted mutation | WordPress Options API hooks; value-free signal for unmanaged writes | Adapter-owned custom tables and APIs |
 | Human intent | Explicit session name and request context | Admin field and fetch/REST correlation |
 | Value semantics | Type-preserving codec and JSON Pointer diff | Adapter schemas and semantic references |
 | Noise | Conservative built-in rules | Versioned adapter normalization |
 | Secrets | Redact before persistence; block restore | Secret references and target-local resolution |
 | Rollback | Conflict-checked compensating restore | Adapter-declared safety and verification |
-| Storage | Dedicated session and mutation tables | Packs, runs, snapshots, and drift tables when used |
+| Storage | Dedicated session, mutation, and write-signal tables | Packs, runs, snapshots, and drift tables when used |
 | Local UI transport | Explicit REST resources and commands | Keep domain services independent from transport |
 | Fleet read model | Not present | GraphQL over asynchronously materialized fleet state |
 
@@ -38,6 +38,7 @@ PHP 8.3 is a deliberate product constraint, not an accidental use of new syntax
 5. Restore refuses a target whose current value no longer matches the captured result.
 6. List order is meaningful; associative key order is not.
 7. ConfigOps does not claim transactional rollback for effects it did not observe.
+8. An unmanaged write signal is not a `ConfigMutation`: it proves only bounded write intent and never fabricates values, semantic paths, or rollback support.
 
 ## Hardening decisions
 
@@ -52,6 +53,8 @@ PHP 8.3 is a deliberate product constraint, not an accidental use of new syntax
 - **Internal operations are invisible.** Schema, lock, capability, and flash-notice options never appear in captures.
 - **Error reporting is also isolated.** Even a third-party listener that throws during `configops_capture_error` cannot escape into the settings request being observed.
 - **Adapter seams exist before the registry.** Secret detection and mutation classification use small interfaces so later adapters replace heuristics rather than patching the observer.
+- **Direct writes fail visibly, not magically.** During an active capture, the SQL Sentry recognizes common write statements, ignores ConfigOps-owned tables and Options API duplicates, and stores only operation, table, count, provenance, and safe request metadata. Raw SQL and values never enter persistence. Fifty unique signals per request form a hard ceiling; repeated signals collapse by source.
+- **Unknown effects limit rollback.** Any unmanaged database write disables full-session restore in the review contract. Individually supported Options API mutations remain conflict-checkable and restorable.
 
 ## Admin direction
 
@@ -67,7 +70,7 @@ The visual direction remains server-shell plus forensic instruments: a compact p
 
 ## Trust harness
 
-The deliberately hostile fixture plugin now exercises simple and nested options, typed WordPress IDs, secret redaction, transients, synchronous side effects, a versioned schema migration, AJAX metadata, direct SQL writes, and a neighboring plugin slug that shares the `configops` prefix. The integration contract proves what generic capture supports and explicitly proves that direct database writes remain invisible without an adapter.
+The deliberately hostile fixture plugin now exercises simple and nested options, typed WordPress IDs, secret redaction, transients, synchronous side effects, a versioned schema migration, AJAX metadata, direct SQL writes, and a neighboring plugin slug that shares the `configops` prefix. The integration contract proves that generic capture understands Options API mutations, reports direct writes only as value-free unmanaged signals, does not duplicate normal Options API saves, and never presents an unsupported rollback as complete.
 
 ## Next boundary
 
