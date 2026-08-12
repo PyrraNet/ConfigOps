@@ -8,6 +8,40 @@ export default function CaptureControls() {
 	const [name, setName] = window.wp.element.useState('');
 	const busy = Boolean(state.ui.pending);
 
+	window.wp.element.useEffect(() => {
+		const id = 'wp-admin-bar-configops-recording';
+		let node = document.getElementById(id);
+		if (!state.active) {
+			node?.remove();
+			return;
+		}
+
+		if (!node) {
+			const root = document.getElementById('wp-admin-bar-root-default');
+			if (!root) return;
+			node = document.createElement('li');
+			node.id = id;
+			node.className = 'configops-toolbar-recording';
+			const link = document.createElement('a');
+			link.className = 'ab-item';
+			link.href = window.location.href;
+			const dot = document.createElement('span');
+			dot.className = 'configops-recording-dot';
+			dot.setAttribute('aria-hidden', 'true');
+			const label = document.createElement('span');
+			label.className = 'configops-recording-label';
+			label.textContent = __('CONFIGOPS RECORDING', 'configops');
+			const count = document.createElement('span');
+			count.className = 'configops-recording-count';
+			link.append(dot, label, count);
+			node.append(link);
+			root.append(node);
+		}
+
+		const count = node.querySelector('.configops-recording-count');
+		if (count) count.textContent = String(state.active.reviewChangeCount);
+	}, [state.active, __]);
+
 	const submit = (event) => {
 		event.preventDefault();
 		startCapture(name.trim());
@@ -26,13 +60,16 @@ export default function CaptureControls() {
 						</div>
 					</div>
 					<div className="configops-recording-tally">
-						<strong>{state.active.mutationCount}</strong>
-						<span>{__('changes found', 'configops')}</span>
+						<strong>{state.active.reviewChangeCount}</strong>
+						<span>{state.active.reviewChangeCount === 1 ? __('setting found', 'configops') : __('settings found', 'configops')}</span>
+						{state.active.technicalChangeCount > 0 && (
+							<span className="configops-recording-writes">{`+ ${state.active.technicalChangeCount} ${__('technical', 'configops')}`}</span>
+						)}
 						{state.active.writeSignalCount > 0 && (
 							<span className="configops-recording-writes">{`+ ${state.active.writeSignalCount} ${__('outside the settings API', 'configops')}`}</span>
 						)}
 						<Hint label={__('What counts as a change?', 'configops')} align="end">
-							{__('ConfigOps counts settings saved through WordPress. Database writes outside that standard route are listed separately without storing their query or values.', 'configops')}
+							{__('The main number counts individual settings worth reviewing. Plugin defaults, caches, and maintenance values stay available under Technical.', 'configops')}
 						</Hint>
 					</div>
 					<button className="button button-primary button-large" type="button" disabled={busy} onClick={stopCapture}>

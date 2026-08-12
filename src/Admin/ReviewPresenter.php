@@ -90,7 +90,7 @@ final class ReviewPresenter
 			'started' => __('Capture started. Make the configuration change in WordPress, then return here to review it.', 'configops'),
 			'stopped' => __('Capture stopped. The recorded request groups are ready for review.', 'configops'),
 			'nothing-to-stop' => __('There was no active capture to stop.', 'configops'),
-			'mutation-restored' => __('The option was restored to its captured previous state.', 'configops'),
+			'mutation-restored' => __('The supported setting values were undone after a conflict check.', 'configops'),
 			'session-restored' => sprintf(
 				/* translators: %d: number of restored options. */
 				_n('%d option was restored.', '%d options were restored.', (int) $message, 'configops'),
@@ -123,6 +123,14 @@ final class ReviewPresenter
 	private function prepareDiff(array $diff, string $adapterId, int $schemaVersion, string $optionName): array
 	{
 		foreach ($diff as &$change) {
+			if (
+				is_string($change['label'] ?? null)
+				&& is_string($change['group'] ?? null)
+				&& is_string($change['kind'] ?? null)
+				&& is_string($change['explanation'] ?? null)
+			) {
+				continue;
+			}
 			$path  = is_string($change['path'] ?? null) ? $change['path'] : '/';
 			$field = '' !== $adapterId ? $this->adapters->field($adapterId, $schemaVersion, $optionName, $path) : null;
 			if (null === $field && '/' === $path) {

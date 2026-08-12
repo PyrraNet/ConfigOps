@@ -88,6 +88,11 @@ final class AdminController
 		if (! $session) {
 			return;
 		}
+		$reviewChangeCount = (int) ($session->review_change_count ?? 0);
+		$technicalChangeCount = (int) ($session->technical_change_count ?? 0);
+		if ((int) $session->mutation_count > 0 && 0 === $reviewChangeCount + $technicalChangeCount) {
+			$reviewChangeCount = (int) $session->mutation_count;
+		}
 
 		$adminBar->add_node(
 			array(
@@ -96,7 +101,7 @@ final class AdminController
 					'<span class="configops-recording-dot" aria-hidden="true"></span><span class="screen-reader-text">%s: </span>%s <span class="configops-recording-count">%d</span>',
 					esc_html__('ConfigOps recording', 'configops'),
 					esc_html__('CONFIGOPS RECORDING', 'configops'),
-					(int) $session->mutation_count
+					$reviewChangeCount
 				),
 				'href'  => admin_url('admin.php?page=' . self::PAGE),
 				'meta'  => array('class' => 'configops-toolbar-recording'),

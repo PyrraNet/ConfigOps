@@ -9,9 +9,27 @@ declare(strict_types=1);
 
 namespace ConfigOps\Adapter;
 
-final class WpMailSmtpAdapter extends AbstractOptionAdapter
+final class WpMailSmtpAdapter extends AbstractOptionAdapter implements ChangeAwareAdapter, DatabaseWriteAwareAdapter
 {
 	private const MAIN_OPTION = 'wp_mail_smtp';
+
+	/** @var list<string> */
+	private const PROVIDER_ROOTS = array(
+		'elasticemail',
+		'gmail',
+		'mailersend',
+		'mailgun',
+		'mailjet',
+		'mandrill',
+		'postmark',
+		'resend',
+		'sendgrid',
+		'sendinblue',
+		'sendlayer',
+		'smtp2go',
+		'smtpcom',
+		'sparkpost',
+	);
 
 	/** @var list<string> */
 	private const RUNTIME_OPTIONS = array(
@@ -48,14 +66,14 @@ final class WpMailSmtpAdapter extends AbstractOptionAdapter
 			'wp-mail-smtp',
 			'WP Mail SMTP',
 			'wp-mail-smtp/wp_mail_smtp.php',
-			'>=4.9.0 <5.0.0',
-			1,
+			'=4.9.0',
+			2,
 			array(
 				array('id' => 'capture', 'label' => 'Find changes', 'level' => 'full', 'note' => 'All Lite settings stored in the main option are captured.'),
 				array('id' => 'explain', 'label' => 'Explain fields', 'level' => 'full', 'note' => 'Core Lite mail and SMTP fields have plain-language names.'),
 				array('id' => 'secrets', 'label' => 'Hide secrets', 'level' => 'full', 'note' => 'Passwords, tokens, and provider keys are removed before storage.'),
 				array('id' => 'noise', 'label' => 'Separate technical noise', 'level' => 'full', 'note' => 'Version, activation, and report timestamps are separated.'),
-				array('id' => 'restore', 'label' => 'Undo safely', 'level' => 'partial', 'note' => 'Conflict-checked restore works unless the changed option contains a redacted secret.'),
+				array('id' => 'restore', 'label' => 'Undo safely', 'level' => 'partial', 'note' => 'Supported non-secret fields use conflict checks and can be undone without reading or replacing a stored credential.'),
 				array('id' => 'apply', 'label' => 'Apply to another site', 'level' => 'planned', 'note' => 'Release Packs are the next product iteration, not a hidden promise.'),
 			),
 			array(
@@ -65,7 +83,7 @@ final class WpMailSmtpAdapter extends AbstractOptionAdapter
 			),
 			array(
 				'Pro-only mailers are redacted conservatively but are not part of the tested field map.',
-				'A changed secret cannot be reconstructed from capture history.',
+				'A changed secret cannot be reconstructed from capture history and is deliberately left untouched by undo.',
 				'Sending a test email is not yet a verification contract.',
 			),
 			'https://github.com/awesomemotive/WP-Mail-SMTP'
@@ -79,7 +97,10 @@ final class WpMailSmtpAdapter extends AbstractOptionAdapter
 
 	public function analyze(string $optionName, array $changes): AdapterAnalysis
 	{
-		if (in_array($optionName, array('wp_mail_smtp_mail_key', 'wp_mail_smtp_connect', 'wp_mail_smtp_connect_token'), true)) {
+		if ('wp_mail_smtp_mail_key' === $optionName) {
+			return new AdapterAnalysis('derived', 'WP Mail SMTP created a local encryption key while saving credentials. It is protected and hidden from normal review.', false);
+		}
+		if (in_array($optionName, array('wp_mail_smtp_connect', 'wp_mail_smtp_connect_token'), true)) {
 			return new AdapterAnalysis('secret', 'WP Mail SMTP stores this local credential outside its portable settings.', false);
 		}
 		if (
@@ -118,6 +139,35 @@ final class WpMailSmtpAdapter extends AbstractOptionAdapter
 		return new FieldDefinition($this->humanize($key), $this->humanize($root) . ' settings', $kind, 'A WP Mail SMTP setting recognized within the tested Lite option.');
 	}
 
+	public function fieldForChange(
+		string $optionName,
+		string $jsonPointer,
+		array $change,
+		array $changes
+	): ?FieldDefinition {
+		if (self::MAIN_OPTION !== $optionName) {
+			return $this->field($optionName, $jsonPointer);
+		}
+
+		$parts = $this->pointerParts($jsonPointer);
+		$root  = (string) ($parts[0] ?? '');
+		if (
+			1 === count($parts)
+			&& in_array($root, self::PROVIDER_ROOTS, true)
+			&& $root !== $this->selectedMailer($changes)
+			&& $this->containsOnlyProviderDefaults($change['after'] ?? null)
+		) {
+			return new FieldDefinition(
+				sprintf('%s defaults', $this->humanize($root)),
+				'Plugin housekeeping',
+				'runtime',
+				'WP Mail SMTP initialized an unused mail provider with empty defaults while saving. This was not a setting you chose.'
+			);
+		}
+
+		return $this->field($optionName, $jsonPointer);
+	}
+
 	public function isSensitive(string $optionName, array $path): bool
 	{
 		if (in_array($optionName, array('wp_mail_smtp_mail_key', 'wp_mail_smtp_connect', 'wp_mail_smtp_connect_token'), true)) {
@@ -126,5 +176,49 @@ final class WpMailSmtpAdapter extends AbstractOptionAdapter
 
 		return self::MAIN_OPTION === $optionName
 			&& ($this->pathMatchesSecret($path) || array('license', 'key') === $path);
+	}
+
+	public function isKnownNonConfigurationWrite(string $table, array $source): bool
+	{
+		$file = str_replace('\\', '/', $source['file']);
+
+		return 'wp-mail-smtp' === $source['component']
+			&& (
+				str_contains($table, 'actionscheduler_')
+				|| str_contains($file, '/action-scheduler/')
+			);
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $changes Nested diff entries.
+	 */
+	private function selectedMailer(array $changes): string
+	{
+		foreach ($changes as $change) {
+			if ('/mail/mailer' === ($change['path'] ?? '') && is_string($change['after'] ?? null)) {
+				return $change['after'];
+			}
+		}
+
+		return '';
+	}
+
+	private function containsOnlyProviderDefaults(mixed $value): bool
+	{
+		if (is_array($value)) {
+			foreach ($value as $item) {
+				if (! $this->containsOnlyProviderDefaults($item)) {
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		return null === $value
+			|| false === $value
+			|| '' === $value
+			|| 'US' === $value
+			|| '••••••••' === $value;
 	}
 }

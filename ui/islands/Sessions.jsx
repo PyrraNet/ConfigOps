@@ -39,7 +39,8 @@ export default function Sessions() {
 									</span>
 									<span className="configops-session-meta">
 										<span>
-											{sprintf(__('%d changes', 'configops'), session.mutationCount)}
+											{session.reviewChangeCount === 1 ? __('1 setting', 'configops') : sprintf(__('%d settings', 'configops'), session.reviewChangeCount)}
+											{session.technicalChangeCount > 0 && <span>{sprintf(__(' · %d technical', 'configops'), session.technicalChangeCount)}</span>}
 											{session.writeSignalCount > 0 && <em>{sprintf(__(' · %d outside API', 'configops'), session.writeSignalCount)}</em>}
 										</span>
 										<time dateTime={session.startedAt}>{sprintf(__('%s ago', 'configops'), session.startedAtLabel)}</time>

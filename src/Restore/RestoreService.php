@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ConfigOps\Restore;
 
+use ConfigOps\Adapter\AdapterRegistry;
 use ConfigOps\Capture\ValueCodec;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\MutationRepository;
@@ -27,7 +28,8 @@ final class RestoreService
 		private readonly MutationRepository $mutations,
 		private readonly ValueCodec $codec,
 		private readonly OptionMetadataRepository $optionMetadata,
-		private readonly OperationLock $operationLock
+		private readonly OperationLock $operationLock,
+		private readonly AdapterRegistry $adapters
 	) {
 	}
 
@@ -44,16 +46,20 @@ final class RestoreService
 				}
 
 				$this->assertRestorable($mutation);
-				$this->assertCurrentState(
-					(string) $mutation->option_name,
-					(string) $mutation->new_value,
-					isset($mutation->new_autoload) ? (string) $mutation->new_autoload : null
-				);
-				$this->applyState(
-					(string) $mutation->option_name,
-					(string) $mutation->old_value,
-					isset($mutation->old_autoload) ? (string) $mutation->old_autoload : null
-				);
+				if ('patch' === $this->restoreMode($mutation)) {
+					$this->restoreSafeFields($mutation);
+				} else {
+					$this->assertCurrentState(
+						(string) $mutation->option_name,
+						(string) $mutation->new_value,
+						isset($mutation->new_autoload) ? (string) $mutation->new_autoload : null
+					);
+					$this->applyState(
+						(string) $mutation->option_name,
+						(string) $mutation->old_value,
+						isset($mutation->old_autoload) ? (string) $mutation->old_autoload : null
+					);
+				}
 			}
 		);
 	}
@@ -82,6 +88,11 @@ final class RestoreService
 		$retainedBytes = 0;
 		foreach ($this->mutations->iterateRestoreForSession($sessionId) as $mutation) {
 			$this->assertRestorable($mutation);
+			if ('full' !== $this->restoreMode($mutation)) {
+				throw new RuntimeException(
+					'This capture contains a setting with protected fields. Undo its safe fields individually so unchanged secrets remain untouched.'
+				);
+			}
 			$name = (string) $mutation->option_name;
 			if (! isset($states[$name])) {
 				if (count($states) >= self::MAX_DISTINCT_OPTIONS) {
@@ -198,6 +209,203 @@ final class RestoreService
 				'This mutation is technical, redacted, oversized, or unsupported and cannot be restored safely.'
 			);
 		}
+	}
+
+	private function restoreMode(object $mutation): string
+	{
+		$mode = (string) ($mutation->restore_mode ?? 'full');
+
+		return in_array($mode, array('full', 'patch'), true) ? $mode : 'none';
+	}
+
+	private function restoreSafeFields(object $mutation): void
+	{
+		$diff = json_decode((string) ($mutation->diff ?? ''), true);
+		if (! is_array($diff)) {
+			throw new RuntimeException('The stored field comparison is malformed. Nothing was changed.');
+		}
+
+		$changes = $this->adapters->safeRestoreChanges(
+			(string) ($mutation->adapter_id ?? ''),
+			(int) ($mutation->adapter_schema_version ?? 0),
+			(string) $mutation->option_name,
+			$diff
+		);
+		if (empty($changes)) {
+			throw new RuntimeException('No adapter-backed field in this setting can still be undone safely. Nothing was changed.');
+		}
+
+		$optionName = (string) $mutation->option_name;
+		$sentinel   = new \stdClass();
+		$current    = get_option($optionName, $sentinel);
+		if ($current === $sentinel || ! is_array($current)) {
+			throw new RuntimeException("Conflict: {$optionName} no longer contains the captured settings array. Nothing was restored.");
+		}
+
+		$currentAutoload = $this->optionMetadata->autoloadFor($optionName);
+		$expectedAutoload = isset($mutation->new_autoload) ? (string) $mutation->new_autoload : null;
+		if (
+			null !== $expectedAutoload
+			&& $this->autoloadMode($expectedAutoload) !== $this->autoloadMode($currentAutoload)
+		) {
+			throw new RuntimeException("Conflict: {$optionName} has a different autoload state. Nothing was restored.");
+		}
+
+		foreach ($changes as $change) {
+			$this->assertPatchAfterState($current, $change, $optionName);
+		}
+
+		$patched = $current;
+		foreach (array_reverse($changes) as $change) {
+			$parts = $this->pointerParts((string) $change['path']);
+			$patched = match ((string) $change['op']) {
+				'add' => $this->removeAtPath($patched, $parts),
+				'remove' => $this->setAtPath($patched, $parts, $change['before'] ?? null, true),
+				'replace' => $this->setAtPath($patched, $parts, $change['before'] ?? null, false),
+				default => $patched,
+			};
+		}
+
+		$autoloadFlag = $this->autoloadFlag($currentAutoload);
+		try {
+			$updated = update_option($optionName, $patched, $autoloadFlag);
+			$stored  = get_option($optionName, $sentinel);
+			if ($stored === $sentinel || ! $this->codec->semanticallyEqual($stored, $patched)) {
+				throw new RuntimeException("WordPress could not undo the safe fields in {$optionName}.");
+			}
+			unset($updated);
+		} catch (Throwable $error) {
+			update_option($optionName, $current, $autoloadFlag);
+			throw new RuntimeException($error->getMessage() . ' The original current value was reapplied.', 0, $error);
+		}
+	}
+
+	/**
+	 * @param array<string, mixed> $change Nested diff entry.
+	 */
+	private function assertPatchAfterState(array $current, array $change, string $optionName): void
+	{
+		$parts = $this->pointerParts((string) ($change['path'] ?? '/'));
+		[$exists, $value] = $this->valueAtPath($current, $parts);
+		$operation = (string) ($change['op'] ?? '');
+		if ('remove' === $operation) {
+			if ($exists) {
+				throw new RuntimeException("Conflict: {$optionName} changed after this capture. Nothing was restored.");
+			}
+
+			return;
+		}
+
+		if (! $exists || ! $this->codec->semanticallyEqual($value, $change['after'] ?? null)) {
+			throw new RuntimeException("Conflict: {$optionName} changed after this capture. Nothing was restored.");
+		}
+	}
+
+	/**
+	 * @param list<string> $parts JSON Pointer parts.
+	 * @return array{0: bool, 1: mixed}
+	 */
+	private function valueAtPath(array $value, array $parts): array
+	{
+		$current = $value;
+		foreach ($parts as $part) {
+			if (! is_array($current)) {
+				return array(false, null);
+			}
+			$key = $this->arrayKey($current, $part);
+			if (! array_key_exists($key, $current)) {
+				return array(false, null);
+			}
+			$current = $current[$key];
+		}
+
+		return array(true, $current);
+	}
+
+	/**
+	 * @param list<string> $parts JSON Pointer parts.
+	 */
+	private function setAtPath(array $value, array $parts, mixed $replacement, bool $insert): array
+	{
+		$part = array_shift($parts);
+		if (null === $part) {
+			throw new RuntimeException('A root-level protected value cannot be partially restored.');
+		}
+		$key = $this->arrayKey($value, $part);
+		if (empty($parts)) {
+			if ($insert && array_is_list($value) && is_int($key)) {
+				array_splice($value, $key, 0, array($replacement));
+			} else {
+				$value[$key] = $replacement;
+			}
+
+			return $value;
+		}
+
+		if (! isset($value[$key]) || ! is_array($value[$key])) {
+			throw new RuntimeException('The protected setting structure changed. Nothing was restored.');
+		}
+		$value[$key] = $this->setAtPath($value[$key], $parts, $replacement, $insert);
+
+		return $value;
+	}
+
+	/**
+	 * @param list<string> $parts JSON Pointer parts.
+	 */
+	private function removeAtPath(array $value, array $parts): array
+	{
+		$part = array_shift($parts);
+		if (null === $part) {
+			throw new RuntimeException('A root-level protected value cannot be partially restored.');
+		}
+		$key = $this->arrayKey($value, $part);
+		if (empty($parts)) {
+			if (array_is_list($value) && is_int($key)) {
+				array_splice($value, $key, 1);
+			} else {
+				unset($value[$key]);
+			}
+
+			return $value;
+		}
+
+		if (! isset($value[$key]) || ! is_array($value[$key])) {
+			throw new RuntimeException('The protected setting structure changed. Nothing was restored.');
+		}
+		$value[$key] = $this->removeAtPath($value[$key], $parts);
+
+		return $value;
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private function pointerParts(string $pointer): array
+	{
+		if ('' === $pointer || '/' === $pointer) {
+			return array();
+		}
+
+		return array_map(
+			static fn (string $part): string => str_replace(array('~1', '~0'), array('/', '~'), $part),
+			explode('/', ltrim($pointer, '/'))
+		);
+	}
+
+	private function arrayKey(array $value, string $part): int|string
+	{
+		if (array_key_exists($part, $value)) {
+			return $part;
+		}
+		if (ctype_digit($part) && array_key_exists((int) $part, $value)) {
+			return (int) $part;
+		}
+		if (array_is_list($value) && ctype_digit($part)) {
+			return (int) $part;
+		}
+
+		return $part;
 	}
 
 	private function assertCurrentState(string $optionName, string $expectedPayload, ?string $expectedAutoload): void

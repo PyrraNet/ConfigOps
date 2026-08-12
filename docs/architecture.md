@@ -23,8 +23,8 @@ PHP 8.3 is a deliberate product constraint, not an accidental use of new syntax
 | Human intent | Explicit session name and request context | Admin field and fetch/REST correlation |
 | Value semantics | Type-preserving codec, JSON Pointer diff, and versioned adapter field schemas | Semantic references and release transforms |
 | Noise | Conservative built-in rules plus pinned WP Mail SMTP and Yoast contracts | Registry fixtures and adapter normalization |
-| Secrets | Redact before persistence; block restore | Secret references and target-local resolution |
-| Rollback | Conflict-checked compensating restore | Adapter-declared safety and verification |
+| Secrets | Redact before persistence; preserve during field-level undo | Secret references and target-local resolution |
+| Rollback | Conflict-checked full or adapter-backed field undo | Adapter-declared safety and verification |
 | Storage | Dedicated session, mutation, and write-signal tables | Packs, runs, snapshots, and drift tables when used |
 | Local UI transport | Explicit REST resources and commands | Keep domain services independent from transport |
 | Fleet read model | Not present | GraphQL over asynchronously materialized fleet state |
@@ -54,7 +54,8 @@ PHP 8.3 is a deliberate product constraint, not an accidental use of new syntax
 - **Error reporting is also isolated.** Even a third-party listener that throws during `configops_capture_error` cannot escape into the settings request being observed.
 - **Adapters are capability-scoped.** Capture ownership, field meaning, secret detection, and rollback eligibility form the current contract. Apply and verification do not appear on the interface until those engines exist, so recorder support cannot be mistaken for deployment support.
 - **Adapter meaning is pinned at capture time.** Mutations retain adapter ID, schema version, and installed component version. Historical fields are enriched only when the matching schema is still available; newer adapters cannot silently reinterpret old evidence.
-- **Derived state stays out of rollback.** Cache, migration, tracking, version, and other adapter-declared runtime values remain visible under Technical but are skipped by full-session restore planning.
+- **Derived state stays out of rollback.** Cache, migration, tracking, version, and other adapter-declared runtime values remain visible under Technical. When they share an option with real settings, undo patches only the adapter-backed settings instead of reconstructing the whole option.
+- **Protected options are patched, never reconstructed.** When a supported option also contains a secret, ConfigOps checks and reverses only adapter-backed non-secret paths against the current value. Credentials and plugin housekeeping remain byte-for-byte under the owning plugin’s control.
 - **Direct writes fail visibly, not magically.** During an active capture, the SQL Sentry recognizes common write statements, ignores ConfigOps-owned tables and Options API duplicates, and stores only operation, table, count, provenance, and safe request metadata. Raw SQL and values never enter persistence. Fifty unique signals per request form a hard ceiling; repeated signals collapse by source.
 - **Uncorrelated core cron stays out of an admin task.** Anonymous `/wp-cron.php` writes are not attributed to an explicit operator capture. Synchronous plugin side effects in the user’s Save request remain visible; future async correlation requires an adapter-owned job token instead of timing guesses.
 - **Unknown effects limit rollback.** Any unmanaged database write disables full-session restore in the review contract. Individually supported Options API mutations remain conflict-checkable and restorable.
@@ -73,7 +74,7 @@ The visual direction remains server-shell plus forensic instruments: a compact p
 
 ## Trust harness
 
-The deliberately hostile fixture plugin now exercises simple and nested options, typed WordPress IDs, secret redaction, transients, synchronous side effects, a versioned schema migration, AJAX metadata, direct SQL writes, and a neighboring plugin slug that shares the `configops` prefix. The integration contract proves that generic capture understands Options API mutations, reports direct writes only as value-free unmanaged signals, does not duplicate normal Options API saves, and never presents an unsupported rollback as complete.
+The deliberately hostile fixture plugin now exercises simple and nested options, typed WordPress IDs, secret redaction, transients, synchronous side effects, a versioned schema migration, AJAX metadata, direct SQL writes, and a neighboring plugin slug that shares the `configops` prefix. The integration contract proves that generic capture understands Options API mutations, reports direct writes only as value-free unmanaged signals, does not duplicate normal Options API saves, and never presents an unsupported rollback as complete. Separate browser contracts install exact public releases of WP Mail SMTP and Yoast, operate their real settings screens, review the resulting capture at desktop and mobile widths, undo the safe fields, and verify the result back in each plugin.
 
 ## Next boundary
 

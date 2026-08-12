@@ -67,67 +67,132 @@ final class AdapterRegistry implements SensitiveValueDetector
 
 	/**
 	 * @param list<array<string, mixed>> $changes Nested diff entries.
-	 * @return array{classification: string, reason: string, allows_restore: bool, adapter_id: ?string, adapter_schema_version: ?int, component_version: ?string}
+	 * @return array{
+	 *   classification: string,
+	 *   reason: string,
+	 *   allows_restore: bool,
+	 *   adapter_id: ?string,
+	 *   adapter_schema_version: ?int,
+	 *   component_version: ?string,
+	 *   changes: list<array<string, mixed>>,
+	 *   review_change_count: int,
+	 *   technical_change_count: int,
+	 *   secret_change_count: int,
+	 *   safe_restore_change_count: int
+	 * }
 	 */
 	public function analyze(string $optionName, array $changes): array
 	{
 		$owners = $this->forOption($optionName);
 		if (count($owners) > 1) {
-			return array(
-				'classification'         => 'unknown',
-				'reason'                 => 'More than one adapter claims this option. ConfigOps kept the evidence but disabled automatic interpretation and restore.',
-				'allows_restore'         => false,
-				'adapter_id'              => null,
-				'adapter_schema_version'  => null,
-				'component_version'       => null,
+			return $this->analysisPayload(
+				$changes,
+				'unknown',
+				'More than one adapter claims this option. ConfigOps kept the evidence but disabled automatic interpretation and restore.',
+				false,
+				null,
+				null,
+				null,
+				0
 			);
 		}
 		$adapter = $owners[0] ?? null;
 		if (null === $adapter) {
 			$fallback = $this->fallbackClassifier->classify($optionName);
 
-			return array(
-				'classification'         => $fallback['classification'],
-				'reason'                 => $fallback['reason'],
-				'allows_restore'         => 'derived' !== $fallback['classification'],
-				'adapter_id'              => null,
-				'adapter_schema_version'  => null,
-				'component_version'       => null,
+			return $this->analysisPayload(
+				$changes,
+				$fallback['classification'],
+				$fallback['reason'],
+				'derived' !== $fallback['classification'],
+				null,
+				null,
+				null,
+				0
 			);
 		}
 
 		try {
 			$manifest = $this->manifests[$this->adapterId($adapter)] ?? $adapter->manifest();
+			$changes  = $this->describeChanges($adapter, $optionName, $changes);
 			$analysis = $adapter->analyze($optionName, $changes);
 		} catch (Throwable) {
-			return array(
-				'classification'         => 'unknown',
-				'reason'                 => 'The owning adapter failed while interpreting this change. ConfigOps kept the evidence and disabled restore.',
-				'allows_restore'         => false,
-				'adapter_id'              => null,
-				'adapter_schema_version'  => null,
-				'component_version'       => null,
+			return $this->analysisPayload(
+				$changes,
+				'unknown',
+				'The owning adapter failed while interpreting this change. ConfigOps kept the evidence and disabled restore.',
+				false,
+				null,
+				null,
+				null,
+				0
 			);
 		}
 		$version       = $this->installedVersion($manifest);
 		$reason        = $analysis->reason;
 		$allowsRestore = $analysis->allowsGenericRestore;
+		$compatible    = false;
 		if (null === $version) {
 			$reason = 'The owning plugin version is unavailable. ' . $reason;
 			$allowsRestore = false;
 		} elseif (! $this->versionMatches($version, $manifest->testedVersion)) {
 			$reason = sprintf('Version %s is outside the adapter’s tested range %s. %s', $version, $manifest->testedVersion, $reason);
 			$allowsRestore = false;
+		} else {
+			$compatible = true;
 		}
 
-		return array(
-			'classification'         => $analysis->classification,
-			'reason'                 => $reason,
-			'allows_restore'         => $allowsRestore,
-			'adapter_id'              => $manifest->id,
-			'adapter_schema_version'  => $manifest->schemaVersion,
-			'component_version'       => $version,
+		$safeRestoreCount = $compatible && $this->manifestSupportsRestore($manifest)
+			? count(array_filter($changes, $this->isSafePatchChange(...)))
+			: 0;
+
+		return $this->analysisPayload(
+			$changes,
+			$analysis->classification,
+			$reason,
+			$allowsRestore,
+			$manifest->id,
+			$manifest->schemaVersion,
+			$version,
+			$safeRestoreCount
 		);
+	}
+
+	/**
+	 * Return only fields that can be restored without reconstructing a secret,
+	 * technical side effect, unsupported value, or unknown adapter path.
+	 *
+	 * @param list<array<string, mixed>> $changes Stored nested diff entries.
+	 * @return list<array<string, mixed>>
+	 */
+	public function safeRestoreChanges(
+		string $adapterId,
+		int $schemaVersion,
+		string $optionName,
+		array $changes
+	): array {
+		$adapter  = $this->adapters[$adapterId] ?? null;
+		$manifest = $this->manifests[$adapterId] ?? null;
+		if (null === $adapter || null === $manifest || $manifest->schemaVersion !== $schemaVersion) {
+			return array();
+		}
+
+		$version = $this->installedVersion($manifest);
+		if (
+			null === $version
+			|| ! $this->versionMatches($version, $manifest->testedVersion)
+			|| ! $this->manifestSupportsRestore($manifest)
+		) {
+			return array();
+		}
+
+		try {
+			$changes = $this->describeChanges($adapter, $optionName, $changes);
+		} catch (Throwable) {
+			return array();
+		}
+
+		return array_values(array_filter($changes, $this->isSafePatchChange(...)));
 	}
 
 	public function isSensitive(string $optionName, array $path): bool
@@ -148,6 +213,38 @@ final class AdapterRegistry implements SensitiveValueDetector
 		return $fallback->isSensitive($optionName, $path);
 	}
 
+	/**
+	 * @param array{type: string, component: string, file: string, line: int} $source Source attribution without SQL or values.
+	 */
+	public function isKnownNonConfigurationWrite(string $table, array $source): bool
+	{
+		foreach ($this->adapters as $adapterId => $adapter) {
+			if (! $adapter instanceof DatabaseWriteAwareAdapter) {
+				continue;
+			}
+
+			$manifest = $this->manifests[$adapterId] ?? null;
+			$version  = null === $manifest ? null : $this->installedVersion($manifest);
+			if (
+				null === $manifest
+				|| null === $version
+				|| ! $this->versionMatches($version, $manifest->testedVersion)
+			) {
+				continue;
+			}
+
+			try {
+				if ($adapter->isKnownNonConfigurationWrite($table, $source)) {
+					return true;
+				}
+			} catch (Throwable) {
+				// A failed write-noise rule must remain visible as an unknown signal.
+			}
+		}
+
+		return false;
+	}
+
 	public function field(string $adapterId, int $schemaVersion, string $optionName, string $jsonPointer): ?FieldDefinition
 	{
 		$adapter = $this->adapters[$adapterId] ?? null;
@@ -164,6 +261,152 @@ final class AdapterRegistry implements SensitiveValueDetector
 		} catch (Throwable) {
 			return null;
 		}
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $changes Nested diff entries.
+	 * @return list<array<string, mixed>>
+	 */
+	private function describeChanges(ConfigAdapter $adapter, string $optionName, array $changes): array
+	{
+		$described = array();
+		foreach ($changes as $change) {
+			if (
+				is_string($change['label'] ?? null)
+				&& is_string($change['group'] ?? null)
+				&& is_string($change['kind'] ?? null)
+				&& is_string($change['explanation'] ?? null)
+			) {
+				$described[] = $change;
+				continue;
+			}
+
+			$path = is_string($change['path'] ?? null) ? $change['path'] : '/';
+			$field = $adapter instanceof ChangeAwareAdapter
+				? $adapter->fieldForChange($optionName, $path, $change, $changes)
+				: $adapter->field($optionName, $path);
+			if (null !== $field) {
+				$change['label']       = $field->label;
+				$change['group']       = $field->group;
+				$change['kind']        = $field->kind;
+				$change['explanation'] = $field->explanation;
+			}
+			$described[] = $change;
+		}
+
+		return $described;
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $changes Decorated nested diff entries.
+	 * @return array{
+	 *   classification: string,
+	 *   reason: string,
+	 *   allows_restore: bool,
+	 *   adapter_id: ?string,
+	 *   adapter_schema_version: ?int,
+	 *   component_version: ?string,
+	 *   changes: list<array<string, mixed>>,
+	 *   review_change_count: int,
+	 *   technical_change_count: int,
+	 *   secret_change_count: int,
+	 *   safe_restore_change_count: int
+	 * }
+	 */
+	private function analysisPayload(
+		array $changes,
+		string $classification,
+		string $reason,
+		bool $allowsRestore,
+		?string $adapterId,
+		?int $schemaVersion,
+		?string $componentVersion,
+		int $safeRestoreCount
+	): array {
+		$reviewCount    = 0;
+		$technicalCount = 0;
+		$secretCount    = 0;
+		foreach ($changes as $change) {
+			$kind = is_string($change['kind'] ?? null) ? $change['kind'] : '';
+			if ('derived' === $classification || 'runtime' === $kind) {
+				++$technicalCount;
+				continue;
+			}
+
+			++$reviewCount;
+			if (
+				'secret' === $kind
+				|| true === ($change['redacted'] ?? false)
+				|| $this->containsRedaction($change['before'] ?? null)
+				|| $this->containsRedaction($change['after'] ?? null)
+			) {
+				++$secretCount;
+			}
+		}
+
+		return array(
+			'classification'            => $classification,
+			'reason'                    => $reason,
+			'allows_restore'            => $allowsRestore,
+			'adapter_id'                 => $adapterId,
+			'adapter_schema_version'     => $schemaVersion,
+			'component_version'          => $componentVersion,
+			'changes'                    => $changes,
+			'review_change_count'        => $reviewCount,
+			'technical_change_count'     => $technicalCount,
+			'secret_change_count'        => $secretCount,
+			'safe_restore_change_count' => $safeRestoreCount,
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $change Nested diff entry.
+	 */
+	private function isSafePatchChange(array $change): bool
+	{
+		$kind = is_string($change['kind'] ?? null) ? $change['kind'] : 'unknown';
+		$path = is_string($change['path'] ?? null) ? $change['path'] : '/';
+		$op   = is_string($change['op'] ?? null) ? $change['op'] : '';
+		if (
+			'/' === $path
+			|| ! in_array($op, array('add', 'remove', 'replace'), true)
+			|| ! in_array($kind, array('portable', 'environment', 'reference'), true)
+			|| true === ($change['redacted'] ?? false)
+		) {
+			return false;
+		}
+
+		return ! $this->containsRedaction($change['before'] ?? null)
+			&& ! $this->containsRedaction($change['after'] ?? null);
+	}
+
+	private function containsRedaction(mixed $value): bool
+	{
+		if ('••••••••' === $value) {
+			return true;
+		}
+		if (! is_array($value)) {
+			return false;
+		}
+
+		foreach ($value as $item) {
+			if ($this->containsRedaction($item)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private function manifestSupportsRestore(AdapterManifest $manifest): bool
+	{
+		foreach ($manifest->capabilities as $capability) {
+			if ('restore' === ($capability['id'] ?? '') && 'planned' !== ($capability['level'] ?? 'planned')) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	public function manifest(string $adapterId): ?AdapterManifest

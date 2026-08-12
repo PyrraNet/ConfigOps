@@ -152,7 +152,8 @@ $assert('unsupported' === $yoastMultisite->classification, 'The Yoast adapter sh
 $assert(6 === count($yoastAdapter->manifest()->capabilities), 'Yoast support should disclose every current product capability.');
 
 $registry = new AdapterRegistry(array($mailAdapter, $yoastAdapter), new NoiseClassifier(), new HeuristicSensitiveValueDetector());
-$assert(null !== $registry->field('wp-mail-smtp', 1, 'wp_mail_smtp', '/smtp/host'), 'The current adapter schema should enrich matching historical evidence.');
+$assert(null !== $registry->field('wp-mail-smtp', 2, 'wp_mail_smtp', '/smtp/host'), 'The current adapter schema should enrich matching historical evidence.');
+$assert(null === $registry->field('wp-mail-smtp', 1, 'wp_mail_smtp', '/smtp/host'), 'Field-aware adapter changes must not reinterpret captures stored under the previous schema.');
 $assert(null === $registry->field('wp-mail-smtp', 99, 'wp_mail_smtp', '/smtp/host'), 'A newer adapter must not reinterpret evidence captured under another schema.');
 $duplicateRegistry = new AdapterRegistry(array($mailAdapter, $mailAdapter), new NoiseClassifier(), new HeuristicSensitiveValueDetector());
 $assert(1 === count($duplicateRegistry->supportPayload()), 'Duplicate adapter IDs should not replace or duplicate the trusted registration.');

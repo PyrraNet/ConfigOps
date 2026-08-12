@@ -20,10 +20,10 @@ const fieldKindLabel = (kind, __) => {
 	}
 };
 
-const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canRestore, busy }) {
+const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canRestore, busy, filter }) {
 	const { __ } = window.wp.i18n;
 	const sourceLabel = mutation.source.file || mutation.source.type;
-	const [open, setOpen] = window.wp.element.useState(mutation.classification !== 'derived');
+	const [open, setOpen] = window.wp.element.useState(filter !== 'noise');
 	const classificationDescriptionId = `configops-classification-${mutation.id}`;
 	const restoreDescriptionId = `configops-restore-${mutation.id}`;
 	const operationLabels = {
@@ -35,6 +35,18 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 		deleted: __('Deleted option', 'configops'),
 	};
 	const operationLabel = operationLabels[mutation.type] || mutation.type;
+	const visibleCount = mutation.diff.length;
+	const visibleLabel = filter === 'noise'
+		? (visibleCount === 1 ? __('1 technical change', 'configops') : `${visibleCount} ${__('technical changes', 'configops')}`)
+		: (visibleCount === 1 ? __('1 setting', 'configops') : `${visibleCount} ${__('settings', 'configops')}`);
+	const patchRestore = mutation.restoreMode === 'patch';
+	const undoLabel = patchRestore
+		? (!mutation.redacted
+			? __('Undo this change', 'configops')
+			: mutation.changeCounts.safeUndo === 1
+			? __('Undo 1 safe setting', 'configops')
+			: `${__('Undo', 'configops')} ${mutation.changeCounts.safeUndo} ${__('safe settings', 'configops')}`)
+		: __('Undo this setting', 'configops');
 
 	return (
 		<details
@@ -49,13 +61,17 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 					<strong>{mutation.adapter?.name || mutation.displayName || mutation.optionName}</strong>
 					<span><code>{mutation.optionName}</code>{mutation.adapter?.componentVersion ? ` · v${mutation.adapter.componentVersion}` : ''}</span>
 				</span>
-				<span className={`configops-badge configops-badge--${mutation.classification}`} data-tooltip={mutation.classificationReason}>{mutation.classificationLabel}</span>
+				<span className={`configops-badge configops-badge--${filter === 'noise' ? 'derived' : mutation.classification}`} data-tooltip={mutation.classificationReason}>{visibleLabel}</span>
 				<span id={classificationDescriptionId} className="screen-reader-text">{mutation.classificationReason}</span>
 				<span className="configops-chevron" aria-hidden="true"></span>
 			</summary>
 			<div className="configops-mutation-body">
 				{mutation.redacted && (
-					<p className="configops-secret-note"><span aria-hidden="true">●</span> {__('This option contains a secret. ConfigOps excluded it before storage, so full-value undo is unavailable.', 'configops')}</p>
+					<p className="configops-secret-note"><span aria-hidden="true">●</span>{' '}
+						{patchRestore
+							? __('A secret changed and was removed before storage. ConfigOps can undo the other supported settings without reading or replacing that secret.', 'configops')
+							: __('A secret changed and was removed before storage. ConfigOps cannot reconstruct it for undo.', 'configops')}
+					</p>
 				)}
 				<div className="configops-diff-table" role="table" aria-label={__('Nested value changes', 'configops')}>
 					<div className="configops-diff-row configops-diff-head" role="row">
@@ -85,12 +101,12 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 						<span>{__('Changed by', 'configops')}</span>
 						<code>{sourceLabel}{mutation.source.line > 0 ? `:${mutation.source.line}` : ''}</code>
 					</div>
-					{!mutation.restorable && !mutation.redacted && (
+					{!mutation.restorable && !mutation.redacted && filter !== 'noise' && (
 						<Hint label={__('Why can’t this be undone?', 'configops')} align="end" trigger={__('Undo unavailable', 'configops')}>
 							{__('The adapter marks this as technical, unsupported, or outside its tested version range. ConfigOps keeps the evidence but will not guess during rollback.', 'configops')}
 						</Hint>
 					)}
-					{canRestore && mutation.restorable && (
+					{canRestore && mutation.restorable && filter !== 'noise' && (
 						<span className="configops-action-hint">
 							<button
 								className="button button-small"
@@ -98,15 +114,20 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 								disabled={busy}
 								aria-describedby={restoreDescriptionId}
 								onClick={() => {
-									if (window.confirm(__('Undo this setting? ConfigOps will stop if it has changed again since the capture.', 'configops'))) {
+									const question = patchRestore
+										? __('Undo only the supported, non-secret settings shown here? ConfigOps will preserve protected and technical values and stop if a visible setting changed again.', 'configops')
+										: __('Undo this setting? ConfigOps will stop if it has changed again since the capture.', 'configops');
+									if (window.confirm(question)) {
 										restoreMutation(mutation.id);
 									}
 								}}
 							>
-								{busy ? __('Undoing…', 'configops') : __('Undo this setting', 'configops')}
+								{busy ? __('Undoing…', 'configops') : undoLabel}
 							</button>
 							<span id={restoreDescriptionId} className="configops-action-tooltip" role="tooltip">
-								{__('ConfigOps first checks that the setting still has the value shown here. Files and custom database tables are not part of this undo.', 'configops')}
+								{patchRestore
+									? __('Only adapter-backed fields are reversed. Existing secrets, plugin housekeeping, files, and custom tables stay untouched.', 'configops')
+									: __('ConfigOps first checks that the setting still has the value shown here. Files and custom database tables are not part of this undo.', 'configops')}
 							</span>
 						</span>
 					)}
@@ -144,7 +165,7 @@ const DatabaseWriteSignal = window.wp.element.memo(function DatabaseWriteSignal(
 	);
 });
 
-const RequestGroup = window.wp.element.memo(function RequestGroup({ group, canRestore, pending }) {
+const RequestGroup = window.wp.element.memo(function RequestGroup({ group, canRestore, pending, filter }) {
 	const { __, sprintf } = window.wp.i18n;
 	const screenLabels = {
 		options: __('Saved WordPress settings', 'configops'),
@@ -153,6 +174,7 @@ const RequestGroup = window.wp.element.memo(function RequestGroup({ group, canRe
 	const title = group.title || screenLabels[group.head.adminScreen] || group.head.adminScreen || group.head.requestUri || __('Background request', 'configops');
 	const writeSignals = group.writeSignals || [];
 	const unmanagedWriteCount = writeSignals.reduce((total, signal) => total + signal.occurrenceCount, 0);
+	const visibleChangeCount = group.mutations.reduce((total, mutation) => total + mutation.diff.length, 0);
 
 	return (
 		<section className="configops-request-group">
@@ -167,7 +189,7 @@ const RequestGroup = window.wp.element.memo(function RequestGroup({ group, canRe
 							</Hint>
 						</div>
 						<p>
-							<code>{group.head.method}</code> {group.head.requestUri} <span aria-hidden="true">·</span>{' '}{sprintf(__('%d recorded changes', 'configops'), group.mutations.length)}
+							<code>{group.head.method}</code> {group.head.requestUri} <span aria-hidden="true">·</span>{' '}{sprintf(__('%d visible changes', 'configops'), visibleChangeCount)}
 							{unmanagedWriteCount > 0 && (
 								<> <span aria-hidden="true">·</span>{' '}{sprintf(__('%d unmanaged DB writes', 'configops'), unmanagedWriteCount)}</>
 							)}
@@ -186,6 +208,7 @@ const RequestGroup = window.wp.element.memo(function RequestGroup({ group, canRe
 						mutation={mutation}
 						canRestore={canRestore}
 						busy={pending === `restore-mutation-${mutation.id}`}
+						filter={filter}
 					/>
 				))}
 			</div>
@@ -217,19 +240,25 @@ export default function ReviewLedger() {
 	const canRestore = !state.active && state.capabilities.rollback;
 	const [filter, setFilter] = window.wp.element.useState('review');
 	const filteredGroups = window.wp.element.useMemo(() => {
-		const matches = (mutation) => (
-			filter === 'all'
-			|| (filter === 'review' && mutation.classification !== 'derived')
-			|| (filter === 'noise' && mutation.classification === 'derived')
-		);
+		const selectChanges = (mutation) => mutation.diff.filter((change) => {
+			const technical = mutation.classification === 'derived' || change.kind === 'runtime';
+			return filter === 'all' || (filter === 'review' && !technical) || (filter === 'noise' && technical);
+		});
 
 		return review.groups
-			.map((group) => ({
-				...group,
-				mutations: group.mutations.filter(matches),
-				writeSignals: filter === 'noise' ? [] : (group.writeSignals || []),
-			}))
-			.filter((group) => group.mutations.length > 0 || group.writeSignals.length > 0);
+			.map((group) => {
+				const mutations = group.mutations
+					.map((mutation) => ({ ...mutation, diff: selectChanges(mutation) }))
+					.filter((mutation) => mutation.diff.length > 0);
+
+				return {
+					...group,
+					mutations,
+					writeSignals: filter === 'noise' ? [] : (group.writeSignals || []),
+				};
+			})
+			.filter((group) => group.mutations.length > 0 || group.writeSignals.length > 0)
+			.map((group, index) => ({ ...group, index: String(index + 1).padStart(2, '0') }));
 	}, [filter, review.groups]);
 
 	window.wp.element.useEffect(() => {
@@ -241,6 +270,19 @@ export default function ReviewLedger() {
 	window.wp.element.useEffect(() => {
 		setFilter('review');
 	}, [selected?.id]);
+
+	window.wp.element.useEffect(() => {
+		const visibleMutations = filteredGroups.reduce((total, group) => total + group.mutations.length, 0);
+		if (
+			filter === 'review'
+			&& !review.deferred
+			&& visibleMutations === 0
+			&& review.pageInfo.hasNext
+			&& !state.ui.pending
+		) {
+			loadMoreMutations();
+		}
+	}, [filter, filteredGroups, review.deferred, review.pageInfo.hasNext, state.ui.pending]);
 
 	if (review.deferred) {
 		return (
@@ -274,11 +316,11 @@ export default function ReviewLedger() {
 					</div>
 					<p>{selected.actorName}<span aria-hidden="true"> · </span><time dateTime={selected.startedAt}>{selected.startedDisplay}</time></p>
 				</div>
-				{canRestore && review.summary.total > 0 && (
+				{canRestore && review.summary.total > 0 && review.summary.allRestorable && (
 					<button
 						className="button"
 						type="button"
-						disabled={!review.summary.allRestorable || Boolean(state.ui.pending)}
+						disabled={Boolean(state.ui.pending)}
 						onClick={() => {
 							if (window.confirm(__('Undo every safe setting in this capture? ConfigOps will stop before making changes if anything changed again.', 'configops'))) {
 								restoreSession(selected.id);
@@ -322,7 +364,7 @@ export default function ReviewLedger() {
 					)}
 					{review.summary.redacted > 0 && (
 						<Hint label={__('What was redacted?', 'configops')} align="end" trigger={`${review.summary.redacted} ${__('redacted', 'configops')}`}>
-							{__('Probable secrets were removed before persistence. Their raw values are not available to this review.', 'configops')}
+							{__('Only secrets that actually changed are counted here. Their raw values were removed before ConfigOps stored the capture.', 'configops')}
 						</Hint>
 					)}
 					{review.summary.total > 0 && (
@@ -351,7 +393,7 @@ export default function ReviewLedger() {
 
 			<div id="configops-change-list" aria-live="polite">
 				{filteredGroups.map((group) => (
-					<RequestGroup key={group.requestId} group={group} canRestore={canRestore} pending={state.ui.pending} />
+					<RequestGroup key={`${group.requestId}-${filter}`} group={group} canRestore={canRestore} pending={state.ui.pending} filter={filter} />
 				))}
 			</div>
 

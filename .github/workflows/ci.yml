@@ -66,9 +66,9 @@ jobs:
           -- /wordpress/wp-content/plugins/configops/tests/integration.php
 
   adapters:
-    name: Real plugin adapter contracts
+    name: Real plugin contracts and user flows
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     steps:
       - name: Check out repository
@@ -85,3 +85,40 @@ jobs:
 
       - name: Test exact WP Mail SMTP and Yoast releases
         run: npm run test:adapters
+
+      - name: Build React islands for browser flow
+        run: npm run build:ui && npm run check:ui-budget
+
+      - name: Test both real settings screens as a user
+        env:
+          CONFIGOPS_CHROME_PATH: /usr/bin/google-chrome
+        run: |
+          npx wp-playground-cli start \
+            --php=8.3 \
+            --wp=latest \
+            --port=9401 \
+            --blueprint=tests/adapters.blueprint.json \
+            --auto-mount \
+            --login \
+            --skip-browser \
+            --reset > /tmp/configops-adapter-ui.log 2>&1 &
+          playground_pid=$!
+          trap 'kill "$playground_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do
+            if curl --fail --silent --location http://127.0.0.1:9401/wp-login.php > /dev/null; then
+              npm run test:adapter-ui
+              exit $?
+            fi
+            sleep 1
+          done
+          cat /tmp/configops-adapter-ui.log
+          exit 1
+
+      - name: Upload browser evidence on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: adapter-user-flow-evidence
+          path: |
+            artifacts/adapter-user-flows/
+            /tmp/configops-adapter-ui.log

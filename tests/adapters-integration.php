@@ -107,12 +107,14 @@ foreach ($rows as $row) {
 
 $assert(isset($byName['wp_mail_smtp']), 'The official WP Mail SMTP settings API should be captured.');
 $assert('wp-mail-smtp' === (string) $byName['wp_mail_smtp']->adapter_id, 'WP Mail SMTP mutations should persist adapter identity.');
+$assert(2 === (int) $byName['wp_mail_smtp']->adapter_schema_version, 'WP Mail SMTP captures should pin the field-aware adapter schema.');
 $assert('4.9.0' === (string) $byName['wp_mail_smtp']->component_version, 'WP Mail SMTP captures should pin the observed plugin version.');
 $assert('environment' === (string) $byName['wp_mail_smtp']->classification, 'Mixed WP Mail SMTP connection changes should require a per-website check.');
 $assert(1 === (int) $byName['wp_mail_smtp']->restorable, 'Secret-free WP Mail SMTP settings should retain conflict-checked rollback.');
 
 $assert(isset($byName['wpseo']), 'The official Yoast options API should be captured.');
 $assert('yoast-seo' === (string) $byName['wpseo']->adapter_id, 'Yoast mutations should persist adapter identity.');
+$assert(2 === (int) $byName['wpseo']->adapter_schema_version, 'Yoast captures should pin the field-aware adapter schema.');
 $assert('28.2' === (string) $byName['wpseo']->component_version, 'Yoast captures should pin the observed plugin version.');
 $assert('portable' === (string) $byName['wpseo']->classification, 'A supported Yoast feature toggle should be reusable configuration.');
 $assert(isset($byName['wpseo_tracking_only']) && 'derived' === (string) $byName['wpseo_tracking_only']->classification, 'Yoast tracking state should be separated from settings.');
@@ -148,5 +150,31 @@ $secretMutation = current(array_filter($secretRows, static fn (object $row): boo
 $assert(false !== $secretMutation, 'The official WP Mail SMTP API should expose a credential change to the capture adapter.');
 $assert('secret' === (string) $secretMutation->classification && 0 === (int) $secretMutation->restorable, 'A real WP Mail SMTP credential change should be labeled secret and excluded from undo.');
 $assert(! str_contains((string) $secretMutation->new_value, 'capture-plaintext-must-not-survive'), 'A real WP Mail SMTP credential must never reach ConfigOps persistence as plaintext.');
+
+$protectedBefore = get_option('wp_mail_smtp', array());
+$patchSession = $captures->start('Protected WP Mail SMTP setting contract', 1, '/wp-admin/admin.php?page=wp-mail-smtp');
+$protectedAfter = $protectedBefore;
+$protectedAfter['mail']['from_name'] = 'Name changed beside an existing secret';
+\WPMailSMTP\Options::init()->set($protectedAfter);
+$protectedPasswordAfterSave = get_option('wp_mail_smtp', array())['smtp']['pass'] ?? null;
+$captures->stop();
+$patchRows = $mutations->forSession($patchSession);
+$patchMutation = current(array_filter($patchRows, static fn (object $row): bool => 'wp_mail_smtp' === $row->option_name));
+$assert(false !== $patchMutation, 'A visible mail setting beside an existing secret should still be captured.');
+$assert('patch' === (string) $patchMutation->restore_mode && 1 === (int) $patchMutation->restorable, 'An existing hidden credential should allow field-level undo for supported non-secret settings.');
+$assert(1 === (int) $patchMutation->safe_restore_change_count, 'The adapter should disclose the exact number of safely reversible fields.');
+
+$restore = new \ConfigOps\Restore\RestoreService(
+	$captures,
+	$mutations,
+	$secretCodec,
+	new \ConfigOps\Database\OptionMetadataRepository($wpdb),
+	new \ConfigOps\Execution\OperationLock($wpdb),
+	$adapters
+);
+$restore->restoreMutation((int) $patchMutation->id);
+$protectedRestored = get_option('wp_mail_smtp', array());
+$assert('Agency sender' === ($protectedRestored['mail']['from_name'] ?? null), 'Field-level undo should restore the visible sender name.');
+$assert($protectedPasswordAfterSave === ($protectedRestored['smtp']['pass'] ?? null), 'Field-level undo must preserve the current plugin-owned credential exactly.');
 
 fwrite(STDOUT, "ConfigOps real-plugin adapter checks passed ({$assertions} assertions).\n");

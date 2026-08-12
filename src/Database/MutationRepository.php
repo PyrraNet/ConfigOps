@@ -128,7 +128,7 @@ final class MutationRepository
 		do {
 			$rows = $this->database->get_results(
 				$this->database->prepare(
-					"SELECT id, option_name, old_value, new_value, old_autoload, new_autoload, restorable
+					"SELECT id, option_name, old_value, new_value, diff, old_autoload, new_autoload, restorable, restore_mode, classification, adapter_id, adapter_schema_version
 					FROM {$this->table}
 					WHERE session_id = %d AND id > %d AND classification <> 'derived'
 					ORDER BY id ASC
@@ -154,19 +154,35 @@ final class MutationRepository
 		$row = $this->database->get_row(
 			$this->database->prepare(
 				"SELECT
-					COUNT(*) AS total,
-					COALESCE(SUM(CASE WHEN classification = 'derived' THEN 1 ELSE 0 END), 0) AS derived,
-					COALESCE(SUM(CASE WHEN is_redacted = 1 THEN 1 ELSE 0 END), 0) AS redacted,
-					COALESCE(SUM(CASE WHEN classification <> 'derived' AND restorable <> 1 THEN 1 ELSE 0 END), 0) AS not_restorable
+					COUNT(*) AS mutation_total,
+					COALESCE(SUM(review_change_count), 0) AS total,
+					COALESCE(SUM(technical_change_count), 0) AS derived,
+					COALESCE(SUM(secret_change_count), 0) AS redacted,
+					COALESCE(SUM(CASE WHEN classification <> 'derived' AND (restorable <> 1 OR restore_mode <> 'full') THEN 1 ELSE 0 END), 0) AS not_restorable
 				FROM {$this->table}
 				WHERE session_id = %d",
 				$sessionId
 			)
 		);
 
+		$reviewCount    = is_object($row) ? (int) $row->total : 0;
+		$technicalCount = is_object($row) ? (int) $row->derived : 0;
+		$mutationTotal  = is_object($row) ? (int) $row->mutation_total : 0;
+		// Schema v4 rows did not persist field counts. Preserve a usable summary
+		// after upgrade instead of presenting old captures as empty.
+		if ($mutationTotal > 0 && 0 === $reviewCount + $technicalCount) {
+			$technicalCount = (int) $this->database->get_var(
+				$this->database->prepare(
+					"SELECT COUNT(*) FROM {$this->table} WHERE session_id = %d AND classification = 'derived'",
+					$sessionId
+				)
+			);
+			$reviewCount = $mutationTotal - $technicalCount;
+		}
+
 		return array(
-			'total'          => is_object($row) ? (int) $row->total : 0,
-			'derived'        => is_object($row) ? (int) $row->derived : 0,
+			'total'          => $reviewCount + $technicalCount,
+			'derived'        => $technicalCount,
 			'redacted'       => is_object($row) ? (int) $row->redacted : 0,
 			'not_restorable' => is_object($row) ? (int) $row->not_restorable : 0,
 		);

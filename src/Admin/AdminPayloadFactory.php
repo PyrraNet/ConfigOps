@@ -199,6 +199,16 @@ final class AdminPayloadFactory
 			'mutations'  => array_map(
 				function (array $prepared): array {
 					$mutation = $prepared['mutation'];
+					$diff = $prepared['diff'];
+					$technicalCount = count(
+						array_filter(
+							$diff,
+							static fn (array $change): bool => 'derived' === (string) $mutation->classification
+								|| 'runtime' === (string) ($change['kind'] ?? '')
+						)
+					);
+					$secretCount = (int) ($mutation->secret_change_count ?? 0);
+					$restoreMode = (string) ($mutation->restore_mode ?? (1 === (int) $mutation->restorable ? 'full' : 'none'));
 
 					return array(
 						'id'                   => (int) $mutation->id,
@@ -208,8 +218,16 @@ final class AdminPayloadFactory
 						'classificationLabel'  => $prepared['classification_label'],
 						'classificationReason' => (string) $mutation->classification_reason,
 						'restorable'           => 1 === (int) $mutation->restorable && 'derived' !== (string) $mutation->classification,
-						'redacted'              => 1 === (int) $mutation->is_redacted,
-						'diff'                  => $prepared['diff'],
+						'redacted'              => $secretCount > 0,
+						'containsProtectedData' => 1 === (int) $mutation->is_redacted,
+						'restoreMode'           => in_array($restoreMode, array('full', 'patch'), true) ? $restoreMode : 'none',
+						'changeCounts'          => array(
+							'settings'  => count($diff) - $technicalCount,
+							'technical' => $technicalCount,
+							'secrets'   => $secretCount,
+							'safeUndo'  => (int) ($mutation->safe_restore_change_count ?? 0),
+						),
+						'diff'                  => $diff,
 						'adapter'               => $prepared['adapter'],
 						'displayName'           => (string) ($prepared['diff'][0]['label'] ?? ''),
 						'source'                => array(
@@ -293,12 +311,20 @@ final class AdminPayloadFactory
 	private function sessionPayload(object $session, bool $withActor = false): array
 	{
 		$actor = $withActor ? get_userdata((int) $session->actor_id) : null;
+		$mutationCount = (int) $session->mutation_count;
+		$reviewChangeCount = (int) ($session->review_change_count ?? 0);
+		$technicalChangeCount = (int) ($session->technical_change_count ?? 0);
+		if ($mutationCount > 0 && 0 === $reviewChangeCount + $technicalChangeCount) {
+			$reviewChangeCount = $mutationCount;
+		}
 
 		return array(
 			'id'               => (int) $session->id,
 			'name'             => (string) $session->name,
 			'status'           => (string) $session->status,
-			'mutationCount'    => (int) $session->mutation_count,
+			'mutationCount'    => $mutationCount,
+			'reviewChangeCount' => $reviewChangeCount,
+			'technicalChangeCount' => $technicalChangeCount,
 			'writeSignalCount' => (int) ($session->write_signal_count ?? 0),
 			'startedAt'        => $this->isoDate((string) $session->started_at),
 			'startedAtLabel'   => human_time_diff(strtotime((string) $session->started_at . ' UTC'), time()),

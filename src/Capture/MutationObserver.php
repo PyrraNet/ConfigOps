@@ -189,6 +189,7 @@ final class MutationObserver
 		}
 
 		$classification = $this->adapters->analyze($option, $changes);
+		$changes        = $classification['changes'];
 		$source         = $this->source->capture();
 		$diffJson       = wp_json_encode($changes, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 		if (! is_string($diffJson) || strlen($diffJson) > self::MAX_DIFF_BYTES) {
@@ -202,6 +203,17 @@ final class MutationObserver
 			$diffJson = wp_json_encode($changes, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 		}
 
+		$adapterMixedWithRuntime = null !== $classification['adapter_id']
+			&& $classification['technical_change_count'] > 0;
+		$fullRestore = $before->restorable
+			&& $after->restorable
+			&& $classification['allows_restore']
+			&& ! $adapterMixedWithRuntime;
+		$patchRestore = ! $fullRestore
+			&& 'derived' !== $classification['classification']
+			&& $classification['safe_restore_change_count'] > 0;
+		$restoreMode = $fullRestore ? 'full' : ($patchRestore ? 'patch' : 'none');
+
 		$this->mutations->insert(
 			array(
 				'session_id'           => $sessionId,
@@ -213,8 +225,13 @@ final class MutationObserver
 				'diff'                  => is_string($diffJson) ? $diffJson : '[]',
 				'old_autoload'          => $oldAutoload,
 				'new_autoload'          => $newAutoload,
-				'restorable'            => $before->restorable && $after->restorable && $classification['allows_restore'] ? 1 : 0,
+				'restorable'            => 'none' === $restoreMode ? 0 : 1,
+				'restore_mode'           => $restoreMode,
 				'is_redacted'           => $before->redacted || $after->redacted ? 1 : 0,
+				'review_change_count'    => $classification['review_change_count'],
+				'technical_change_count' => $classification['technical_change_count'],
+				'secret_change_count'    => $classification['secret_change_count'],
+				'safe_restore_change_count' => $classification['safe_restore_change_count'],
 				'classification'        => $classification['classification'],
 				'classification_reason' => $classification['reason'],
 				'adapter_id'             => $classification['adapter_id'],
@@ -231,7 +248,11 @@ final class MutationObserver
 				'occurred_at'           => current_time('mysql', true),
 			)
 		);
-		$this->captures->incrementMutationCount($sessionId);
+		$this->captures->incrementMutationCount(
+			$sessionId,
+			$classification['review_change_count'],
+			$classification['technical_change_count']
+		);
 	}
 
 	private function reportCaptureError(Throwable $error, string $option): void

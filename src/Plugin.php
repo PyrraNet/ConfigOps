@@ -71,7 +71,7 @@ final class Plugin
 		$source    = new SourceAttributor(CONFIGOPS_PATH);
 		$request   = new RequestContext();
 
-		(new SqlWriteSentry($wpdb, $captures, $signals, $source, $request))->register();
+		(new SqlWriteSentry($wpdb, $captures, $signals, $source, $request, $adapters))->register();
 
 		$observer = new MutationObserver(
 			$captures,
@@ -86,7 +86,7 @@ final class Plugin
 		);
 		$observer->register();
 
-		$restore   = new RestoreService($captures, $mutations, $codec, $metadata, new OperationLock($wpdb));
+		$restore   = new RestoreService($captures, $mutations, $codec, $metadata, new OperationLock($wpdb), $adapters);
 		$presenter = new ReviewPresenter($adapters);
 		$payloads  = new AdminPayloadFactory($captures, $mutations, $signals, $presenter, $adapters);
 

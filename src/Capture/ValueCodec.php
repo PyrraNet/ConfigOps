@@ -107,6 +107,11 @@ final class ValueCodec
 		return $this->semanticValue($expected) === $this->semanticValue($actual);
 	}
 
+	public function semanticallyEqual(mixed $left, mixed $right): bool
+	{
+		return $this->semanticValue($left) === $this->semanticValue($right);
+	}
+
 	/**
 	 * @param array{restorable: bool, redacted: bool, nodes: int, limited: bool} $state Encoding state.
 	 * @return array<string, mixed>

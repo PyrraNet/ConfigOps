@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ConfigOps\Capture;
 
+use ConfigOps\Adapter\AdapterRegistry;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\DatabaseWriteSignalRepository;
 use Throwable;
@@ -27,7 +28,8 @@ final class SqlWriteSentry
 		private readonly CaptureRepository $captures,
 		private readonly DatabaseWriteSignalRepository $signals,
 		private readonly SourceAttributor $source,
-		private readonly RequestContext $request
+		private readonly RequestContext $request,
+		private readonly ?AdapterRegistry $adapters = null
 	) {
 	}
 
@@ -49,12 +51,19 @@ final class SqlWriteSentry
 			if (
 				null === $sessionId
 				|| $this->isUncorrelatedCoreCronRequest()
+				|| $this->isUserPreferenceWrite($write['table'])
+				|| $this->isKnownRuntimeLock()
 				|| $this->isManagedOptionsApiWrite($write['table'])
 			) {
 				return $query;
 			}
 
-			$this->record($sessionId, $write['operation'], $write['table']);
+			$source = $this->source->capture();
+			if (null !== $this->adapters && $this->adapters->isKnownNonConfigurationWrite($write['table'], $source)) {
+				return $query;
+			}
+
+			$this->record($sessionId, $write['operation'], $write['table'], $source);
 		} catch (Throwable $error) {
 			$this->reportCaptureError($error);
 		} finally {
@@ -112,9 +121,31 @@ final class SqlWriteSentry
 		return 0 === $this->request->actorId() && '/wp-cron.php' === $this->request->uri();
 	}
 
-	private function record(int $sessionId, string $operation, string $table): void
+	private function isUserPreferenceWrite(string $table): bool
 	{
-		$source = $this->source->capture();
+		// ConfigOps captures site configuration, not login/session state, dismissed
+		// notices, editor preferences, or other per-user metadata.
+		return $table === $this->database->usermeta;
+	}
+
+	private function isKnownRuntimeLock(): bool
+	{
+		foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 24) as $frame) {
+			$file = str_replace('\\', '/', (string) ($frame['file'] ?? ''));
+			if (str_ends_with($file, '/action-scheduler/classes/ActionScheduler_OptionLock.php')) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * @param array{type: string, component: string, file: string, line: int}|null $source Captured source.
+	 */
+	private function record(int $sessionId, string $operation, string $table, ?array $source = null): void
+	{
+		$source ??= $this->source->capture();
 		$signature = implode('|', array((string) $sessionId, $operation, $table, $source['type'], $source['component'], $source['file'], (string) $source['line']));
 		if (isset($this->signalIds[$signature])) {
 			$this->signals->incrementOccurrence($this->signalIds[$signature]);

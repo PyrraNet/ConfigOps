@@ -13,7 +13,7 @@ use wpdb;
 
 final class Schema
 {
-	private const VERSION = 4;
+	private const VERSION = 6;
 
 	public function __construct(private readonly wpdb $database)
 	{
@@ -42,6 +42,8 @@ final class Schema
 			actor_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			initial_url text NULL,
 			mutation_count bigint(20) unsigned NOT NULL DEFAULT 0,
+			review_change_count bigint(20) unsigned NOT NULL DEFAULT 0,
+			technical_change_count bigint(20) unsigned NOT NULL DEFAULT 0,
 			write_signal_count bigint(20) unsigned NOT NULL DEFAULT 0,
 			started_at datetime NOT NULL,
 			ended_at datetime NULL,
@@ -61,7 +63,12 @@ final class Schema
 			old_autoload varchar(20) NULL,
 			new_autoload varchar(20) NULL,
 			restorable tinyint(1) unsigned NOT NULL DEFAULT 1,
+			restore_mode varchar(12) NOT NULL DEFAULT 'full',
 			is_redacted tinyint(1) unsigned NOT NULL DEFAULT 0,
+			review_change_count int(10) unsigned NOT NULL DEFAULT 0,
+			technical_change_count int(10) unsigned NOT NULL DEFAULT 0,
+			secret_change_count int(10) unsigned NOT NULL DEFAULT 0,
+			safe_restore_change_count int(10) unsigned NOT NULL DEFAULT 0,
 			classification varchar(20) NOT NULL DEFAULT 'unknown',
 			classification_reason varchar(255) NULL,
 			adapter_id varchar(191) NULL,

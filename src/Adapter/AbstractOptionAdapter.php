@@ -35,6 +35,10 @@ abstract class AbstractOptionAdapter implements ConfigAdapter
 	{
 		$kinds = array();
 		foreach ($changes as $change) {
+			if (is_string($change['kind'] ?? null)) {
+				$kinds[] = $change['kind'];
+				continue;
+			}
 			if (true === ($change['redacted'] ?? false)) {
 				$kinds[] = 'secret';
 				continue;

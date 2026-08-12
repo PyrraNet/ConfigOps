@@ -84,9 +84,30 @@ final class CaptureRepository
 		}
 
 		$mutationTable = $this->database->prefix . 'configops_mutations';
-		$mutationCount = (int) $this->database->get_var(
-			$this->database->prepare("SELECT COUNT(*) FROM {$mutationTable} WHERE session_id = %d", $id)
+		$mutationSummary = $this->database->get_row(
+			$this->database->prepare(
+				"SELECT
+					COUNT(*) AS mutation_count,
+					COALESCE(SUM(review_change_count), 0) AS review_change_count,
+					COALESCE(SUM(technical_change_count), 0) AS technical_change_count
+				FROM {$mutationTable} WHERE session_id = %d",
+				$id
+			)
 		);
+		$mutationCount = is_object($mutationSummary) ? (int) $mutationSummary->mutation_count : 0;
+		$reviewChangeCount = is_object($mutationSummary) ? (int) $mutationSummary->review_change_count : 0;
+		$technicalChangeCount = is_object($mutationSummary) ? (int) $mutationSummary->technical_change_count : 0;
+		// Captures started before schema v6 have option counts but no field counts.
+		// Keep those histories useful instead of turning them into an empty review.
+		if ($mutationCount > 0 && 0 === $reviewChangeCount + $technicalChangeCount) {
+			$technicalChangeCount = (int) $this->database->get_var(
+				$this->database->prepare(
+					"SELECT COUNT(*) FROM {$mutationTable} WHERE session_id = %d AND classification = 'derived'",
+					$id
+				)
+			);
+			$reviewChangeCount = $mutationCount - $technicalChangeCount;
+		}
 		$signalTable = $this->database->prefix . 'configops_write_signals';
 		$writeSignalCount = (int) $this->database->get_var(
 			$this->database->prepare("SELECT COALESCE(SUM(occurrence_count), 0) FROM {$signalTable} WHERE session_id = %d", $id)
@@ -97,11 +118,13 @@ final class CaptureRepository
 			array(
 				'status'             => 'completed',
 				'mutation_count'     => $mutationCount,
+				'review_change_count' => $reviewChangeCount,
+				'technical_change_count' => $technicalChangeCount,
 				'write_signal_count' => $writeSignalCount,
 				'ended_at'           => current_time('mysql', true),
 			),
 			array('id' => $id),
-			array('%s', '%d', '%d', '%s'),
+			array('%s', '%d', '%d', '%d', '%d', '%s'),
 			array('%d')
 		);
 		if (false === $updated) {
@@ -169,11 +192,19 @@ final class CaptureRepository
 		return $this->activeSession;
 	}
 
-	public function incrementMutationCount(int $sessionId): void
+	public function incrementMutationCount(int $sessionId, int $reviewChanges = 1, int $technicalChanges = 0): void
 	{
+		$reviewChanges    = max(0, $reviewChanges);
+		$technicalChanges = max(0, $technicalChanges);
 		$updated = $this->database->query(
 			$this->database->prepare(
-				"UPDATE {$this->table} SET mutation_count = mutation_count + 1 WHERE id = %d",
+				"UPDATE {$this->table}
+				SET mutation_count = mutation_count + 1,
+					review_change_count = review_change_count + %d,
+					technical_change_count = technical_change_count + %d
+				WHERE id = %d",
+				$reviewChanges,
+				$technicalChanges,
 				$sessionId
 			)
 		);
@@ -184,6 +215,8 @@ final class CaptureRepository
 
 		if ($this->activeSession && (int) $this->activeSession->id === $sessionId) {
 			++$this->activeSession->mutation_count;
+			$this->activeSession->review_change_count += $reviewChanges;
+			$this->activeSession->technical_change_count += $technicalChanges;
 		}
 	}
 

@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace ConfigOps\Adapter;
 
-final class YoastSeoAdapter extends AbstractOptionAdapter
+final class YoastSeoAdapter extends AbstractOptionAdapter implements DatabaseWriteAwareAdapter
 {
 	/** @var list<string> */
 	private const CONFIG_OPTIONS = array('wpseo', 'wpseo_titles', 'wpseo_social', 'wpseo_llmstxt');
@@ -64,6 +64,12 @@ final class YoastSeoAdapter extends AbstractOptionAdapter
 		'last_updated_on',
 		'first_activated_by',
 		'schema_aggregation_endpoint_enabled_on',
+		'home_url',
+		'permalink_structure',
+		'dynamic_permalinks',
+		'category_base_url',
+		'tag_base_url',
+		'custom_taxonomy_slugs',
 	);
 
 	/** @var list<string> */
@@ -77,12 +83,6 @@ final class YoastSeoAdapter extends AbstractOptionAdapter
 		'site_type',
 		'has_multiple_authors',
 		'environment_type',
-		'permalink_structure',
-		'home_url',
-		'dynamic_permalinks',
-		'category_base_url',
-		'tag_base_url',
-		'custom_taxonomy_slugs',
 		'wincher_website_id',
 	);
 
@@ -119,6 +119,8 @@ final class YoastSeoAdapter extends AbstractOptionAdapter
 		$this->define('wpseo_titles', '/company_logo_id', 'Organization logo', 'Site identity', 'reference', 'A media item on this website; raw attachment IDs do not travel safely.');
 		$this->define('wpseo_titles', '/person_logo', 'Person logo URL', 'Site identity', 'environment', 'The media URL that represents this person on this website.');
 		$this->define('wpseo_titles', '/person_logo_id', 'Person logo', 'Site identity', 'reference', 'A media item on this website; raw attachment IDs do not travel safely.');
+		$this->define('wpseo_titles', '/company_logo_meta', 'Organization logo cache', 'Plugin housekeeping', 'runtime', 'Yoast removed generated image metadata that is not editable on this settings screen.');
+		$this->define('wpseo_titles', '/person_logo_meta', 'Person logo cache', 'Plugin housekeeping', 'runtime', 'Yoast removed generated image metadata that is not editable on this settings screen.');
 		$this->define('wpseo_titles', '/website_name', 'Website name', 'Site identity', 'environment', 'The public name Yoast describes to search engines.');
 		$this->define('wpseo_titles', '/alternate_website_name', 'Alternative website name', 'Site identity', 'environment', 'An optional shorter or alternative public name.');
 
@@ -156,14 +158,14 @@ final class YoastSeoAdapter extends AbstractOptionAdapter
 			'yoast-seo',
 			'Yoast SEO',
 			'wordpress-seo/wp-seo.php',
-			'>=28.2 <29.0.0',
-			1,
+			'=28.2',
+			2,
 			array(
 				array('id' => 'capture', 'label' => 'Find changes', 'level' => 'full', 'note' => 'Core Free settings options are captured; content metadata is explicitly excluded.'),
 				array('id' => 'explain', 'label' => 'Explain fields', 'level' => 'partial', 'note' => 'Core feature, search appearance, social, and LLMs.txt fields are named; dynamic content-type fields use clear generated labels.'),
 				array('id' => 'secrets', 'label' => 'Hide secrets', 'level' => 'full', 'note' => 'MyYoast, Semrush, Wincher, and OAuth credentials are removed before storage.'),
 				array('id' => 'noise', 'label' => 'Separate technical noise', 'level' => 'full', 'note' => 'Indexing progress, migrations, tracking, and maintenance state are separated.'),
-				array('id' => 'restore', 'label' => 'Undo safely', 'level' => 'partial', 'note' => 'Configuration options use conflict checks; content metadata, multisite data, and credentials are blocked.'),
+				array('id' => 'restore', 'label' => 'Undo safely', 'level' => 'partial', 'note' => 'Supported settings use field-level conflict checks while credentials, content metadata, and multisite data stay untouched.'),
 				array('id' => 'apply', 'label' => 'Apply to another site', 'level' => 'planned', 'note' => 'IDs require semantic references before Release Packs can apply them elsewhere.'),
 			),
 			array(
@@ -286,5 +288,11 @@ final class YoastSeoAdapter extends AbstractOptionAdapter
 
 		return in_array($root, array('semrush_tokens', 'wincher_tokens', 'myyoast-oauth'), true)
 			|| $this->pathMatchesSecret($path);
+	}
+
+	public function isKnownNonConfigurationWrite(string $table, array $source): bool
+	{
+		return 'wordpress-seo' === $source['component']
+			&& 1 === preg_match('/(?:^|_)yoast_(?:indexable|indexable_hierarchy|migrations|primary_term|seo_links)$/', $table);
 	}
 }

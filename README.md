@@ -28,8 +28,8 @@ This repository is an early technical preview of the local recorder:
 - Options API mutations with nested JSON Pointer diffs;
 - value-free signals for direct database writes, without storing raw SQL;
 - source attribution, conservative noise classification and secret redaction;
-- versioned capture adapters for WP Mail SMTP Free 4.9.x and Yoast SEO Free 28.2.x, with an in-product support contract;
-- individual and session restore with conflict checks;
+- versioned capture adapters for the tested WP Mail SMTP Free 4.9.0 and Yoast SEO Free 28.2 releases, with an in-product support contract;
+- field-aware undo with conflict checks that preserves secrets and plugin housekeeping;
 - a performance-budgeted React review interface inside WordPress.
 
 Release Packs, remote deployment, Policies and Drift are the product direction—not shipped features.

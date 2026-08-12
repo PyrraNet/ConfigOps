@@ -23,6 +23,13 @@ final class NoiseClassifier implements MutationClassifier
 			);
 		}
 
+		if (str_starts_with($optionName, 'action_scheduler_') || str_starts_with($optionName, 'as_has_')) {
+			return array(
+				'classification' => 'derived',
+				'reason'         => 'Action Scheduler generated queue or migration state.',
+			);
+		}
+
 		if (1 === preg_match('/(^|_)(cache|cached|lock|heartbeat|last_checked|update_status)(_|$)/i', $optionName)) {
 			return array(
 				'classification' => 'derived',
@@ -30,7 +37,7 @@ final class NoiseClassifier implements MutationClassifier
 			);
 		}
 
-		if (in_array($optionName, array('cron', 'rewrite_rules', 'update_core', 'update_plugins', 'update_themes'), true)) {
+		if (in_array($optionName, array('cron', 'recently_activated', 'recovery_keys', 'rewrite_rules', 'update_core', 'update_plugins', 'update_themes'), true)) {
 			return array(
 				'classification' => 'derived',
 				'reason'         => 'Known WordPress-generated runtime state.',

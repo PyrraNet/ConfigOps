@@ -44,7 +44,7 @@ $adapters = new \ConfigOps\Adapter\AdapterRegistry(
 $codec     = new \ConfigOps\Capture\ValueCodec($adapters);
 $metadata  = new \ConfigOps\Database\OptionMetadataRepository($wpdb);
 $operationLock = new \ConfigOps\Execution\OperationLock($wpdb);
-$restore       = new \ConfigOps\Restore\RestoreService($captures, $mutations, $codec, $metadata, $operationLock);
+$restore       = new \ConfigOps\Restore\RestoreService($captures, $mutations, $codec, $metadata, $operationLock, $adapters);
 
 delete_option('fixture_nested');
 delete_option('fixture_deleted');
@@ -93,7 +93,7 @@ $rows = $mutations->forSession($sessionId);
 $assert(4 === count($rows), 'The active capture should record add, update, runtime, and delete mutations.');
 $summary = $mutations->summaryForSession($sessionId);
 $assert(
-	array('total' => 4, 'derived' => 1, 'redacted' => 1, 'not_restorable' => 1) === $summary,
+	array('total' => 5, 'derived' => 1, 'redacted' => 1, 'not_restorable' => 1) === $summary,
 	'Session summaries should remain accurate without loading every mutation payload.'
 );
 $iteratedRows = iterator_to_array($mutations->iterateForSession($sessionId, 2), false);
@@ -306,7 +306,7 @@ $hostileRows = $mutations->forSession($hostileSession);
 $assert(8 === count($hostileRows), 'The hostile fixture should produce eight observable Options API mutations.');
 $hostileSummary = $mutations->summaryForSession($hostileSession);
 $assert(
-	array('total' => 8, 'derived' => 3, 'redacted' => 1, 'not_restorable' => 1) === $hostileSummary,
+	array('total' => 13, 'derived' => 3, 'redacted' => 1, 'not_restorable' => 1) === $hostileSummary,
 	'The hostile fixture summary should distinguish decisions, runtime noise, and its redacted secret.'
 );
 
