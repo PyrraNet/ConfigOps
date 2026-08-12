@@ -1,0 +1,40 @@
+# Dependencies
+/node_modules/
+/vendor/
+
+# Local configuration and credentials
+/.env
+/.env.*
+!/.env.example
+/auth.json
+/.wp-env.json
+/.wp-env.json.override
+
+# Test and review output
+/artifacts/
+/.design-review/
+/coverage/
+/playwright-report/
+/test-results/
+/.phpunit.cache/
+/.phpunit.result.cache
+
+# Release output
+/dist/
+/*.zip
+
+# Logs and temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.tmp
+*.swp
+*~
+
+# Editor and operating-system metadata
+.DS_Store
+Thumbs.db
+/.idea/
+/.vscode/

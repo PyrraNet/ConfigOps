@@ -1,0 +1,65 @@
+name: ConfigOps CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wordpress:
+    name: WordPress ${{ matrix.wordpress }} / PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: "8.3"
+            wordpress: "7.0"
+          - php: "8.4"
+            wordpress: "latest"
+          - php: "8.5"
+            wordpress: "latest"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install test tooling
+        run: npm ci
+
+      - name: Build performance-budgeted React islands
+        run: npm run build:ui && npm run check:ui-budget
+
+      - name: Parse PHP sources
+        run: >-
+          node_modules/.bin/wp-playground-cli php
+          --php=${{ matrix.php }}
+          --wp=${{ matrix.wordpress }}
+          --mount=.:/wordpress/wp-content/plugins/configops
+          -- /wordpress/wp-content/plugins/configops/tests/lint.php
+
+      - name: Run unit checks
+        run: >-
+          node_modules/.bin/wp-playground-cli php
+          --php=${{ matrix.php }}
+          --wp=${{ matrix.wordpress }}
+          --mount=.:/wordpress/wp-content/plugins/configops
+          -- /wordpress/wp-content/plugins/configops/tests/run.php
+
+      - name: Run WordPress integration checks
+        run: >-
+          node_modules/.bin/wp-playground-cli php
+          --php=${{ matrix.php }}
+          --wp=${{ matrix.wordpress }}
+          --mount=.:/wordpress/wp-content/plugins/configops
+          -- /wordpress/wp-content/plugins/configops/tests/integration.php

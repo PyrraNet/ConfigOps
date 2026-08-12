@@ -1,0 +1,37 @@
+<?php
+/**
+ * Plugin Name:       ConfigOps – Settings History, Diff & Rollback
+ * Description:       Record WordPress configuration changes, inspect precise diffs, and safely restore known values.
+ * Version:           0.1.0-dev
+ * Requires at least: 7.0
+ * Requires PHP:      8.3
+ * Author:            Felix Hans
+ * License:           GPL-2.0-or-later
+ * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain:       configops
+ * Domain Path:       /languages
+ *
+ * @package ConfigOps
+ */
+
+declare(strict_types=1);
+
+if (! defined('ABSPATH')) {
+	exit;
+}
+
+define('CONFIGOPS_VERSION', '0.1.0-dev');
+define('CONFIGOPS_FILE', __FILE__);
+define('CONFIGOPS_PATH', __DIR__);
+define('CONFIGOPS_URL', plugin_dir_url(__FILE__));
+
+require_once CONFIGOPS_PATH . '/src/Autoload.php';
+
+register_activation_hook(CONFIGOPS_FILE, array(\ConfigOps\Plugin::class, 'activate'));
+
+add_action(
+	'plugins_loaded',
+	static function (): void {
+		\ConfigOps\Plugin::boot();
+	}
+);

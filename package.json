@@ -1,0 +1,25 @@
+{
+  "name": "configops",
+  "version": "0.1.0-dev",
+  "private": true,
+  "description": "Desired state management for WordPress configuration.",
+  "scripts": {
+    "build:ui": "node build/build-ui.mjs",
+    "check:ui-budget": "node build/check-ui-budget.mjs",
+    "predev": "npm run build:ui",
+    "dev": "wp-playground-cli start --php=8.3 --wp=latest --auto-mount --login",
+    "lint:php": "wp-playground-cli php --php=8.3 --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/lint.php",
+    "test:unit": "wp-playground-cli php --php=8.3 --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/run.php",
+    "test:integration": "wp-playground-cli php --php=8.3 --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/integration.php",
+    "test:visual": "node tests/visual-check.mjs",
+    "test": "npm run build:ui && npm run check:ui-budget && npm run lint:php && npm run test:unit && npm run test:integration"
+  },
+  "devDependencies": {
+    "@wp-playground/cli": "3.1.49",
+    "esbuild": "0.28.2",
+    "playwright-core": "1.62.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
