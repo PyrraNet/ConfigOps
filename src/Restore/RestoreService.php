@@ -218,6 +218,7 @@ final class RestoreService
 		}
 
 		if (! empty($failedCompensations)) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- compensationFailure() escapes the message; the previous throwable is metadata.
 			throw $this->compensationFailure(
 				$cause->getMessage() . ' Compensation also failed for: ' . implode(', ', $failedCompensations) . '.',
 				true,
@@ -225,6 +226,7 @@ final class RestoreService
 			);
 		}
 
+		// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- compensationFailure() escapes the message; the previous throwable is metadata.
 		throw $this->compensationFailure(
 			$cause->getMessage() . ' Earlier restore steps were compensated.',
 			false,
@@ -237,6 +239,7 @@ final class RestoreService
 		try {
 			$this->audit->succeed($auditId, $restoredOptionCount);
 		} catch (Throwable $error) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message; the previous throwable is metadata.
 			throw $this->runtimeFailure(
 				'The settings were undone, but ConfigOps could not finalize the audit record. Do not retry this undo until the running audit entry has been inspected.',
 				$error
@@ -316,6 +319,7 @@ final class RestoreService
 		$sentinel   = new \stdClass();
 		$current    = get_option($optionName, $sentinel);
 		if ($current === $sentinel || ! is_array($current)) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
 			throw $this->runtimeFailure("Conflict: {$optionName} no longer contains the captured settings array. Nothing was restored.");
 		}
 
@@ -325,6 +329,7 @@ final class RestoreService
 			null !== $expectedAutoload
 			&& $this->autoloadMode($expectedAutoload) !== $this->autoloadMode($currentAutoload)
 		) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
 			throw $this->runtimeFailure("Conflict: {$optionName} has a different autoload state. Nothing was restored.");
 		}
 
@@ -348,6 +353,7 @@ final class RestoreService
 			$updated = update_option($optionName, $patched, $autoloadFlag);
 			$stored  = get_option($optionName, $sentinel);
 			if ($stored === $sentinel || ! $this->codec->semanticallyEqual($stored, $patched)) {
+				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
 				throw $this->runtimeFailure("WordPress could not undo the safe fields in {$optionName}.");
 			}
 			unset($updated);
@@ -364,6 +370,7 @@ final class RestoreService
 					throw new RuntimeException('The original current value could not be verified after compensation.');
 				}
 			} catch (Throwable) {
+				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- compensationFailure() escapes the message; the previous throwable is metadata.
 				throw $this->compensationFailure(
 					$error->getMessage() . ' The original current value could not be restored completely.',
 					true,
@@ -371,6 +378,7 @@ final class RestoreService
 				);
 			}
 
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- compensationFailure() escapes the message; the previous throwable is metadata.
 			throw $this->compensationFailure(
 				$error->getMessage() . ' The original current value was reapplied and verified.',
 				false,
@@ -389,6 +397,7 @@ final class RestoreService
 		$operation = (string) ($change['op'] ?? '');
 		if ('remove' === $operation) {
 			if ($exists) {
+				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
 				throw $this->runtimeFailure("Conflict: {$optionName} changed after this capture. Nothing was restored.");
 			}
 
@@ -396,6 +405,7 @@ final class RestoreService
 		}
 
 		if (! $exists || ! $this->codec->semanticallyEqual($value, $change['after'] ?? null)) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
 			throw $this->runtimeFailure("Conflict: {$optionName} changed after this capture. Nothing was restored.");
 		}
 	}
@@ -514,6 +524,7 @@ final class RestoreService
 
 		if ($this->codec->isMissing($expectedPayload)) {
 			if ($current !== $sentinel) {
+				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
 				throw $this->runtimeFailure("Conflict: {$optionName} exists but the captured state expects it to be absent.");
 			}
 
@@ -521,6 +532,7 @@ final class RestoreService
 		}
 
 		if ($current === $sentinel || ! $this->codec->matches($current, $expectedPayload, $optionName)) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
 			throw $this->runtimeFailure("Conflict: {$optionName} changed after this capture. Nothing was restored.");
 		}
 
@@ -529,6 +541,7 @@ final class RestoreService
 			null !== $expectedAutoload
 			&& $this->autoloadMode($expectedAutoload) !== $this->autoloadMode($currentAutoload)
 		) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
 			throw $this->runtimeFailure("Conflict: {$optionName} has a different autoload state. Nothing was restored.");
 		}
 	}
@@ -540,6 +553,7 @@ final class RestoreService
 
 		if ($this->codec->isMissing($payload)) {
 			if ($current !== $sentinel && ! delete_option($optionName)) {
+				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
 				throw $this->runtimeFailure("WordPress could not delete {$optionName} during restore.");
 			}
 
@@ -551,6 +565,7 @@ final class RestoreService
 
 		if ($current === $sentinel) {
 			if (! add_option($optionName, $value, '', $autoloadFlag)) {
+				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
 				throw $this->runtimeFailure("WordPress could not recreate {$optionName} during restore.");
 			}
 
@@ -560,6 +575,7 @@ final class RestoreService
 		if (! update_option($optionName, $value, $autoloadFlag)) {
 			$stored = get_option($optionName, $sentinel);
 			if ($stored === $sentinel || ! $this->codec->matches($stored, $payload, $optionName)) {
+				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
 				throw $this->runtimeFailure("WordPress could not restore {$optionName}.");
 			}
 		}
