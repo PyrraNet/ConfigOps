@@ -403,6 +403,25 @@ final class CaptureRepository
 	{
 		$this->integrityFallbackChecked = true;
 		$ledger = $this->integrityFallbackLedger();
+		if ($ledger['overflow']) {
+			// Overflow means older markers lost their session association. Fail all
+			// existing evidence closed once canonical storage is writable, then
+			// retire the site-wide fallback instead of showing a permanent alert.
+			$updated = $this->database->query(
+				$this->database->prepare(
+					"UPDATE {$this->table}
+					SET last_error_code = CASE WHEN capture_error_count < 1 THEN 'integrity_fallback_overflow' ELSE last_error_code END,
+						last_error_at = CASE WHEN capture_error_count < 1 THEN %s ELSE last_error_at END,
+						capture_error_count = CASE WHEN capture_error_count < 1 THEN 1 ELSE capture_error_count END
+					WHERE status NOT IN ('discarded', 'deleting')",
+					current_time('mysql', true)
+				)
+			);
+			if (false !== $updated) {
+				$ledger['overflow'] = false;
+			}
+		}
+
 		foreach ($ledger['events'] as $sessionKey => $event) {
 			$sessionId = (int) $sessionKey;
 			if ($sessionId <= 0) {

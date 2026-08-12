@@ -97,6 +97,12 @@ $assert(! $secret->restorable, 'A redacted option must never be presented as res
 $assert(! str_contains($secret->payload, 'correct horse'), 'Secret material must not reach the stored payload.');
 $assert(str_contains($secret->payload, 'redacted'), 'The payload should retain an explicit redaction marker.');
 
+$connectorOption = 'connectors_ai_openai_api_key';
+$connectorSecret = $codec->encode('sk-must-never-persist', $connectorOption);
+$assert($codec->isEntireOptionSensitive($connectorOption), 'WordPress Connector API key options must be recognized from the option name alone.');
+$assert($connectorSecret->redacted && ! $connectorSecret->restorable, 'A complete Connector API key option must be redacted and non-restorable.');
+$assert(! str_contains($connectorSecret->payload, 'sk-must-never-persist'), 'Connector API key plaintext must never enter an encoded payload.');
+
 $opaqueJsonSecret = '{"transport":{"host":"smtp.example.test","password":"do-not-persist"}}';
 $opaqueJson = $codec->encode($opaqueJsonSecret, 'fixture_opaque_blob');
 $assert($opaqueJson->redacted && ! $opaqueJson->restorable, 'Secrets nested in an opaque JSON string must redact the complete string.');

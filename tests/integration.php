@@ -268,6 +268,43 @@ $assert(
 );
 $assert($fallbackSession === $captures->stop(), 'A capture should remain stoppable after its integrity fallback is reconciled.');
 
+$overflowSession = $captures->start('Integrity overflow recovery', 0, '/wp-admin/admin.php?page=configops');
+$captures->stop();
+update_option(
+	\ConfigOps\Database\CaptureRepository::INTEGRITY_FALLBACK_OPTION,
+	array('events' => array(), 'overflow' => true),
+	false
+);
+$overflowRepository = new \ConfigOps\Database\CaptureRepository($wpdb);
+$assert(false === $overflowRepository->reconcileIntegrityFallback(), 'A writable canonical table should resolve an overflow fallback without a permanent admin alert.');
+$assert(false === get_option(\ConfigOps\Database\CaptureRepository::INTEGRITY_FALLBACK_OPTION, false), 'A reconciled overflow marker should remove its site-wide fallback option.');
+$overflowCapture = $overflowRepository->find($overflowSession);
+$assert(
+	1 === (int) $overflowCapture->capture_error_count
+	&& 'integrity_fallback_overflow' === (string) $overflowCapture->last_error_code,
+	'Overflow recovery must conservatively invalidate existing evidence before clearing its fallback alert.'
+);
+
+$connectorOption = 'connectors_ai_openai_api_key';
+$connectorPlaintext = 'sk-delete-hook-must-not-read';
+delete_option($connectorOption);
+add_option($connectorOption, $connectorPlaintext, '', false);
+$connectorReadCount = 0;
+$connectorReadProbe = static function (mixed $value) use (&$connectorReadCount): mixed {
+	++$connectorReadCount;
+
+	return $value;
+};
+$connectorSession = $captures->start('Connector secret deletion', 0, '/wp-admin/options-general.php?page=connectors');
+add_filter("pre_option_{$connectorOption}", $connectorReadProbe);
+delete_option($connectorOption);
+remove_filter("pre_option_{$connectorOption}", $connectorReadProbe);
+$captures->stop();
+$connectorRows = $mutations->forSession($connectorSession);
+$assert(0 === $connectorReadCount, 'Deletion capture must not fetch a whole-option credential whose name already proves it is sensitive.');
+$assert(1 === count($connectorRows) && 1 === (int) $connectorRows[0]->is_redacted, 'A skipped Connector API key read must still leave explicit redacted deletion evidence.');
+$assert(! str_contains((string) $connectorRows[0]->old_value, $connectorPlaintext), 'Connector API key plaintext must never reach deletion evidence storage.');
+
 delete_option('fixture_retention');
 $retentionSession = $captures->start('Expired retention fixture', 0, '/wp-admin/options-general.php');
 add_option('fixture_retention', 'temporary', '', false);

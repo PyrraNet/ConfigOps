@@ -20,7 +20,7 @@ final class MutationObserver
 {
 	private const MAX_DIFF_BYTES = 262144;
 
-	/** @var array<string, array{value: mixed, autoload: ?string, session_id: int}> */
+	/** @var array<string, array{before: EncodedValue, autoload: ?string, session_id: int}> */
 	private array $pendingDeletes = array();
 
 	/** @var array<string, int> */
@@ -161,8 +161,13 @@ final class MutationObserver
 		}
 
 		try {
+			// Whole-option credentials can be classified from their name alone. Do
+			// not fetch those values into ConfigOps memory merely to redact them.
+			$before = $this->codec->isEntireOptionSensitive($option)
+				? $this->codec->redacted()
+				: $this->codec->encode(get_option($option), $option);
 			$this->pendingDeletes[$option] = array(
-				'value'    => get_option($option),
+				'before'   => $before,
 				'autoload' => $this->optionMetadata->autoloadFor($option),
 				'session_id' => $sessionId,
 			);
@@ -184,7 +189,7 @@ final class MutationObserver
 				$pending['session_id'],
 				'delete',
 				$option,
-				$this->codec->encode($pending['value'], $option),
+				$pending['before'],
 				$this->codec->missing(),
 				$pending['autoload'],
 				null

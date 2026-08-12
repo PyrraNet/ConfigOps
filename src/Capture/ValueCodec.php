@@ -26,6 +26,10 @@ final class ValueCodec
 
 	public function encode(mixed $value, string $optionName = ''): EncodedValue
 	{
+		if ($this->isEntireOptionSensitive($optionName)) {
+			return $this->redacted();
+		}
+
 		$state = array(
 			'restorable' => true,
 			'redacted'   => false,
@@ -33,13 +37,7 @@ final class ValueCodec
 			'limited'    => false,
 		);
 
-		if ($this->sensitiveValues->isSensitive($optionName, array())) {
-			$state['restorable'] = false;
-			$state['redacted']   = true;
-			$node                = array('type' => 'redacted');
-		} else {
-			$node = $this->encodeNode($value, $state, 0, $optionName, array());
-		}
+		$node = $this->encodeNode($value, $state, 0, $optionName, array());
 
 		if ($state['limited']) {
 			$node = array(
@@ -71,6 +69,18 @@ final class ValueCodec
 		$node = array('type' => 'missing');
 
 		return new EncodedValue($this->jsonEncode($node), '[not set]', true, false);
+	}
+
+	public function redacted(): EncodedValue
+	{
+		$node = array('type' => 'redacted');
+
+		return new EncodedValue($this->jsonEncode($node), '••••••••', false, true);
+	}
+
+	public function isEntireOptionSensitive(string $optionName): bool
+	{
+		return $this->sensitiveValues->isSensitive($optionName, array());
 	}
 
 	public function decode(string $payload): mixed
