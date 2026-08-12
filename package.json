@@ -5,6 +5,7 @@
   "description": "Desired state management for WordPress configuration.",
   "scripts": {
     "build:ui": "node build/build-ui.mjs",
+    "build:plugin": "npm run build:ui && bash build/package-plugin.sh",
     "check:ui-budget": "node build/check-ui-budget.mjs",
     "predev": "npm run build:ui",
     "dev": "wp-playground-cli start --php=8.3 --wp=latest --auto-mount --login",
@@ -14,7 +15,7 @@
     "test:adapters": "wp-playground-cli php --php=8.3 --wp=latest --blueprint=tests/adapters.blueprint.json --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/adapters-integration.php",
     "test:adapter-ui": "node tests/adapters-user-flow.mjs",
     "test:visual": "node tests/visual-check.mjs",
-    "test": "npm run build:ui && npm run check:ui-budget && npm run lint:php && npm run test:unit && npm run test:integration && npm run test:adapters"
+    "test": "npm run build:plugin && npm run check:ui-budget && npm run lint:php && npm run test:unit && npm run test:integration && npm run test:adapters"
   },
   "devDependencies": {
     "@wp-playground/cli": "3.1.49",

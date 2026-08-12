@@ -15,7 +15,7 @@ use wpdb;
 
 final class Schema
 {
-	private const VERSION = 7;
+	private const VERSION = 8;
 
 	public function __construct(private readonly wpdb $database)
 	{
@@ -43,6 +43,7 @@ final class Schema
 		$sessions       = $this->database->prefix . 'configops_capture_sessions';
 		$mutations      = $this->database->prefix . 'configops_mutations';
 		$writeSignals   = $this->database->prefix . 'configops_write_signals';
+		$restoreRuns    = $this->database->prefix . 'configops_restore_runs';
 
 		$sql = "CREATE TABLE {$sessions} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -122,6 +123,23 @@ final class Schema
 			KEY session_order (session_id, id),
 			KEY session_request (session_id, request_id),
 			KEY table_occurred (table_name, occurred_at)
+		) {$charsetCollate};
+
+		CREATE TABLE {$restoreRuns} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			scope_type varchar(16) NOT NULL,
+			scope_id bigint(20) unsigned NOT NULL,
+			session_id bigint(20) unsigned NOT NULL,
+			actor_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			status varchar(24) NOT NULL DEFAULT 'running',
+			restored_option_count int(10) unsigned NOT NULL DEFAULT 0,
+			failure_code varchar(64) NULL,
+			started_at datetime NOT NULL,
+			finished_at datetime NULL,
+			PRIMARY KEY  (id),
+			KEY session_started (session_id, started_at),
+			KEY actor_started (actor_id, started_at),
+			KEY status_started (status, started_at)
 		) {$charsetCollate};";
 
 		dbDelta($sql);
@@ -168,6 +186,10 @@ final class Schema
 		$this->assertTableShape(
 			$writeSignals,
 			array('id', 'session_id', 'request_id', 'operation', 'table_name', 'occurrence_count', 'source_type', 'actor_id', 'occurred_at')
+		);
+		$this->assertTableShape(
+			$restoreRuns,
+			array('id', 'scope_type', 'scope_id', 'session_id', 'actor_id', 'status', 'restored_option_count', 'failure_code', 'started_at', 'finished_at')
 		);
 
 		update_option('configops_schema_version', self::VERSION, false);

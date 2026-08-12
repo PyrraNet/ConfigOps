@@ -29,11 +29,13 @@ use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\DatabaseWriteSignalRepository;
 use ConfigOps\Database\MutationRepository;
 use ConfigOps\Database\OptionMetadataRepository;
+use ConfigOps\Database\RestoreAuditRepository;
 use ConfigOps\Database\Schema;
 use ConfigOps\Diff\NestedDiff;
 use ConfigOps\Execution\OperationLock;
 use ConfigOps\Noise\NoiseClassifier;
 use ConfigOps\Restore\RestoreService;
+use ConfigOps\Maintenance\HistoryRetention;
 
 final class Plugin
 {
@@ -71,6 +73,7 @@ final class Plugin
 		$codec     = new ValueCodec($adapters);
 		$source    = new SourceAttributor(CONFIGOPS_PATH);
 		$request   = new RequestContext();
+		(new HistoryRetention($wpdb, new OperationLock($wpdb)))->register();
 
 		(new SqlWriteSentry($wpdb, $captures, $signals, $source, $request, $adapters))->register();
 
@@ -87,9 +90,24 @@ final class Plugin
 		);
 		$observer->register();
 
-		$restore   = new RestoreService($captures, $mutations, $codec, $metadata, new OperationLock($wpdb), $adapters);
+		$restore   = new RestoreService(
+			$captures,
+			$mutations,
+			$codec,
+			$metadata,
+			new OperationLock($wpdb),
+			$adapters,
+			new RestoreAuditRepository($wpdb)
+		);
 		$presenter = new ReviewPresenter($adapters);
-		$payloads  = new AdminPayloadFactory($captures, $mutations, $signals, $presenter, $adapters);
+		$payloads  = new AdminPayloadFactory(
+			$captures,
+			$mutations,
+			$signals,
+			$presenter,
+			$adapters,
+			new RestoreAuditRepository($wpdb)
+		);
 
 		(new RestController($captures, $mutations, $restore, $payloads))->register();
 		(new AdminController($captures, $restore, new FlashNoticeStore(), $payloads))->register();
@@ -115,6 +133,7 @@ final class Plugin
 
 		(new Schema($wpdb))->install();
 		(new CapabilityManager())->install();
+		HistoryRetention::schedule();
 	}
 
 	public static function deactivate(): void
@@ -128,6 +147,7 @@ final class Plugin
 			// by the repository before it reports an interrupted-session write error.
 			error_log('ConfigOps could not close its active capture during deactivation: ' . $error->getMessage());
 		}
+		HistoryRetention::unschedule();
 	}
 
 	/**

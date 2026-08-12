@@ -120,6 +120,57 @@ $assert($privateKey->redacted && ! str_contains($privateKey->payload, 'do-not-pe
 $publicUrl = $codec->encode('https://example.test/callback?mode=active', 'fixture_callback');
 $assert($publicUrl->restorable && ! $publicUrl->redacted, 'Ordinary URLs must not be mistaken for credential-bearing connection strings.');
 
+$tooDeepJson = str_repeat('{"level":', 34) . '"safe-looking"' . str_repeat('}', 34);
+$tooDeepEncoded = $codec->encode($tooDeepJson, 'fixture_opaque_blob');
+$assert($tooDeepEncoded->redacted, 'A structured string deeper than the inspection budget must fail closed instead of leaking an unvisited tail.');
+
+$malformedPayloadRejected = false;
+try {
+	$codec->decode('{"type":"array","items":"not-an-array"}');
+} catch (RuntimeException) {
+	$malformedPayloadRejected = true;
+}
+$assert($malformedPayloadRejected, 'Malformed persisted value nodes must never be interpreted as restorable state.');
+
+mt_srand(20260812);
+$randomValue = static function (int $depth = 0) use (&$randomValue): mixed {
+	if ($depth >= 4 || 0 === mt_rand(0, 3)) {
+		return match (mt_rand(0, 5)) {
+			0 => null,
+			1 => (bool) mt_rand(0, 1),
+			2 => mt_rand(-100000, 100000),
+			3 => mt_rand(-10000, 10000) / 10,
+			4 => 'value-' . mt_rand(0, 100000),
+			default => '',
+		};
+	}
+
+	$items = array();
+	$count = mt_rand(0, 5);
+	$list = (bool) mt_rand(0, 1);
+	for ($index = 0; $index < $count; ++$index) {
+		$key = $list ? $index : 'field_' . $index;
+		$items[$key] = $randomValue($depth + 1);
+	}
+
+	return $items;
+};
+
+for ($fuzzCase = 0; $fuzzCase < 250; ++$fuzzCase) {
+	$value = $randomValue();
+	$fuzzEncoded = $codec->encode($value, 'fixture_fuzz');
+	$assert($fuzzEncoded->restorable, "Deterministic codec fuzz case {$fuzzCase} should remain within the supported type boundary.");
+	$assert($value === $codec->decode($fuzzEncoded->payload), "Deterministic codec fuzz case {$fuzzCase} should round-trip exactly.");
+	$assert(array() === $diff->compare($fuzzEncoded->display, $codec->encode($value, 'fixture_fuzz')->display), "Deterministic diff fuzz case {$fuzzCase} should be stable.");
+}
+
+foreach (array('password', 'apiKey', 'client_secret', 'authorization', 'refresh-token', 'credentials') as $secretKey) {
+	$secretMarker = 'fuzz-secret-' . $secretKey;
+	$fuzzSecret = $codec->encode((string) json_encode(array('nested' => array($secretKey => $secretMarker))), 'fixture_fuzz_blob');
+	$assert($fuzzSecret->redacted, "Opaque secret key {$secretKey} should redact under fuzz coverage.");
+	$assert(! str_contains($fuzzSecret->payload, $secretMarker), "Opaque secret key {$secretKey} must leave no plaintext marker.");
+}
+
 $adapterDetector = new class implements SensitiveValueDetector {
 	public function isSensitive(string $optionName, array $path): bool
 	{

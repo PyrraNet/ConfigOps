@@ -674,6 +674,36 @@ body.toplevel_page_configops #wpbody-content {
 	font-size: 11px;
 }
 
+.configops-restore-state {
+	display: inline-flex;
+	flex-direction: column;
+	gap: 2px;
+	align-items: flex-end;
+	margin-left: auto;
+	color: var(--co-text-muted);
+	font-size: 9px;
+	line-height: 1.35;
+}
+
+.configops-restore-state strong {
+	color: var(--co-success);
+	font-size: 10px;
+	font-weight: 700;
+}
+
+.configops-restore-state--session {
+	padding: 7px 10px;
+	border: 1px solid color-mix(in srgb, var(--co-success) 35%, var(--co-border));
+}
+
+.configops-restore-state.is-uncertain {
+	border-color: color-mix(in srgb, var(--co-danger) 40%, var(--co-border));
+}
+
+.configops-restore-state.is-uncertain strong {
+	color: var(--co-danger);
+}
+
 .configops-integrity-warning {
 	display: grid;
 	grid-template-columns: 28px minmax(0, 1fr) auto auto;
@@ -1875,6 +1905,11 @@ body.toplevel_page_configops #wpbody-content {
 	.configops-review-header .button,
 	.configops-provenance .button {
 		width: 100%;
+	}
+
+	.configops-restore-state--session {
+		width: 100%;
+		align-items: flex-start;
 	}
 
 	.configops-integrity-warning {

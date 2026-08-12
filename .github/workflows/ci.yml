@@ -169,7 +169,7 @@ jobs:
           cache: npm
 
       - name: Install and build ConfigOps
-        run: npm ci && npm run build:ui && npm run check:ui-budget
+        run: npm ci && npm run build:plugin && npm run check:ui-budget
 
       - name: Install WordPress and exact supported plugins
         env:

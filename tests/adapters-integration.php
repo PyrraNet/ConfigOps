@@ -122,7 +122,14 @@ $assert(isset($byName['wpseo_tracking_only']) && 'derived' === (string) $byName[
 $assert(0 === (int) $byName['wpseo_tracking_only']->restorable, 'Technical Yoast state should not enter rollback.');
 
 $presenter = new \ConfigOps\Admin\ReviewPresenter($adapters);
-$payloads  = new \ConfigOps\Admin\AdminPayloadFactory($captures, $mutations, $signals, $presenter, $adapters);
+$payloads  = new \ConfigOps\Admin\AdminPayloadFactory(
+	$captures,
+	$mutations,
+	$signals,
+	$presenter,
+	$adapters,
+	new \ConfigOps\Database\RestoreAuditRepository($wpdb)
+);
 $payload   = $payloads->mutationPage($sessionId, 0, 100);
 $payloadRows = array_merge(...array_map(static fn (array $group): array => $group['mutations'], $payload['groups']));
 $mailPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'wp_mail_smtp' === $row['optionName']));
@@ -171,11 +178,37 @@ $restore = new \ConfigOps\Restore\RestoreService(
 	$secretCodec,
 	new \ConfigOps\Database\OptionMetadataRepository($wpdb),
 	new \ConfigOps\Execution\OperationLock($wpdb),
-	$adapters
+	$adapters,
+	new \ConfigOps\Database\RestoreAuditRepository($wpdb)
+);
+$blockProtectedPatch = static function (mixed $value, mixed $oldValue): mixed {
+	return 'Agency sender' === ($value['mail']['from_name'] ?? null) ? $oldValue : $value;
+};
+add_filter('pre_update_option_wp_mail_smtp', $blockProtectedPatch, 10, 2);
+$patchCompensated = false;
+try {
+	$restore->restoreMutation((int) $patchMutation->id);
+} catch (RuntimeException $error) {
+	$patchCompensated = str_contains($error->getMessage(), 'reapplied and verified');
+}
+remove_filter('pre_update_option_wp_mail_smtp', $blockProtectedPatch, 10);
+$assert($patchCompensated, 'A blocked field-level undo should verify and report compensation instead of claiming success.');
+$afterBlockedPatch = get_option('wp_mail_smtp', array());
+$assert(
+	'Name changed beside an existing secret' === ($afterBlockedPatch['mail']['from_name'] ?? null)
+	&& $protectedPasswordAfterSave === ($afterBlockedPatch['smtp']['pass'] ?? null),
+	'A compensated field-level failure must preserve both the visible current value and the plugin-owned credential.'
 );
 $restore->restoreMutation((int) $patchMutation->id);
 $protectedRestored = get_option('wp_mail_smtp', array());
 $assert('Agency sender' === ($protectedRestored['mail']['from_name'] ?? null), 'Field-level undo should restore the visible sender name.');
 $assert($protectedPasswordAfterSave === ($protectedRestored['smtp']['pass'] ?? null), 'Field-level undo must preserve the current plugin-owned credential exactly.');
+$patchAudit = new \ConfigOps\Database\RestoreAuditRepository($wpdb);
+$patchRuns = $patchAudit->forSession($patchSession);
+$assert(
+	'succeeded' === (string) $patchRuns[0]->status
+	&& 'compensated' === (string) $patchRuns[1]->status,
+	'Field-level compensation and its successful retry should both remain auditable.'
+);
 
 fwrite(STDOUT, "ConfigOps real-plugin adapter checks passed ({$assertions} assertions).\n");

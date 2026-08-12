@@ -13,6 +13,8 @@ use ConfigOps\Adapter\AdapterRegistry;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\DatabaseWriteSignalRepository;
 use ConfigOps\Database\MutationRepository;
+use ConfigOps\Database\RestoreAuditRepository;
+use ConfigOps\Maintenance\HistoryRetention;
 
 final class AdminPayloadFactory
 {
@@ -24,7 +26,8 @@ final class AdminPayloadFactory
 		private readonly MutationRepository $mutations,
 		private readonly DatabaseWriteSignalRepository $writeSignals,
 		private readonly ReviewPresenter $presenter,
-		private readonly AdapterRegistry $adapters
+		private readonly AdapterRegistry $adapters,
+		private readonly RestoreAuditRepository $restoreAudits
 	) {
 	}
 
@@ -83,6 +86,7 @@ final class AdminPayloadFactory
 				'kind' => 'error' === $noticeCode ? 'error' : 'success',
 				'text' => $this->presenter->noticeText($noticeCode, $noticeMessage),
 			),
+			'retentionDays' => HistoryRetention::retentionDays(),
 		);
 	}
 
@@ -113,6 +117,15 @@ final class AdminPayloadFactory
 
 		$view          = $this->presenter->present($rows, $summary, '', '');
 		$groups        = array_map($this->groupPayload(...), $view->groups);
+		$mutationAuditMap = $this->restoreAudits->latestMutationRuns(array_map(static fn (object $row): int => (int) $row->id, $rows));
+		foreach ($groups as &$group) {
+			foreach ($group['mutations'] as &$mutation) {
+				$run = $mutationAuditMap[(int) $mutation['id']] ?? null;
+				$mutation['lastRestore'] = $run ? $this->restoreAuditPayload($run) : null;
+			}
+			unset($mutation);
+		}
+		unset($group);
 		$lastAvailable = empty($rows) ? $afterId : (int) $rows[array_key_last($rows)]->id;
 		[$groups, $last] = $this->fitGroupsToResponseBudget($groups, $afterId);
 		$hasMore = $hasMore || $last < $lastAvailable;
@@ -122,6 +135,13 @@ final class AdminPayloadFactory
 		}
 
 		$captureErrorCount = (int) ($session->capture_error_count ?? 0);
+		$lastSessionRestore = $this->restoreAudits->latestSessionRun($sessionId);
+		$blockingMutationRestores = $this->restoreAudits->blockingMutationCountForSession($sessionId);
+		$sessionRestoreBlocksRetry = $lastSessionRestore && in_array(
+			(string) $lastSessionRestore->status,
+			array('succeeded', 'running', 'compensation_failed'),
+			true
+		);
 
 		return array(
 			'summary'  => array(
@@ -131,7 +151,13 @@ final class AdminPayloadFactory
 				'redacted'        => $view->redactedCount,
 				'unmanagedWrites' => $signalCount,
 				'captureErrors'    => $captureErrorCount,
-				'allRestorable'   => $view->allRestorable && 0 === $signalCount && 0 === $captureErrorCount,
+				'individuallyUndone' => $blockingMutationRestores,
+				'lastSessionRestore' => $lastSessionRestore ? $this->restoreAuditPayload($lastSessionRestore) : null,
+				'allRestorable'   => $view->allRestorable
+					&& 0 === $signalCount
+					&& 0 === $captureErrorCount
+					&& 0 === $blockingMutationRestores
+					&& ! $sessionRestoreBlocksRetry,
 			),
 			'groups'   => $groups,
 			'pageInfo' => array(
@@ -350,6 +376,8 @@ final class AdminPayloadFactory
 				'redacted'        => 0,
 				'unmanagedWrites' => 0,
 				'captureErrors'    => 0,
+				'individuallyUndone' => 0,
+				'lastSessionRestore' => null,
 				'allRestorable'   => true,
 			),
 			'groups'   => array(),
@@ -363,5 +391,24 @@ final class AdminPayloadFactory
 		$timestamp = strtotime($mysqlUtc . ' UTC');
 
 		return false === $timestamp ? '' : gmdate(DATE_ATOM, $timestamp);
+	}
+
+	/**
+	 * @return array<string, int|string|null>
+	 */
+	private function restoreAuditPayload(object $run): array
+	{
+		$actor = get_userdata((int) $run->actor_id);
+		$finishedAt = (string) ($run->finished_at ?? '');
+
+		return array(
+			'id'                  => (int) $run->id,
+			'status'              => (string) $run->status,
+			'restoredOptionCount' => (int) $run->restored_option_count,
+			'failureCode'         => (string) ($run->failure_code ?? ''),
+			'actorName'           => $actor ? (string) $actor->display_name : __('System', 'configops'),
+			'finishedAt'          => '' !== $finishedAt ? $this->isoDate($finishedAt) : null,
+			'finishedAtLabel'     => '' !== $finishedAt ? get_date_from_gmt($finishedAt, 'Y-m-d H:i:s') : null,
+		);
 	}
 }

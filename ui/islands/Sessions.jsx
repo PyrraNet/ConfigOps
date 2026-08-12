@@ -11,7 +11,7 @@ export default function Sessions() {
 				<div>
 					<h2>{__('Captures', 'configops')}</h2>
 					<Hint label={__('What is a capture?', 'configops')}>
-						{__('Everything ConfigOps observes between Record and Stop, kept together as one review.', 'configops')}
+						{sprintf(__('Everything ConfigOps observes between Record and Stop, kept together as one review for %d days.', 'configops'), state.retentionDays)}
 					</Hint>
 				</div>
 				<span aria-label={sprintf(__('%d captures', 'configops'), state.sessions.length)}>{state.sessions.length}</span>

@@ -25,7 +25,7 @@ PHP 8.3 is a deliberate product constraint, not an accidental use of new syntax
 | Noise | Conservative built-in rules plus pinned WP Mail SMTP and Yoast contracts | Registry fixtures and adapter normalization |
 | Secrets | Redact before persistence; preserve during field-level undo | Secret references and target-local resolution |
 | Rollback | Conflict-checked full or adapter-backed field undo | Adapter-declared safety and verification |
-| Storage | Dedicated session, mutation, and write-signal tables | Packs, runs, snapshots, and drift tables when used |
+| Storage | Dedicated session, mutation, write-signal, and restore-run tables | Packs, deployment runs, snapshots, and drift tables when used |
 | Local UI transport | Explicit REST resources and commands | Keep domain services independent from transport |
 | Fleet read model | Not present | GraphQL over asynchronously materialized fleet state |
 
@@ -39,19 +39,26 @@ PHP 8.3 is a deliberate product constraint, not an accidental use of new syntax
 6. List order is meaningful; associative key order is not.
 7. ConfigOps does not claim transactional rollback for effects it did not observe.
 8. An unmanaged write signal is not a `ConfigMutation`: it proves only bounded write intent and never fabricates values, semantic paths, or rollback support.
+9. Incomplete evidence is a durable product state: it disables whole-capture undo and cannot be presented as a clean recording.
+10. Every undo attempt creates a value-free audit record before its first configuration write.
 
 ## Hardening decisions
 
 - **Capture ownership is atomic.** The active-session option is acquired with `add_option()`, so two concurrent start requests cannot silently replace one another. Stale pointers self-heal.
+- **Capture completion is verified.** Stop-time mutation and unmanaged-write summaries must be readable before a session can become completed. Storage failure leaves the capture active for a safe retry; deactivation closes it as interrupted and permanently incomplete.
 - **Absence is not memoized.** Positive active-session lookups are cached, but another integration may start or stop a capture later in the same request.
 - **Conflicts are semantic.** Associative key order is ignored; list order, typed array keys, scalar types, option existence, and autoload mode remain significant. Semantically empty writes are not persisted as noise.
 - **Restore is serialized and compensating.** Token-owned, expiring locks prevent overlapping restore requests. Session restore preflights the entire plan, rechecks each value immediately before writing, then restores distinct options in reverse last-mutation order. If a later step fails, earlier steps are reapplied to their captured result where possible.
+- **Restore is auditable before it is mutable.** A dedicated append-first run records actor, target scope, outcome, restored option count, and bounded failure code. It deliberately contains no option name, value, SQL, stack trace, or raw error message. Successful, refused, compensated, and compensation-failed attempts remain distinct.
 - **Work is budgeted.** Value nodes, persisted payload size, diff operations, and backtraces have explicit upper bounds and disclose truncation or unsupported values.
 - **First paint cannot inherit history size.** The server bootstrap excludes mutation diffs. The ledger fetches cursor pages only near the viewport, with both row and encoded-response budgets.
 - **Large sessions are not loaded whole.** Admin review is paged and restore planning selects only required columns in bounded batches. It retains only the first and last state per option and refuses plans above 1,000 options or 64 MiB.
+- **Retention is bounded and resumable.** Daily cleanup removes at most 1,000 captures after 30 days, never selects active or unfinished captures, marks each batch as deleting before child evidence is touched, and can safely resume after an interrupted cleanup without exposing a half-deleted review.
 - **Hot reads have matching indexes.** Session review, stop-time recounts, and keyset restore iteration share a `(session_id, id)` index instead of degrading into table scans as history grows.
 - **Internal operations are invisible.** Schema, lock, capability, and flash-notice options never appear in captures.
 - **Error reporting is also isolated.** Even a third-party listener that throws during `configops_capture_error` cannot escape into the settings request being observed.
+- **Schema upgrades fail safe.** Upgrades are serialized, required tables and columns are verified before the version advances, and a failed normal boot disables ConfigOps with an administrator notice without taking WordPress down.
+- **Opaque credentials fail closed.** Adapter and heuristic detection covers nested PHP values plus recognizable JSON, malformed JSON, XML-like documents, DSNs, authorization headers, and private keys before persistence. Structured strings deeper than the inspection budget are redacted rather than partially trusted.
 - **Adapters are capability-scoped.** Capture ownership, field meaning, secret detection, and rollback eligibility form the current contract. Apply and verification do not appear on the interface until those engines exist, so recorder support cannot be mistaken for deployment support.
 - **Adapter meaning is pinned at capture time.** Mutations retain adapter ID, schema version, and installed component version. Historical fields are enriched only when the matching schema is still available; newer adapters cannot silently reinterpret old evidence.
 - **Derived state stays out of rollback.** Cache, migration, tracking, version, and other adapter-declared runtime values remain visible under Technical. When they share an option with real settings, undo patches only the adapter-backed settings instead of reconstructing the whole option.

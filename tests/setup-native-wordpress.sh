@@ -4,6 +4,7 @@ set -euo pipefail
 
 : "${CONFIGOPS_NATIVE_WP_ROOT:?CONFIGOPS_NATIVE_WP_ROOT is required}"
 : "${CONFIGOPS_REPOSITORY_ROOT:?CONFIGOPS_REPOSITORY_ROOT is required}"
+: "${CONFIGOPS_PLUGIN_ZIP:=}"
 : "${CONFIGOPS_DB_HOST:=127.0.0.1:3306}"
 : "${CONFIGOPS_DB_NAME:=configops}"
 : "${CONFIGOPS_DB_USER:=configops}"
@@ -64,16 +65,21 @@ wp core install \
 	--skip-email \
 	--quiet
 
-mkdir -p "$CONFIGOPS_NATIVE_WP_ROOT/wp-content/plugins/configops"
-rsync -a \
-	--exclude='.git/' \
-	--exclude='.github/' \
-	--exclude='.design-review/' \
-	--exclude='artifacts/' \
-	--exclude='node_modules/' \
-	--exclude='vendor/' \
-	"$CONFIGOPS_REPOSITORY_ROOT/" \
-	"$CONFIGOPS_NATIVE_WP_ROOT/wp-content/plugins/configops/"
+if [[ -z "$CONFIGOPS_PLUGIN_ZIP" ]]; then
+	archives=("$CONFIGOPS_REPOSITORY_ROOT"/dist/configops-*.zip)
+	if [[ ${#archives[@]} -ne 1 || ! -f "${archives[0]}" ]]; then
+		echo "Expected exactly one ConfigOps release archive in dist/." >&2
+		exit 1
+	fi
+	CONFIGOPS_PLUGIN_ZIP="${archives[0]}"
+fi
+
+if [[ ! -f "$CONFIGOPS_PLUGIN_ZIP" ]]; then
+	echo "ConfigOps release archive does not exist: $CONFIGOPS_PLUGIN_ZIP" >&2
+	exit 1
+fi
+
+unzip -q "$CONFIGOPS_PLUGIN_ZIP" -d "$CONFIGOPS_NATIVE_WP_ROOT/wp-content/plugins"
 cp -R \
 	"$CONFIGOPS_REPOSITORY_ROOT/tests/fixtures/configops-hostile-fixture" \
 	"$CONFIGOPS_NATIVE_WP_ROOT/wp-content/plugins/configops-hostile-fixture"

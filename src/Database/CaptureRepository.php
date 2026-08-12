@@ -96,24 +96,35 @@ final class CaptureRepository
 				$id
 			)
 		);
-		$mutationCount = is_object($mutationSummary) ? (int) $mutationSummary->mutation_count : 0;
-		$reviewChangeCount = is_object($mutationSummary) ? (int) $mutationSummary->review_change_count : 0;
-		$technicalChangeCount = is_object($mutationSummary) ? (int) $mutationSummary->technical_change_count : 0;
+		if (! is_object($mutationSummary)) {
+			throw new RuntimeException('The capture mutation summary could not be verified. The capture remains active.');
+		}
+		$mutationCount = (int) $mutationSummary->mutation_count;
+		$reviewChangeCount = (int) $mutationSummary->review_change_count;
+		$technicalChangeCount = (int) $mutationSummary->technical_change_count;
 		// Captures started before schema v6 have option counts but no field counts.
 		// Keep those histories useful instead of turning them into an empty review.
 		if ($mutationCount > 0 && 0 === $reviewChangeCount + $technicalChangeCount) {
-			$technicalChangeCount = (int) $this->database->get_var(
+			$legacyTechnicalCount = $this->database->get_var(
 				$this->database->prepare(
 					"SELECT COUNT(*) FROM {$mutationTable} WHERE session_id = %d AND classification = 'derived'",
 					$id
 				)
 			);
+			if (null === $legacyTechnicalCount) {
+				throw new RuntimeException('The legacy capture summary could not be verified. The capture remains active.');
+			}
+			$technicalChangeCount = (int) $legacyTechnicalCount;
 			$reviewChangeCount = $mutationCount - $technicalChangeCount;
 		}
 		$signalTable = $this->database->prefix . 'configops_write_signals';
-		$writeSignalCount = (int) $this->database->get_var(
+		$writeSignalSummary = $this->database->get_var(
 			$this->database->prepare("SELECT COALESCE(SUM(occurrence_count), 0) FROM {$signalTable} WHERE session_id = %d", $id)
 		);
+		if (null === $writeSignalSummary) {
+			throw new RuntimeException('The unmanaged-write summary could not be verified. The capture remains active.');
+		}
+		$writeSignalCount = (int) $writeSignalSummary;
 
 		$updated = $this->database->update(
 			$this->table,
@@ -325,7 +336,7 @@ final class CaptureRepository
 		$limit = max(1, min(100, $limit));
 		$rows  = $this->database->get_results(
 			$this->database->prepare(
-				"SELECT * FROM {$this->table} WHERE status <> 'discarded' ORDER BY started_at DESC, id DESC LIMIT %d",
+				"SELECT * FROM {$this->table} WHERE status NOT IN ('discarded', 'deleting') ORDER BY started_at DESC, id DESC LIMIT %d",
 				$limit
 			)
 		);

@@ -14,6 +14,7 @@ use ConfigOps\Capture\ValueCodec;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\MutationRepository;
 use ConfigOps\Database\OptionMetadataRepository;
+use ConfigOps\Database\RestoreAuditRepository;
 use ConfigOps\Execution\OperationLock;
 use RuntimeException;
 use Throwable;
@@ -29,44 +30,72 @@ final class RestoreService
 		private readonly ValueCodec $codec,
 		private readonly OptionMetadataRepository $optionMetadata,
 		private readonly OperationLock $operationLock,
-		private readonly AdapterRegistry $adapters
+		private readonly AdapterRegistry $adapters,
+		private readonly RestoreAuditRepository $audit
 	) {
 	}
 
 	public function restoreMutation(int $mutationId): void
 	{
-		$this->operationLock->run(
-			'restore',
-			function () use ($mutationId): void {
-				$this->assertNoActiveCapture();
+		$mutation = $this->mutations->find($mutationId);
+		if (! $mutation) {
+			throw new RuntimeException('The mutation no longer exists.');
+		}
 
-				$mutation = $this->mutations->find($mutationId);
-				if (! $mutation) {
-					throw new RuntimeException('The mutation no longer exists.');
-				}
+		$auditId = $this->audit->start('mutation', $mutationId, (int) $mutation->session_id, get_current_user_id());
+		try {
+			$this->operationLock->run(
+				'restore',
+				function () use ($mutationId): void {
+					$this->assertNoActiveCapture();
 
-				$this->assertRestorable($mutation);
-				if ('patch' === $this->restoreMode($mutation)) {
-					$this->restoreSafeFields($mutation);
-				} else {
-					$this->assertCurrentState(
-						(string) $mutation->option_name,
-						(string) $mutation->new_value,
-						isset($mutation->new_autoload) ? (string) $mutation->new_autoload : null
-					);
-					$this->applyState(
-						(string) $mutation->option_name,
-						(string) $mutation->old_value,
-						isset($mutation->old_autoload) ? (string) $mutation->old_autoload : null
-					);
+					$mutation = $this->mutations->find($mutationId);
+					if (! $mutation) {
+						throw new RuntimeException('The mutation no longer exists.');
+					}
+
+					$this->assertRestorable($mutation);
+					if ('patch' === $this->restoreMode($mutation)) {
+						$this->restoreSafeFields($mutation);
+					} else {
+						$this->assertCurrentState(
+							(string) $mutation->option_name,
+							(string) $mutation->new_value,
+							isset($mutation->new_autoload) ? (string) $mutation->new_autoload : null
+						);
+						$this->applyState(
+							(string) $mutation->option_name,
+							(string) $mutation->old_value,
+							isset($mutation->old_autoload) ? (string) $mutation->old_autoload : null
+						);
+					}
 				}
-			}
-		);
+			);
+		} catch (Throwable $error) {
+			$this->recordAuditFailure($auditId, $error);
+			throw $error;
+		}
+
+		$this->finalizeSuccessfulAudit($auditId, 1);
 	}
 
 	public function restoreSession(int $sessionId): int
 	{
-		return $this->operationLock->run('restore', fn (): int => $this->restoreSessionUnlocked($sessionId));
+		if (! $this->captures->find($sessionId)) {
+			throw new RuntimeException('The capture session no longer exists.');
+		}
+
+		$auditId = $this->audit->start('session', $sessionId, $sessionId, get_current_user_id());
+		try {
+			$count = $this->operationLock->run('restore', fn (): int => $this->restoreSessionUnlocked($sessionId));
+		} catch (Throwable $error) {
+			$this->recordAuditFailure($auditId, $error);
+			throw $error;
+		}
+
+		$this->finalizeSuccessfulAudit($auditId, $count);
+
+		return $count;
 	}
 
 	private function restoreSessionUnlocked(int $sessionId): int
@@ -186,18 +215,55 @@ final class RestoreService
 		}
 
 		if (! empty($failedCompensations)) {
-			throw new RuntimeException(
+			throw new RestoreCompensationException(
 				$cause->getMessage() . ' Compensation also failed for: ' . implode(', ', $failedCompensations) . '.',
-				0,
+				true,
 				$cause
 			);
 		}
 
-		throw new RuntimeException(
+		throw new RestoreCompensationException(
 			$cause->getMessage() . ' Earlier restore steps were compensated.',
-			0,
+			false,
 			$cause
 		);
+	}
+
+	private function finalizeSuccessfulAudit(int $auditId, int $restoredOptionCount): void
+	{
+		try {
+			$this->audit->succeed($auditId, $restoredOptionCount);
+		} catch (Throwable $error) {
+			throw new RuntimeException(
+				'The settings were undone, but ConfigOps could not finalize the audit record. Do not retry this undo until the running audit entry has been inspected.',
+				0,
+				$error
+			);
+		}
+	}
+
+	private function recordAuditFailure(int $auditId, Throwable $error): void
+	{
+		$status = 'failed';
+		$code = 'restore_failed';
+		if ($error instanceof RestoreCompensationException) {
+			$status = $error->compensationFailed ? 'compensation_failed' : 'compensated';
+			$code = $error->compensationFailed ? 'apply_and_compensation_failed' : 'apply_failed_compensated';
+		} elseif (str_starts_with($error->getMessage(), 'Conflict:')) {
+			$code = 'target_conflict';
+		} elseif (str_contains($error->getMessage(), 'incomplete')) {
+			$code = 'capture_incomplete';
+		} elseif (str_contains($error->getMessage(), 'unmanaged database writes')) {
+			$code = 'unmanaged_writes';
+		} elseif (str_contains($error->getMessage(), 'active capture')) {
+			$code = 'capture_active';
+		}
+
+		try {
+			$this->audit->fail($auditId, $status, $code);
+		} catch (Throwable $auditError) {
+			error_log('ConfigOps could not finalize failed restore audit #' . $auditId . ': ' . $auditError->getMessage());
+		}
 	}
 
 	private function assertNoActiveCapture(): void
@@ -280,8 +346,30 @@ final class RestoreService
 			}
 			unset($updated);
 		} catch (Throwable $error) {
-			update_option($optionName, $current, $autoloadFlag);
-			throw new RuntimeException($error->getMessage() . ' The original current value was reapplied.', 0, $error);
+			try {
+				update_option($optionName, $current, $autoloadFlag);
+				$compensatedValue = get_option($optionName, $sentinel);
+				$compensatedAutoload = $this->optionMetadata->autoloadFor($optionName);
+				if (
+					$compensatedValue === $sentinel
+					|| ! $this->codec->semanticallyEqual($compensatedValue, $current)
+					|| $this->autoloadMode($compensatedAutoload) !== $this->autoloadMode($currentAutoload)
+				) {
+					throw new RuntimeException('The original current value could not be verified after compensation.');
+				}
+			} catch (Throwable) {
+				throw new RestoreCompensationException(
+					$error->getMessage() . ' The original current value could not be restored completely.',
+					true,
+					$error
+				);
+			}
+
+			throw new RestoreCompensationException(
+				$error->getMessage() . ' The original current value was reapplied and verified.',
+				false,
+				$error
+			);
 		}
 	}
 

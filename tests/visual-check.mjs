@@ -180,6 +180,18 @@ try {
 		const payload = await response.json();
 		payload.summary.captureErrors = 2;
 		payload.summary.allRestorable = false;
+		const firstMutation = payload.groups?.flatMap((group) => group.mutations || [])[0];
+		if (firstMutation) {
+			firstMutation.lastRestore = {
+				id: 1,
+				status: 'succeeded',
+				restoredOptionCount: 1,
+				failureCode: '',
+				actorName: 'admin',
+				finishedAt: '2026-08-12T12:00:00+00:00',
+				finishedAtLabel: '2026-08-12 12:00:00',
+			};
+		}
 		await route.fulfill({ response, json: payload });
 	};
 	await page.route('**/*', injectIncompleteCapture);
@@ -192,6 +204,11 @@ try {
 	}
 	if (!await integrityWarning.getByText('2', { exact: true }).isVisible()) {
 		throw new Error('The integrity warning does not expose the number of missed observations.');
+	}
+	await page.getByText('Undone', { exact: true }).first().waitFor();
+	const firstAuditedMutation = page.locator('.configops-mutation').first();
+	if (await firstAuditedMutation.getByRole('button', { name: 'Undo this setting' }).count()) {
+		throw new Error('A successfully audited mutation still offers the same undo action.');
 	}
 	await page.screenshot({ path: new URL('configops-incomplete-capture-desktop.png', artifacts).pathname, fullPage: true });
 

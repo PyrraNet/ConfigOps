@@ -25,11 +25,13 @@ ConfigOps is not a staging tool, database migration, backup system or generic ac
 This repository is an early technical preview of the local recorder:
 
 - explicit capture sessions and request correlation;
+- bounded 30-day local history retention that never removes active captures;
 - Options API mutations with nested JSON Pointer diffs;
 - value-free signals for direct database writes, without storing raw SQL;
 - source attribution, conservative noise classification and secret redaction;
 - versioned capture adapters for the tested WP Mail SMTP Free 4.9.0 and Yoast SEO Free 28.2 releases, with an in-product support contract;
 - field-aware undo with conflict checks that preserves secrets and plugin housekeeping;
+- value-free audit records for successful, refused, compensated, and uncertain undo attempts;
 - a performance-budgeted React review interface inside WordPress.
 
 Release Packs, remote deployment, Policies and Drift are the product direction—not shipped features.

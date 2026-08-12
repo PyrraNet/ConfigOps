@@ -35,6 +35,8 @@ const undoVisibleSetting = async (name) => {
 	page.once('dialog', (dialog) => dialog.accept());
 	await page.getByRole('button', { name }).click();
 	await page.getByText(/supported setting values were undone|option was restored/i).waitFor();
+	assert.equal(await page.getByRole('button', { name }).count(), 0, 'A completed undo must not offer the same historical action again.');
+	await page.getByText('Undone', { exact: true }).first().waitFor();
 };
 
 try {

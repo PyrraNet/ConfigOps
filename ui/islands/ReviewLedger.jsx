@@ -41,6 +41,8 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 		? (visibleCount === 1 ? __('1 technical change', 'configops') : `${visibleCount} ${__('technical changes', 'configops')}`)
 		: (visibleCount === 1 ? __('1 setting', 'configops') : `${visibleCount} ${__('settings', 'configops')}`);
 	const patchRestore = mutation.restoreMode === 'patch';
+	const undoSucceeded = mutation.lastRestore?.status === 'succeeded';
+	const undoUncertain = ['running', 'compensation_failed'].includes(mutation.lastRestore?.status);
 	const undoLabel = patchRestore
 		? (!mutation.redacted
 			? __('Undo this change', 'configops')
@@ -103,12 +105,23 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 						<strong>{sourceOwner}</strong>
 						<code>{sourceLabel}{mutation.source.line > 0 ? `:${mutation.source.line}` : ''}</code>
 					</div>
+					{undoSucceeded && (
+						<span className="configops-restore-state is-succeeded">
+							<strong>{__('Undone', 'configops')}</strong>
+							<span>{mutation.lastRestore.actorName} · {mutation.lastRestore.finishedAtLabel}</span>
+						</span>
+					)}
+					{undoUncertain && (
+						<Hint label={__('Previous undo needs inspection', 'configops')} align="end" trigger={__('Inspect undo', 'configops')}>
+							{__('A previous undo and its compensation did not both complete. Inspect the current plugin setting before attempting another change.', 'configops')}
+						</Hint>
+					)}
 					{!mutation.restorable && !mutation.redacted && filter !== 'noise' && (
 						<Hint label={__('Why can’t this be undone?', 'configops')} align="end" trigger={__('Undo unavailable', 'configops')}>
 							{__('The adapter marks this as technical, unsupported, or outside its tested version range. ConfigOps keeps the evidence but will not guess during rollback.', 'configops')}
 						</Hint>
 					)}
-					{canRestore && mutation.restorable && filter !== 'noise' && (
+					{canRestore && mutation.restorable && !undoSucceeded && !undoUncertain && filter !== 'noise' && (
 						<span className="configops-action-hint">
 							<button
 								className="button button-small"
@@ -239,12 +252,15 @@ export default function ReviewLedger() {
 	const state = useConfigOpsState();
 	const selected = state.selected;
 	const review = state.review;
-	const canRestore = !state.active && state.capabilities.rollback;
 	const selectedStatus = selected?.status === 'active'
 		? { className: 'is-live', label: __('Recording', 'configops') }
 		: selected?.status === 'interrupted'
 			? { className: 'is-incomplete', label: __('Interrupted', 'configops') }
 			: { className: 'is-recorded', label: __('Recorded', 'configops') };
+	const sessionUndo = review.summary.lastSessionRestore;
+	const sessionUndoSucceeded = sessionUndo?.status === 'succeeded';
+	const sessionUndoUncertain = ['running', 'compensation_failed'].includes(sessionUndo?.status);
+	const canRestore = !state.active && state.capabilities.rollback && !sessionUndoSucceeded && !sessionUndoUncertain;
 	const [filter, setFilter] = window.wp.element.useState('review');
 	const filteredGroups = window.wp.element.useMemo(() => {
 		const selectChanges = (mutation) => mutation.diff.filter((change) => {
@@ -323,7 +339,19 @@ export default function ReviewLedger() {
 					</div>
 					<p>{selected.actorName}<span aria-hidden="true"> · </span><time dateTime={selected.startedAt}>{selected.startedDisplay}</time></p>
 				</div>
-				{canRestore && review.summary.total > 0 && review.summary.allRestorable && (
+				{sessionUndoSucceeded && (
+					<span className="configops-restore-state configops-restore-state--session is-succeeded">
+						<strong>{__('Capture undone', 'configops')}</strong>
+						<span>{sessionUndo.actorName} · {sessionUndo.finishedAtLabel}</span>
+					</span>
+				)}
+				{sessionUndoUncertain && (
+					<span className="configops-restore-state configops-restore-state--session is-uncertain">
+						<strong>{__('Undo needs inspection', 'configops')}</strong>
+						<span>{__('Check the current settings before continuing.', 'configops')}</span>
+					</span>
+				)}
+				{canRestore && review.summary.total > 0 && review.summary.allRestorable && !sessionUndoSucceeded && !sessionUndoUncertain && (
 					<button
 						className="button"
 						type="button"
@@ -380,6 +408,11 @@ export default function ReviewLedger() {
 					/>
 				</div>
 				<div className="configops-review-safety">
+					{review.summary.individuallyUndone > 0 && (
+						<Hint label={__('Why is capture undo unavailable?', 'configops')} align="end" trigger={`${review.summary.individuallyUndone} ${__('already undone', 'configops')}`}>
+							{__('At least one setting was already undone individually. The original whole-capture target no longer exists as one safe operation.', 'configops')}
+						</Hint>
+					)}
 					{review.summary.captureErrors > 0 && (
 						<Hint label={__('Why is this capture incomplete?', 'configops')} align="end" trigger={`${review.summary.captureErrors} ${__('missed', 'configops')}`}>
 							{__('At least one observation failed after WordPress processed a settings change. ConfigOps kept the host save running, marked the evidence incomplete, and disabled whole-capture undo.', 'configops')}

@@ -42,9 +42,34 @@ $assert(
 	&& in_array('last_error_at', $sessionColumns, true),
 	'Schema activation must verify and expose every capture-integrity column before boot.'
 );
+$restoreRunTable = $wpdb->prefix . 'configops_restore_runs';
+$restoreRunColumns = $wpdb->get_col("SHOW COLUMNS FROM `{$restoreRunTable}`", 0);
+$assert(
+	in_array('status', $restoreRunColumns, true)
+	&& in_array('failure_code', $restoreRunColumns, true)
+	&& ! in_array('option_value', $restoreRunColumns, true),
+	'Schema activation must provide a value-free restore audit table before boot.'
+);
 update_option('configops_schema_version', 6, false);
 (new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
-$assert(7 === (int) get_option('configops_schema_version'), 'A stale schema version should upgrade idempotently under the schema lock.');
+$assert(8 === (int) get_option('configops_schema_version'), 'A stale schema version should upgrade idempotently under the schema lock.');
+
+update_option('configops_schema_version', 7, false);
+$hideSchemaTables = static function (string $query): string {
+	return str_starts_with($query, 'SHOW TABLES LIKE') ? "SELECT 'missing_configops_table'" : $query;
+};
+add_filter('query', $hideSchemaTables, PHP_INT_MIN, 1);
+$schemaFailureRejected = false;
+try {
+	(new \ConfigOps\Database\Schema($wpdb))->install();
+} catch (RuntimeException) {
+	$schemaFailureRejected = true;
+}
+remove_filter('query', $hideSchemaTables, PHP_INT_MIN);
+$assert($schemaFailureRejected, 'Schema verification should reject a storage layer that cannot prove its tables exist.');
+$assert(7 === (int) get_option('configops_schema_version'), 'A failed schema verification must never advance the committed schema version.');
+(new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
+$assert(8 === (int) get_option('configops_schema_version'), 'A schema upgrade should recover after the injected storage failure clears.');
 
 $administrator = get_role('administrator');
 $assert(false !== $administrator, 'WordPress should provide an administrator role for capability checks.');
@@ -63,13 +88,129 @@ $adapters = new \ConfigOps\Adapter\AdapterRegistry(
 $codec     = new \ConfigOps\Capture\ValueCodec($adapters);
 $metadata  = new \ConfigOps\Database\OptionMetadataRepository($wpdb);
 $operationLock = new \ConfigOps\Execution\OperationLock($wpdb);
-$restore       = new \ConfigOps\Restore\RestoreService($captures, $mutations, $codec, $metadata, $operationLock, $adapters);
+$restoreAudit  = new \ConfigOps\Database\RestoreAuditRepository($wpdb);
+$restore       = new \ConfigOps\Restore\RestoreService($captures, $mutations, $codec, $metadata, $operationLock, $adapters, $restoreAudit);
 
 $longCaptureName = str_repeat('Ü', 220);
 $longNameSession = $captures->start($longCaptureName, 0, '/wp-admin/options-general.php');
 $captures->stop();
 $storedLongName = (string) $captures->find($longNameSession)->name;
 $assert(191 === mb_strlen($storedLongName, 'UTF-8'), 'Capture names should be centrally limited to the native 191-character database boundary.');
+
+$markupNameSession = $captures->start('Review <img src=x onerror=alert(1)> settings', 0, '/wp-admin/options-general.php');
+$captures->stop();
+$markupName = (string) $captures->find($markupNameSession)->name;
+$assert(! str_contains($markupName, '<') && str_contains($markupName, 'Review'), 'Capture names must discard executable markup at the central storage boundary.');
+
+$ownershipSession = $captures->start('Atomic ownership check', 0, '/wp-admin/options-general.php');
+$secondStartRejected = false;
+try {
+	(new \ConfigOps\Database\CaptureRepository($wpdb))->start('Competing capture', 0, '/wp-admin/options-general.php');
+} catch (RuntimeException) {
+	$secondStartRejected = true;
+}
+$assert($secondStartRejected, 'Two requests must never own the active capture pointer at the same time.');
+$assert($ownershipSession === $captures->stop(), 'The original capture owner should remain stoppable after a competing start is rejected.');
+
+$stopFailureSession = $captures->start('Stop failure recovery', 0, '/wp-admin/options-general.php');
+$breakStopSummary = static function (string $query): string {
+	return str_contains($query, 'SUM(occurrence_count)') && str_contains($query, 'configops_write_signals')
+		? 'SELECT NULL'
+		: $query;
+};
+add_filter('query', $breakStopSummary, PHP_INT_MIN, 1);
+$stopFailureRejected = false;
+try {
+	$captures->stop();
+} catch (RuntimeException $error) {
+	$stopFailureRejected = str_contains($error->getMessage(), 'remains active');
+}
+remove_filter('query', $breakStopSummary, PHP_INT_MIN);
+$assert($stopFailureRejected, 'Capture stop must fail closed when its persisted summary cannot be verified.');
+$assert($stopFailureSession === $captures->activeId(), 'A failed stop must preserve the active capture for a safe retry.');
+$assert($stopFailureSession === $captures->stop(), 'Capture stop should succeed cleanly after the storage failure clears.');
+
+delete_option('fixture_retention');
+$retentionSession = $captures->start('Expired retention fixture', 0, '/wp-admin/options-general.php');
+add_option('fixture_retention', 'temporary', '', false);
+$captures->stop();
+$retentionMutation = $mutations->forSession($retentionSession)[0];
+$restore->restoreMutation((int) $retentionMutation->id);
+$retentionSignalId = $writeSignals->insert(
+	array(
+		'session_id'      => $retentionSession,
+		'request_id'       => wp_generate_uuid4(),
+		'operation'        => 'update',
+		'table_name'       => $wpdb->prefix . 'fixture_retention',
+		'occurrence_count' => 1,
+		'source_type'      => 'plugin',
+		'source_component' => 'retention-fixture',
+		'source_file'      => 'retention-fixture.php',
+		'source_line'      => 1,
+		'request_method'   => 'POST',
+		'request_uri'      => '/fixture-retention',
+		'admin_screen'     => 'fixture-retention',
+		'actor_id'         => 0,
+		'occurred_at'      => current_time('mysql', true),
+	)
+);
+$wpdb->update(
+	$wpdb->prefix . 'configops_capture_sessions',
+	array('ended_at' => gmdate('Y-m-d H:i:s', time() - 40 * DAY_IN_SECONDS)),
+	array('id' => $retentionSession),
+	array('%s'),
+	array('%d')
+);
+$retention = new \ConfigOps\Maintenance\HistoryRetention($wpdb, $operationLock);
+$assert(1 === $retention->run(), 'Retention should remove an expired completed capture in a bounded batch.');
+$assert(null === $captures->find($retentionSession), 'Retention should remove the expired parent capture last.');
+$assert(null === $mutations->find((int) $retentionMutation->id), 'Retention should remove expired mutation payloads before their capture.');
+$assert(array() === $restoreAudit->forSession($retentionSession), 'Retention should remove value-free restore audits with their expired capture.');
+$assert(array() === $writeSignals->forSession($retentionSession), 'Retention should remove unmanaged-write evidence with its expired capture.');
+unset($retentionSignalId);
+
+$resumableRetentionSession = $captures->start('Interrupted retention fixture', 0, '/wp-admin/options-general.php');
+add_option('fixture_retention_resume', 'temporary', '', false);
+$captures->stop();
+$wpdb->update(
+	$wpdb->prefix . 'configops_capture_sessions',
+	array('ended_at' => gmdate('Y-m-d H:i:s', time() - 40 * DAY_IN_SECONDS)),
+	array('id' => $resumableRetentionSession),
+	array('%s'),
+	array('%d')
+);
+$breakRetentionDelete = static function (string $query) use ($wpdb): string {
+	return str_starts_with($query, 'DELETE FROM ' . $wpdb->prefix . 'configops_mutations')
+		? 'DELETE FROM configops_injected_missing_table'
+		: $query;
+};
+add_filter('query', $breakRetentionDelete, PHP_INT_MIN, 1);
+$retentionFailureRejected = false;
+try {
+	$retention->run();
+} catch (RuntimeException) {
+	$retentionFailureRejected = true;
+}
+remove_filter('query', $breakRetentionDelete, PHP_INT_MIN);
+$assert($retentionFailureRejected, 'An interrupted retention batch should report the failed child cleanup.');
+$assert('deleting' === (string) $captures->find($resumableRetentionSession)->status, 'Interrupted retention should leave a resumable tombstone instead of a half-visible capture.');
+$recentSessionIds = array_map(static fn (object $row): int => (int) $row->id, $captures->recent(100));
+$assert(! in_array($resumableRetentionSession, $recentSessionIds, true), 'A half-deleted retention batch must not appear as a trustworthy review.');
+$assert(1 === $retention->run(), 'The next retention run should finish an interrupted deleting batch.');
+$assert(null === $captures->find($resumableRetentionSession), 'Resumed retention should remove its tombstone after dependent evidence is gone.');
+delete_option('fixture_retention_resume');
+
+$activeRetentionSession = $captures->start('Active retention fixture', 0, '/wp-admin/options-general.php');
+$wpdb->update(
+	$wpdb->prefix . 'configops_capture_sessions',
+	array('started_at' => gmdate('Y-m-d H:i:s', time() - 400 * DAY_IN_SECONDS)),
+	array('id' => $activeRetentionSession),
+	array('%s'),
+	array('%d')
+);
+$assert(0 === $retention->run(), 'Retention must not delete an active capture regardless of age.');
+$assert(null !== $captures->find($activeRetentionSession), 'An old active capture must remain available to stop safely.');
+$captures->stop();
 
 $interruptedSession = $captures->start('Interrupted lifecycle check', 0, '/wp-admin/options-general.php');
 update_option('fixture_interrupted', 'changed', false);
@@ -248,6 +389,16 @@ $assert(
 	array('mail' => array('enabled' => false, 'retry' => 3)) === get_option('fixture_nested'),
 	'Individual restore should reinstate the exact nested baseline.'
 );
+$mainRestoreAudits = $restoreAudit->forSession($sessionId);
+$assert('succeeded' === (string) $mainRestoreAudits[0]->status, 'A successful individual undo should finalize its audit record.');
+$assert(1 === (int) $mainRestoreAudits[0]->restored_option_count, 'Individual undo should audit one restored option.');
+$assert(
+	! property_exists($mainRestoreAudits[0], 'failure_message')
+	&& ! property_exists($mainRestoreAudits[0], 'option_name'),
+	'Restore audits must retain outcome metadata without copying setting names or values.'
+);
+$conflictAudits = array_values(array_filter($mainRestoreAudits, static fn (object $run): bool => 'target_conflict' === (string) $run->failure_code));
+$assert(1 === count($conflictAudits) && 'failed' === (string) $conflictAudits[0]->status, 'A refused conflict should remain visible as a failed, value-free audit event.');
 
 $redactedRejected = false;
 try {
@@ -343,6 +494,13 @@ $assert('created' === get_option('fixture_compensated_add'), 'Earlier restore wr
 $restore->restoreSession($compensationSession);
 $assert(false === get_option('fixture_compensated_add', false), 'The operation lock must be released after a failed restore.');
 $assert('baseline' === get_option('fixture_compensation_failure'), 'A later retry should restore the full baseline cleanly.');
+$compensationAudits = $restoreAudit->forSession($compensationSession);
+$assert(
+	'succeeded' === (string) $compensationAudits[0]->status
+	&& 'compensated' === (string) $compensationAudits[1]->status
+	&& 'apply_failed_compensated' === (string) $compensationAudits[1]->failure_code,
+	'Failure injection should leave both the compensated attempt and successful retry in the audit trail.'
+);
 
 delete_option('fixture_nested');
 delete_option('fixture_credentials');
@@ -477,7 +635,8 @@ $hostilePayloadFactory = new \ConfigOps\Admin\AdminPayloadFactory(
 	$mutations,
 	$writeSignals,
 	new \ConfigOps\Admin\ReviewPresenter($adapters),
-	$adapters
+	$adapters,
+	$restoreAudit
 );
 $hostilePayload = $hostilePayloadFactory->mutationPage($hostileSession);
 $hostilePayloadSignals = array_merge(
@@ -548,11 +707,23 @@ if (null === $originalRequestUri) {
 }
 \ConfigOpsHostileFixture\SettingsFixture::cleanup();
 
+$bulkQueryStart = (int) $wpdb->num_queries;
+$bulkMemoryStart = memory_get_usage(true);
 $bulkSession = $captures->start('Pagination and budget check', 0, '/wp-admin/options-general.php');
 for ($index = 0; $index < 101; ++$index) {
 	add_option('fixture_bulk_' . $index, $index, '', false);
 }
 $captures->stop();
+$bulkQueryCount = (int) $wpdb->num_queries - $bulkQueryStart;
+$bulkMemoryGrowth = memory_get_usage(true) - $bulkMemoryStart;
+$assert(
+	$bulkQueryCount <= 101 * 8 + 40,
+	"A 101-mutation capture exceeded its bounded query budget: {$bulkQueryCount} queries."
+);
+$assert(
+	$bulkMemoryGrowth <= 24 * 1024 * 1024,
+	"A 101-mutation capture retained too much request memory: {$bulkMemoryGrowth} bytes."
+);
 
 $bulkSummary = $mutations->summaryForSession($bulkSession);
 $bulkFirstPage = $mutations->forSession($bulkSession, 100, 0);
@@ -579,13 +750,33 @@ $payloadFactory = new \ConfigOps\Admin\AdminPayloadFactory(
 	$mutations,
 	$writeSignals,
 	new \ConfigOps\Admin\ReviewPresenter($adapters),
-	$adapters
+	$adapters,
+	$restoreAudit
 );
 $incompletePayload = $payloadFactory->mutationPage($sessionId);
 $assert(
 	1 === $incompletePayload['summary']['captureErrors']
 	&& false === $incompletePayload['summary']['allRestorable'],
 	'The UI contract must expose incomplete evidence and disable whole-capture undo.'
+);
+$incompletePayloadRows = array_merge(
+	...array_map(static fn (array $group): array => $group['mutations'], $incompletePayload['groups'])
+);
+$restoredNestedPayload = current(array_filter($incompletePayloadRows, static fn (array $row): bool => 'fixture_nested' === $row['optionName']));
+$assert(
+	false !== $restoredNestedPayload
+	&& 'succeeded' === ($restoredNestedPayload['lastRestore']['status'] ?? ''),
+	'Historical mutations should expose their latest completed undo instead of offering the same action again.'
+);
+$assert(
+	1 === $incompletePayload['summary']['individuallyUndone'],
+	'An individually undone setting should permanently disable the stale whole-capture undo plan.'
+);
+$restoredSessionPayload = $payloadFactory->mutationPage($secondSession);
+$assert(
+	'succeeded' === ($restoredSessionPayload['summary']['lastSessionRestore']['status'] ?? '')
+	&& 2 === ($restoredSessionPayload['summary']['lastSessionRestore']['restoredOptionCount'] ?? 0),
+	'Capture review should expose the latest successful whole-session undo and its audited option count.'
 );
 $incompleteState = $payloadFactory->state($sessionId, '', '', false);
 $assert(
@@ -604,6 +795,12 @@ $assert(200 === $stateResponse->get_status(), 'The local Agent state endpoint sh
 $assert(
 	is_array($stateData) && isset($stateData['sessions'], $stateData['review'], $stateData['capabilities']),
 	'The Agent state contract should expose stable session, review, and capability boundaries.'
+);
+$stateHeaders = $stateResponse->get_headers();
+$assert(
+	'private, no-store' === ($stateHeaders['Cache-Control'] ?? '')
+	&& 'nosniff' === ($stateHeaders['X-Content-Type-Options'] ?? ''),
+	'The Agent state contract must prevent caching and MIME sniffing of configuration evidence.'
 );
 
 $firstBulkMutationId = (int) $bulkFirstPage[array_key_last($bulkFirstPage)]->id;
@@ -633,6 +830,32 @@ $stopRequest = new WP_REST_Request('POST', '/configops/v1/captures/active/stop')
 $stopResponse = $restServer->dispatch($stopRequest);
 $stopData = $stopResponse->get_data();
 $assert(200 === $stopResponse->get_status() && is_array($stopData) && null === $stopData['active'], 'The REST command layer should return the refreshed state after stopping.');
+
+$viewerId = wp_create_user('configops-viewer', wp_generate_password(32), 'configops-viewer@example.test');
+$assert(! is_wp_error($viewerId), 'The capability-boundary fixture user should be created.');
+$viewer = get_user_by('id', (int) $viewerId);
+$viewer->add_cap('configops_view');
+wp_set_current_user((int) $viewerId);
+$viewerReadResponse = $restServer->dispatch(new WP_REST_Request('GET', '/configops/v1/state'));
+$assert(200 === $viewerReadResponse->get_status(), 'A read-only ConfigOps operator should be able to inspect evidence.');
+$viewerStartRequest = new WP_REST_Request('POST', '/configops/v1/captures');
+$viewerStartRequest->set_body_params(array('name' => 'Forbidden viewer capture'));
+$viewerStartResponse = $restServer->dispatch($viewerStartRequest);
+$assert(
+	$viewerStartResponse->get_status() >= 400
+	&& 'rest_forbidden' === ($viewerStartResponse->get_data()['code'] ?? ''),
+	'Read-only operators must not start captures through the Agent API.'
+);
+$viewerRestoreRequest = new WP_REST_Request('POST', "/configops/v1/mutations/{$firstBulkMutationId}/restore");
+$viewerRestoreRequest->set_param('id', $firstBulkMutationId);
+$viewerRestoreResponse = $restServer->dispatch($viewerRestoreRequest);
+$assert(
+	$viewerRestoreResponse->get_status() >= 400
+	&& 'rest_forbidden' === ($viewerRestoreResponse->get_data()['code'] ?? ''),
+	'Read-only operators must not execute undo through the Agent API.'
+);
+require_once ABSPATH . 'wp-admin/includes/user.php';
+wp_delete_user((int) $viewerId);
 
 wp_set_current_user(0);
 $forbiddenResponse = $restServer->dispatch(new WP_REST_Request('GET', '/configops/v1/state'));
