@@ -1,11 +1,12 @@
 {
   "name": "configops",
-  "version": "0.1.0-dev",
+  "version": "0.1.0",
   "private": true,
   "description": "Desired state management for WordPress configuration.",
   "scripts": {
     "build:ui": "node build/build-ui.mjs",
-    "build:plugin": "npm run build:ui && bash build/package-plugin.sh",
+    "build:plugin": "npm run build:ui && npm run check:release && bash build/package-plugin.sh",
+    "check:release": "node build/check-release.mjs",
     "check:ui-budget": "node build/check-ui-budget.mjs",
     "predev": "npm run build:ui",
     "dev": "wp-playground-cli start --php=8.3 --wp=latest --auto-mount --login",

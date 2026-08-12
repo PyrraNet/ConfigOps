@@ -34,6 +34,7 @@ use ConfigOps\Database\Schema;
 use ConfigOps\Diff\NestedDiff;
 use ConfigOps\Execution\OperationLock;
 use ConfigOps\Noise\NoiseClassifier;
+use ConfigOps\Privacy\PrivacyPolicy;
 use ConfigOps\Restore\RestoreService;
 use ConfigOps\Maintenance\HistoryRetention;
 
@@ -76,6 +77,7 @@ final class Plugin
 		$source    = new SourceAttributor(CONFIGOPS_PATH);
 		$request   = new RequestContext();
 		(new HistoryRetention($wpdb, new OperationLock($wpdb)))->register();
+		(new PrivacyPolicy())->register();
 
 		(new SqlWriteSentry($wpdb, $captures, $signals, $source, $request, $adapters))->register();
 

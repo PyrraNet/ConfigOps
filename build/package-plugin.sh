@@ -19,9 +19,14 @@ archive="$archive_root/configops-$version.zip"
 
 mkdir -p "$plugin_root" "$archive_root"
 
+# Keep dist unambiguous for installation tests and human release uploads.
+find "$archive_root" -maxdepth 1 -type f -name 'configops-*.zip' ! -name "$(basename "$archive")" -delete
+
 cp "$repository_root/configops.php" "$plugin_root/configops.php"
 cp "$repository_root/readme.txt" "$plugin_root/readme.txt"
 cp "$repository_root/README.md" "$plugin_root/README.md"
+cp "$repository_root/CHANGELOG.md" "$plugin_root/CHANGELOG.md"
+cp "$repository_root/LICENSE" "$plugin_root/LICENSE"
 cp -R "$repository_root/src" "$plugin_root/src"
 cp -R "$repository_root/templates" "$plugin_root/templates"
 cp -R "$repository_root/assets" "$plugin_root/assets"
@@ -39,6 +44,8 @@ entries="$(unzip -Z1 "$archive")"
 for required in \
 	configops/configops.php \
 	configops/readme.txt \
+	configops/LICENSE \
+	configops/CHANGELOG.md \
 	configops/src/Plugin.php \
 	configops/assets/admin.css \
 	configops/assets/ui/runtime.js; do
@@ -50,6 +57,17 @@ done
 
 if grep -Eq '^configops/(tests|ui|build|node_modules|\.git|\.github|\.design-review|artifacts|vendor)/' <<< "$entries"; then
 	echo "Release archive contains development-only files." >&2
+	exit 1
+fi
+
+if grep -Eqi '(^|/)(codex|chatgpt|claude|prompt|agent)([._/-]|$)|\.map$' <<< "$entries"; then
+	echo "Release archive contains an assistant, prompt, or source-map artifact." >&2
+	exit 1
+fi
+
+if find "$plugin_root/assets/ui" -type f -name '*.js' -exec cat {} + \
+	| grep -Eqi '\bcodex\b|\bchatgpt\b|\bclaude\b|\banthropic\b|\bopenai\b|system prompt|prompt injection|sourceMappingURL=|\beval[[:space:]]*\(|\bnew[[:space:]]+Function[[:space:]]*\('; then
+	echo "Release JavaScript contains an assistant artifact, source map, or dynamic-code pattern." >&2
 	exit 1
 fi
 

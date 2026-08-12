@@ -13,6 +13,7 @@
 # Test and review output
 /artifacts/
 /.design-review/
+/.release-check/
 /coverage/
 /playwright-report/
 /test-results/

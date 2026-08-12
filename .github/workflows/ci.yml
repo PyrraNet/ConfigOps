@@ -9,6 +9,51 @@ permissions:
   contents: read
 
 jobs:
+  release-compliance:
+    name: WordPress.org release compliance
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Build the exact release archive
+        run: |
+          npm ci
+          npm run build:plugin
+          mkdir -p .release-check
+          version="$(node -p "require('./package.json').version")"
+          unzip -q "dist/configops-$version.zip" -d .release-check
+
+      - name: Run official WordPress Plugin Check
+        uses: wordpress/plugin-check-action@10857da14b6c2246d15402b3e69f777edcf8c12e # v1
+        with:
+          build-dir: ./.release-check/configops
+          strict: true
+
+      - name: Create release checksum
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          cd dist
+          sha256sum "configops-$version.zip" > "configops-$version.zip.sha256"
+
+      - name: Keep the checked release archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: configops-release
+          path: |
+            dist/configops-*.zip
+            dist/configops-*.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
+
   wordpress:
     name: WordPress ${{ matrix.wordpress }} / PHP ${{ matrix.php }}
     runs-on: ubuntu-latest

@@ -1,8 +1,14 @@
 {
-  "name": "felixhans/configops",
+  "name": "pyrra/configops",
   "description": "Desired state management for WordPress configuration.",
   "type": "wordpress-plugin",
   "license": "GPL-2.0-or-later",
+  "authors": [
+    {
+      "name": "pyrra",
+      "email": "felix@pyrra.net"
+    }
+  ],
   "require": {
     "php": ">=8.3"
   },
