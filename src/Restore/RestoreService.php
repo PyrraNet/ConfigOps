@@ -218,14 +218,14 @@ final class RestoreService
 		}
 
 		if (! empty($failedCompensations)) {
-			throw new RestoreCompensationException(
+			throw $this->compensationFailure(
 				$cause->getMessage() . ' Compensation also failed for: ' . implode(', ', $failedCompensations) . '.',
 				true,
 				$cause
 			);
 		}
 
-		throw new RestoreCompensationException(
+		throw $this->compensationFailure(
 			$cause->getMessage() . ' Earlier restore steps were compensated.',
 			false,
 			$cause
@@ -237,9 +237,8 @@ final class RestoreService
 		try {
 			$this->audit->succeed($auditId, $restoredOptionCount);
 		} catch (Throwable $error) {
-			throw new RuntimeException(
+			throw $this->runtimeFailure(
 				'The settings were undone, but ConfigOps could not finalize the audit record. Do not retry this undo until the running audit entry has been inspected.',
-				0,
 				$error
 			);
 		}
@@ -265,7 +264,11 @@ final class RestoreService
 		try {
 			$this->audit->fail($auditId, $status, $code);
 		} catch (Throwable $auditError) {
-			error_log('ConfigOps could not finalize failed restore audit #' . $auditId . ': ' . $auditError->getMessage());
+			try {
+				do_action('configops_restore_audit_error', $auditError, $auditId, $error);
+			} catch (Throwable) {
+				// Extension diagnostics cannot replace the original restore failure.
+			}
 		}
 	}
 
@@ -313,7 +316,7 @@ final class RestoreService
 		$sentinel   = new \stdClass();
 		$current    = get_option($optionName, $sentinel);
 		if ($current === $sentinel || ! is_array($current)) {
-			throw new RuntimeException("Conflict: {$optionName} no longer contains the captured settings array. Nothing was restored.");
+			throw $this->runtimeFailure("Conflict: {$optionName} no longer contains the captured settings array. Nothing was restored.");
 		}
 
 		$currentAutoload = $this->optionMetadata->autoloadFor($optionName);
@@ -322,7 +325,7 @@ final class RestoreService
 			null !== $expectedAutoload
 			&& $this->autoloadMode($expectedAutoload) !== $this->autoloadMode($currentAutoload)
 		) {
-			throw new RuntimeException("Conflict: {$optionName} has a different autoload state. Nothing was restored.");
+			throw $this->runtimeFailure("Conflict: {$optionName} has a different autoload state. Nothing was restored.");
 		}
 
 		foreach ($changes as $change) {
@@ -345,7 +348,7 @@ final class RestoreService
 			$updated = update_option($optionName, $patched, $autoloadFlag);
 			$stored  = get_option($optionName, $sentinel);
 			if ($stored === $sentinel || ! $this->codec->semanticallyEqual($stored, $patched)) {
-				throw new RuntimeException("WordPress could not undo the safe fields in {$optionName}.");
+				throw $this->runtimeFailure("WordPress could not undo the safe fields in {$optionName}.");
 			}
 			unset($updated);
 		} catch (Throwable $error) {
@@ -361,14 +364,14 @@ final class RestoreService
 					throw new RuntimeException('The original current value could not be verified after compensation.');
 				}
 			} catch (Throwable) {
-				throw new RestoreCompensationException(
+				throw $this->compensationFailure(
 					$error->getMessage() . ' The original current value could not be restored completely.',
 					true,
 					$error
 				);
 			}
 
-			throw new RestoreCompensationException(
+			throw $this->compensationFailure(
 				$error->getMessage() . ' The original current value was reapplied and verified.',
 				false,
 				$error
@@ -386,14 +389,14 @@ final class RestoreService
 		$operation = (string) ($change['op'] ?? '');
 		if ('remove' === $operation) {
 			if ($exists) {
-				throw new RuntimeException("Conflict: {$optionName} changed after this capture. Nothing was restored.");
+				throw $this->runtimeFailure("Conflict: {$optionName} changed after this capture. Nothing was restored.");
 			}
 
 			return;
 		}
 
 		if (! $exists || ! $this->codec->semanticallyEqual($value, $change['after'] ?? null)) {
-			throw new RuntimeException("Conflict: {$optionName} changed after this capture. Nothing was restored.");
+			throw $this->runtimeFailure("Conflict: {$optionName} changed after this capture. Nothing was restored.");
 		}
 	}
 
@@ -511,14 +514,14 @@ final class RestoreService
 
 		if ($this->codec->isMissing($expectedPayload)) {
 			if ($current !== $sentinel) {
-				throw new RuntimeException("Conflict: {$optionName} exists but the captured state expects it to be absent.");
+				throw $this->runtimeFailure("Conflict: {$optionName} exists but the captured state expects it to be absent.");
 			}
 
 			return;
 		}
 
 		if ($current === $sentinel || ! $this->codec->matches($current, $expectedPayload, $optionName)) {
-			throw new RuntimeException("Conflict: {$optionName} changed after this capture. Nothing was restored.");
+			throw $this->runtimeFailure("Conflict: {$optionName} changed after this capture. Nothing was restored.");
 		}
 
 		$currentAutoload = $this->optionMetadata->autoloadFor($optionName);
@@ -526,7 +529,7 @@ final class RestoreService
 			null !== $expectedAutoload
 			&& $this->autoloadMode($expectedAutoload) !== $this->autoloadMode($currentAutoload)
 		) {
-			throw new RuntimeException("Conflict: {$optionName} has a different autoload state. Nothing was restored.");
+			throw $this->runtimeFailure("Conflict: {$optionName} has a different autoload state. Nothing was restored.");
 		}
 	}
 
@@ -537,7 +540,7 @@ final class RestoreService
 
 		if ($this->codec->isMissing($payload)) {
 			if ($current !== $sentinel && ! delete_option($optionName)) {
-				throw new RuntimeException("WordPress could not delete {$optionName} during restore.");
+				throw $this->runtimeFailure("WordPress could not delete {$optionName} during restore.");
 			}
 
 			return;
@@ -548,7 +551,7 @@ final class RestoreService
 
 		if ($current === $sentinel) {
 			if (! add_option($optionName, $value, '', $autoloadFlag)) {
-				throw new RuntimeException("WordPress could not recreate {$optionName} during restore.");
+				throw $this->runtimeFailure("WordPress could not recreate {$optionName} during restore.");
 			}
 
 			return;
@@ -557,7 +560,7 @@ final class RestoreService
 		if (! update_option($optionName, $value, $autoloadFlag)) {
 			$stored = get_option($optionName, $sentinel);
 			if ($stored === $sentinel || ! $this->codec->matches($stored, $payload, $optionName)) {
-				throw new RuntimeException("WordPress could not restore {$optionName}.");
+				throw $this->runtimeFailure("WordPress could not restore {$optionName}.");
 			}
 		}
 	}
@@ -579,5 +582,17 @@ final class RestoreService
 			'auto' => 'auto',
 			default => 'unknown',
 		};
+	}
+
+	private function runtimeFailure(string $message, ?Throwable $previous = null): RuntimeException
+	{
+		// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- The human-facing message is escaped; the previous throwable is exception metadata.
+		return new RuntimeException(esc_html($message), 0, $previous);
+	}
+
+	private function compensationFailure(string $message, bool $compensationFailed, Throwable $previous): RestoreCompensationException
+	{
+		// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- The human-facing message is escaped; the previous throwable is exception metadata.
+		return new RestoreCompensationException(esc_html($message), $compensationFailed, $previous);
 	}
 }

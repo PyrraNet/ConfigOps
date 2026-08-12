@@ -14,7 +14,7 @@ if (! defined('ABSPATH')) {
 	exit;
 }
 
-$bootstrapJson = wp_json_encode(
+$configopsBootstrapJson = wp_json_encode(
 	$bootstrap,
 	JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
 );
@@ -82,5 +82,5 @@ $bootstrapJson = wp_json_encode(
 		</section>
 	</noscript>
 
-	<script id="configops-bootstrap" type="application/json"><?php echo is_string($bootstrapJson) ? $bootstrapJson : '{}'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON_HEX flags prevent script termination. ?></script>
+	<script id="configops-bootstrap" type="application/json"><?php echo is_string($configopsBootstrapJson) ? $configopsBootstrapJson : '{}'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON_HEX flags prevent script termination. ?></script>
 </div>

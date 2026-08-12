@@ -604,7 +604,7 @@ final class AdapterRegistry implements SensitiveValueDetector
 
 	private function safeSourceUrl(string $sourceUrl): string
 	{
-		$scheme = parse_url($sourceUrl, PHP_URL_SCHEME);
+		$scheme = wp_parse_url($sourceUrl, PHP_URL_SCHEME);
 
 		return 'https' === $scheme ? $sourceUrl : '';
 	}

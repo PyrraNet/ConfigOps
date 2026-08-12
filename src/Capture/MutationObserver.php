@@ -299,23 +299,17 @@ final class MutationObserver
 		try {
 			$this->captures->recordCaptureError($sessionId, 'option_capture_failed');
 		} catch (Throwable $integrityError) {
-			if (defined('WP_DEBUG') && WP_DEBUG) {
-				error_log('ConfigOps could not persist a capture integrity warning: ' . $integrityError->getMessage());
+			try {
+				do_action('configops_capture_integrity_error', $integrityError, $option, $sessionId);
+			} catch (Throwable) {
+				// Observer diagnostics cannot break the host settings request.
 			}
 		}
 
 		try {
 			do_action('configops_capture_error', $error, $option, $sessionId);
-		} catch (Throwable $reportingError) {
-			if (defined('WP_DEBUG') && WP_DEBUG) {
-				error_log(
-					sprintf(
-						'ConfigOps capture error reporter failed for option %s: %s',
-						$option,
-						$reportingError->getMessage()
-					)
-				);
-			}
+		} catch (Throwable) {
+			// Observer diagnostics cannot break the host settings request.
 		}
 
 		// Observers must never throw into the host settings request.

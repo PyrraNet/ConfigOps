@@ -31,7 +31,7 @@ final class RequestContext
 
 	public function uri(): string
 	{
-		$uri  = isset($_SERVER['REQUEST_URI']) ? wp_unslash($_SERVER['REQUEST_URI']) : '';
+		$uri  = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '';
 		$path = wp_parse_url($uri, PHP_URL_PATH);
 
 		return is_string($path) ? sanitize_text_field($path) : '';

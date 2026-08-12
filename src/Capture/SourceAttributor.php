@@ -36,6 +36,7 @@ final class SourceAttributor
 			);
 		}
 
+		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_debug_backtrace -- Source attribution is a bounded product feature; arguments are never captured.
 		$trace        = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 25);
 		$coreFallback = null;
 

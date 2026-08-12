@@ -107,6 +107,7 @@ final class SqlWriteSentry
 			return false;
 		}
 
+		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_debug_backtrace -- The bounded trace distinguishes supported Options API calls without capturing arguments.
 		foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 24) as $frame) {
 			if (in_array((string) ($frame['function'] ?? ''), array('add_option', 'update_option', 'delete_option'), true)) {
 				return true;
@@ -130,6 +131,7 @@ final class SqlWriteSentry
 
 	private function isKnownRuntimeLock(): bool
 	{
+		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_debug_backtrace -- The bounded trace identifies Action Scheduler runtime locks without capturing arguments.
 		foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 24) as $frame) {
 			$file = str_replace('\\', '/', (string) ($frame['file'] ?? ''));
 			if (str_ends_with($file, '/action-scheduler/classes/ActionScheduler_OptionLock.php')) {

@@ -149,7 +149,11 @@ final class Plugin
 		} catch (\Throwable $error) {
 			// A deactivation must not strand WordPress. The active pointer is removed
 			// by the repository before it reports an interrupted-session write error.
-			error_log('ConfigOps could not close its active capture during deactivation: ' . $error->getMessage());
+			try {
+				do_action('configops_deactivation_error', $error);
+			} catch (\Throwable) {
+				// Extension diagnostics cannot break deactivation.
+			}
 		}
 		HistoryRetention::unschedule();
 	}
@@ -170,8 +174,6 @@ final class Plugin
 			// Failure reporting must not replace the original boot failure.
 		}
 
-		error_log('ConfigOps did not start: ' . $error->getMessage());
-
 		$notice = static function (): void {
 			if (! current_user_can('activate_plugins')) {
 				return;
@@ -180,7 +182,7 @@ final class Plugin
 			<div class="notice notice-error">
 				<p>
 					<strong><?php esc_html_e('ConfigOps is not recording.', 'configops'); ?></strong>
-					<?php esc_html_e('Its storage could not be prepared safely. WordPress is still running; check the PHP error log, then reactivate ConfigOps after fixing the database problem.', 'configops'); ?>
+					<?php esc_html_e('Its storage could not be prepared safely. WordPress is still running; check the database health, then reactivate ConfigOps after fixing the storage problem.', 'configops'); ?>
 				</p>
 			</div>
 			<?php

@@ -115,11 +115,14 @@ final class AdminController
 			wp_die(esc_html__('You are not allowed to view ConfigOps.', 'configops'));
 		}
 
+		// Read-only navigation does not require a nonce.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$view = isset($_GET['view']) ? sanitize_key(wp_unslash($_GET['view'])) : 'review';
 		$view = 'support' === $view ? 'support' : 'review';
 		if ('support' === $view) {
 			$bootstrap = $this->payloads->support();
 		} else {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only capture selection.
 			$requested = isset($_GET['session']) ? absint($_GET['session']) : 0;
 			$flash     = $this->notices->pull();
 			$bootstrap = $this->payloads->state(
@@ -153,7 +156,8 @@ final class AdminController
 
 	public function startCapture(): void
 	{
-		$this->authorize('configops_capture', 'configops_start_capture');
+		$this->authorize('configops_capture');
+		check_admin_referer('configops_start_capture');
 
 		$name = isset($_POST['capture_name']) ? sanitize_text_field(wp_unslash($_POST['capture_name'])) : '';
 		if ('' === $name) {
@@ -174,7 +178,8 @@ final class AdminController
 
 	public function stopCapture(): void
 	{
-		$this->authorize('configops_capture', 'configops_stop_capture');
+		$this->authorize('configops_capture');
+		check_admin_referer('configops_stop_capture');
 
 		try {
 			$id = $this->captures->stop();
@@ -186,7 +191,8 @@ final class AdminController
 
 	public function restoreMutation(): void
 	{
-		$this->authorize('configops_rollback', 'configops_restore_mutation');
+		$this->authorize('configops_rollback');
+		check_admin_referer('configops_restore_mutation');
 		$id = isset($_POST['mutation_id']) ? absint($_POST['mutation_id']) : 0;
 
 		try {
@@ -199,7 +205,8 @@ final class AdminController
 
 	public function restoreSession(): void
 	{
-		$this->authorize('configops_rollback', 'configops_restore_session');
+		$this->authorize('configops_rollback');
+		check_admin_referer('configops_restore_session');
 		$id = isset($_POST['session_id']) ? absint($_POST['session_id']) : 0;
 
 		try {
@@ -210,13 +217,11 @@ final class AdminController
 		}
 	}
 
-	private function authorize(string $capability, string $nonceAction): void
+	private function authorize(string $capability): void
 	{
 		if (! current_user_can($capability)) {
 			wp_die(esc_html__('You are not allowed to perform this ConfigOps action.', 'configops'));
 		}
-
-		check_admin_referer($nonceAction);
 	}
 
 	private function enqueueStyles(): void

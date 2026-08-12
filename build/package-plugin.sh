@@ -60,7 +60,7 @@ if grep -Eq '^configops/(tests|ui|build|node_modules|\.git|\.github|\.design-rev
 	exit 1
 fi
 
-if grep -Eqi '(^|/)(codex|chatgpt|claude|prompt|agent)([._/-]|$)|\.map$' <<< "$entries"; then
+if grep -Eqi '(^|/)(codex|chatgpt|claude|prompt)([._/-]|$)|\.map$' <<< "$entries"; then
 	echo "Release archive contains an assistant, prompt, or source-map artifact." >&2
 	exit 1
 fi

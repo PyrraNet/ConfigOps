@@ -8,11 +8,9 @@
  * Requires PHP:      8.3
  * Author:            pyrra
  * Author URI:        https://github.com/PyrraNet
- * Update URI:        https://github.com/PyrraNet/ConfigOps
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       configops
- * Domain Path:       /languages
  *
  * @package ConfigOps
  */

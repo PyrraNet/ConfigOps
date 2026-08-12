@@ -150,7 +150,7 @@ final class CaptureRepository
 				? ' The capture remains active.'
 				: ' Recording is no longer active because ConfigOps could not safely resume the capture.';
 
-			throw new RuntimeException($error->getMessage() . $message, 0, $error);
+			throw $this->runtimeFailure($error->getMessage() . $message, $error);
 		}
 
 		$updated = $this->database->update(
@@ -607,5 +607,11 @@ final class CaptureRepository
 		}
 
 		return substr($name, 0, 191);
+	}
+
+	private function runtimeFailure(string $message, \Throwable $previous): RuntimeException
+	{
+		// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- The human-facing message is escaped; the previous throwable is exception metadata.
+		return new RuntimeException(esc_html($message), 0, $previous);
 	}
 }
