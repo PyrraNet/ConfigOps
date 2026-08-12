@@ -1,13 +1,12 @@
 <?php
 /**
  * Plugin Name:       ConfigOps – Settings History, Diff & Rollback
- * Plugin URI:        https://github.com/PyrraNet/ConfigOps
  * Description:       Record WordPress configuration changes, inspect precise diffs, and safely restore known values.
  * Version:           0.1.0
  * Requires at least: 7.0
  * Requires PHP:      8.3
  * Author:            pyrra
- * Author URI:        https://github.com/PyrraNet
+ * Author URI:        https://www.pyrra.net/
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       configops

@@ -24,7 +24,6 @@ find "$archive_root" -maxdepth 1 -type f -name 'configops-*.zip' ! -name "$(base
 
 cp "$repository_root/configops.php" "$plugin_root/configops.php"
 cp "$repository_root/readme.txt" "$plugin_root/readme.txt"
-cp "$repository_root/README.md" "$plugin_root/README.md"
 cp "$repository_root/CHANGELOG.md" "$plugin_root/CHANGELOG.md"
 cp "$repository_root/LICENSE" "$plugin_root/LICENSE"
 cp -R "$repository_root/src" "$plugin_root/src"

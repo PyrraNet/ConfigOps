@@ -8,7 +8,7 @@
 <p align="center"><strong>Know what WordPress changed. Undo only what ConfigOps can prove.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/PyrraNet/ConfigOps/releases/tag/v0.1.0">v0.1.0</a>
+  v0.1.0
   &nbsp;·&nbsp; Local recorder
   &nbsp;·&nbsp; No account required
 </p>
@@ -16,7 +16,7 @@
 <br>
 
 <p align="center">
-  <img src="https://github.com/PyrraNet/ConfigOps/releases/download/v0.1.0/wp-mail-smtp-review.png" width="1120" alt="ConfigOps reviewing real WP Mail SMTP setting changes while protecting the SMTP password">
+  <img src=".wordpress-org/screenshot-1.png" width="1120" alt="ConfigOps reviewing real WP Mail SMTP setting changes while protecting the SMTP password">
 </p>
 
 <p align="center"><sub>An actual WP Mail SMTP capture. The password is removed before storage; seven supported settings remain undoable.</sub></p>
@@ -50,8 +50,8 @@ The exact field coverage and limitations are available inside **ConfigOps → Pl
 
 ## First capture
 
-1. Download [`configops-0.1.0.zip`](https://github.com/PyrraNet/ConfigOps/releases/download/v0.1.0/configops-0.1.0.zip).
-2. In WordPress, open **Plugins → Add Plugin → Upload Plugin**.
+1. Install ConfigOps from WordPress.org once it is listed, or use a release ZIP provided by pyrra.
+2. In WordPress, open **Plugins → Add Plugin**. Use **Upload Plugin** when installing a ZIP.
 3. Activate ConfigOps and open **ConfigOps** in the admin menu.
 4. Name the capture, record one settings change, then stop and review it.
 

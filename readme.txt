@@ -71,6 +71,13 @@ Completed and interrupted captures are kept for 30 days by default. Cleanup is b
 
 Email felix@pyrra.net. Do not post credentials, configuration values, database exports, or customer data in a public support thread.
 
+== Screenshots ==
+
+1. A real WP Mail SMTP capture separates the settings a person changed from technical writes and removes the SMTP password before storage.
+2. A Yoast SEO capture explains a nested XML sitemap change as a clear on-to-off decision.
+3. Plugin support is published as an explicit capability contract with tested versions and known limits.
+4. Incomplete evidence is shown prominently and disables whole-capture undo instead of presenting an unsafe action.
+
 == Changelog ==
 
 = 0.1.0 =
