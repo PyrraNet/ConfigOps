@@ -14,9 +14,11 @@ final class SourceAttributor
 	private const MAX_TRACES_PER_REQUEST = 100;
 
 	private int $traceCount = 0;
+	private readonly string $ownPluginPath;
 
-	public function __construct(private readonly string $ownPluginPath)
+	public function __construct(string $ownPluginPath)
 	{
+		$this->ownPluginPath = rtrim(wp_normalize_path($ownPluginPath), '/') . '/';
 	}
 
 	/**
@@ -39,7 +41,7 @@ final class SourceAttributor
 
 		foreach ($trace as $frame) {
 			$file = isset($frame['file']) ? wp_normalize_path((string) $frame['file']) : '';
-			if ('' === $file || str_starts_with($file, wp_normalize_path($this->ownPluginPath))) {
+			if ('' === $file || str_starts_with($file, $this->ownPluginPath)) {
 				continue;
 			}
 

@@ -17,6 +17,12 @@ if (! defined('CONFIGOPS_FILE')) {
 \ConfigOps\Plugin::activate();
 \ConfigOps\Plugin::boot();
 
+$fixturePlugin = '/wordpress/wp-content/plugins/configops-hostile-fixture/configops-hostile-fixture.php';
+if (! is_file($fixturePlugin)) {
+	throw new RuntimeException('The hostile ConfigOps fixture plugin was not mounted.');
+}
+require_once $fixturePlugin;
+
 global $wpdb;
 
 $assertions = 0;
@@ -244,6 +250,116 @@ delete_option('_transient_fixture_cache');
 delete_option('fixture_semantic_reorder');
 delete_option('fixture_compensation_failure');
 delete_transient('configops_flash_integration');
+
+\ConfigOpsHostileFixture\SettingsFixture::cleanup();
+\ConfigOpsHostileFixture\SettingsFixture::seed();
+$originalRequestMethod = $_SERVER['REQUEST_METHOD'] ?? null;
+$originalRequestUri = $_SERVER['REQUEST_URI'] ?? null;
+$_SERVER['REQUEST_METHOD'] = 'POST';
+$_SERVER['REQUEST_URI'] = '/wp-admin/admin.php?page=configops-hostile-fixture';
+
+$hostileSession = $captures->start('Hostile fixture settings save', 0, '/wp-admin/admin.php?page=configops-hostile-fixture');
+\ConfigOpsHostileFixture\SettingsFixture::saveSettings(321);
+\ConfigOpsHostileFixture\SettingsFixture::migrateToVersionTwo();
+\ConfigOpsHostileFixture\SettingsFixture::writeDirectly('after');
+$captures->stop();
+
+$hostileRows = $mutations->forSession($hostileSession);
+$assert(8 === count($hostileRows), 'The hostile fixture should produce eight observable Options API mutations.');
+$hostileSummary = $mutations->summaryForSession($hostileSession);
+$assert(
+	array('total' => 8, 'derived' => 3, 'redacted' => 1, 'not_restorable' => 1) === $hostileSummary,
+	'The hostile fixture summary should distinguish decisions, runtime noise, and its redacted secret.'
+);
+
+$hostileByName = array();
+foreach ($hostileRows as $row) {
+	$hostileByName[(string) $row->option_name] = $row;
+}
+
+$fixtureClass = \ConfigOpsHostileFixture\SettingsFixture::class;
+$enabledOption = $fixtureClass::ENABLED_OPTION;
+$settingsOption = $fixtureClass::SETTINGS_OPTION;
+$credentialsOption = $fixtureClass::CREDENTIALS_OPTION;
+$obsoleteOption = $fixtureClass::OBSOLETE_OPTION;
+$lastCheckedOption = $fixtureClass::LAST_CHECKED_OPTION;
+$schemaOption = $fixtureClass::SCHEMA_OPTION;
+$directOption = $fixtureClass::DIRECT_OPTION;
+
+$assert(isset($hostileByName[$enabledOption]), 'A simple fixture toggle should be captured.');
+$assert('delete' === (string) $hostileByName[$obsoleteOption]->mutation_type, 'The fixture deletion should retain its operation type.');
+
+$settingsDiff = json_decode((string) $hostileByName[$settingsOption]->diff, true, 64, JSON_THROW_ON_ERROR);
+$settingsByPath = array();
+foreach ($settingsDiff as $change) {
+	$settingsByPath[(string) $change['path']] = $change;
+}
+$assert(
+	321 === $settingsByPath['/content/contact_page_id']['after'],
+	'WordPress object IDs should remain typed and visible at their exact nested path.'
+);
+$assert(
+	true === $settingsByPath['/mail/enabled']['after'] && 5 === $settingsByPath['/mail/retry']['after'],
+	'The hostile nested save should expose only the changed mail leaves.'
+);
+
+$credentials = $hostileByName[$credentialsOption];
+$assert(1 === (int) $credentials->is_redacted, 'The fixture password should be redacted before persistence.');
+$assert(
+	! str_contains((string) $credentials->new_value, \ConfigOpsHostileFixture\SettingsFixture::SECRET),
+	'The hostile fixture secret must never enter stored mutation payloads.'
+);
+
+$assert('derived' === (string) $hostileByName[$lastCheckedOption]->classification, 'A save-time last_checked side effect should be classified as derived.');
+$assert(
+	(string) $hostileByName[$settingsOption]->request_id === (string) $hostileByName[$lastCheckedOption]->request_id,
+	'Settings and their synchronous runtime side effects should stay in one causal request group.'
+);
+$assert(
+	'plugin' === (string) $hostileByName[$settingsOption]->source_type
+	&& 'configops-hostile-fixture' === (string) $hostileByName[$settingsOption]->source_component
+	&& str_contains((string) $hostileByName[$settingsOption]->source_file, 'configops-hostile-fixture.php'),
+	'Source attribution should retain a sibling plugin whose directory starts with the ConfigOps slug.'
+);
+
+$schemaDiff = json_decode((string) $hostileByName[$schemaOption]->diff, true, 64, JSON_THROW_ON_ERROR);
+$schemaPaths = array_column($schemaDiff, 'path');
+$assert(
+	in_array('/mailer', $schemaPaths, true)
+	&& in_array('/mail', $schemaPaths, true)
+	&& in_array('/features', $schemaPaths, true)
+	&& in_array('/schema', $schemaPaths, true),
+	'A plugin schema migration should expose removed, added, and versioned paths without flattening the option.'
+);
+
+$assert('after' === get_option($directOption), 'The fixture direct SQL write should actually change its target value.');
+$assert(! isset($hostileByName[$directOption]), 'Direct SQL writes must remain explicitly outside generic Options API capture.');
+
+$_SERVER['REQUEST_METHOD'] = 'POST';
+$_SERVER['REQUEST_URI'] = '/wp-admin/admin-ajax.php?action=configops_fixture_save';
+$ajaxSession = $captures->start('Hostile fixture AJAX save', 0, '/wp-admin/admin-ajax.php');
+do_action('wp_ajax_configops_fixture_save');
+$captures->stop();
+$ajaxRows = $mutations->forSession($ajaxSession);
+$assert(1 === count($ajaxRows), 'An AJAX handler writing through update_option() should remain observable.');
+$assert(
+	'POST' === (string) $ajaxRows[0]->request_method
+	&& '/wp-admin/admin-ajax.php' === (string) $ajaxRows[0]->request_uri
+	&& 'configops-hostile-fixture' === (string) $ajaxRows[0]->source_component,
+	'AJAX captures should retain safe request metadata and plugin provenance.'
+);
+
+if (null === $originalRequestMethod) {
+	unset($_SERVER['REQUEST_METHOD']);
+} else {
+	$_SERVER['REQUEST_METHOD'] = $originalRequestMethod;
+}
+if (null === $originalRequestUri) {
+	unset($_SERVER['REQUEST_URI']);
+} else {
+	$_SERVER['REQUEST_URI'] = $originalRequestUri;
+}
+\ConfigOpsHostileFixture\SettingsFixture::cleanup();
 
 $bulkSession = $captures->start('Pagination and budget check', 0, '/wp-admin/options-general.php');
 for ($index = 0; $index < 101; ++$index) {

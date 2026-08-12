@@ -62,4 +62,5 @@ jobs:
           --php=${{ matrix.php }}
           --wp=${{ matrix.wordpress }}
           --mount=.:/wordpress/wp-content/plugins/configops
+          --mount=tests/fixtures/configops-hostile-fixture:/wordpress/wp-content/plugins/configops-hostile-fixture
           -- /wordpress/wp-content/plugins/configops/tests/integration.php

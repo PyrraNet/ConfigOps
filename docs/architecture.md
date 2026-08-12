@@ -65,6 +65,10 @@ Three directions were considered:
 
 The visual direction remains server-shell plus forensic instruments: a compact product bar and capture command render before only Capture, Sessions, and Review become interactive. This preserves the ledger rather than replacing it with framework-shaped cards. The company brand is expressed through a scoped token mapping and the supplied SVG wordmark; Paper carries the ledger, Ink carries evidence headers, and Brand Blue marks the command or selection without a webfont or visual runtime. Explanations stay attached to specialist terms and restore actions through accessible hover/focus help instead of lengthening every row.
 
+## Trust harness
+
+The deliberately hostile fixture plugin now exercises simple and nested options, typed WordPress IDs, secret redaction, transients, synchronous side effects, a versioned schema migration, AJAX metadata, direct SQL writes, and a neighboring plugin slug that shares the `configops` prefix. The integration contract proves what generic capture supports and explicitly proves that direct database writes remain invisible without an adapter.
+
 ## Next boundary
 
-Iteration 0 is complete only after manual fixture testing proves that one Core screen and two real plugins produce understandable request groups, correct nested diffs, useful source attribution, and honest derived-noise treatment. The next implementation slice should therefore be the deliberately hostile fixture plugin described in the product brief, followed by real design-partner plugin captures—not Release Packs or fleet UI.
+Iteration 0 now needs captures from one Core screen and two real design-partner plugins. Those runs must produce understandable request groups, correct nested diffs, useful ownership, and honest noise treatment before Release Packs begin. The next work is real-plugin evidence and classifier fixtures—not fleet UI.
