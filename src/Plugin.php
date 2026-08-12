@@ -51,6 +51,8 @@ final class Plugin
 		(new CapabilityManager())->maybeInstall();
 
 		$captures  = new CaptureRepository($wpdb);
+		$captures->reconcileIntegrityFallback();
+		self::registerIntegrityFallbackNotice($captures);
 		$mutations = new MutationRepository($wpdb);
 		$signals   = new DatabaseWriteSignalRepository($wpdb);
 		$metadata  = new OptionMetadataRepository($wpdb);
@@ -177,6 +179,26 @@ final class Plugin
 				<p>
 					<strong><?php esc_html_e('ConfigOps is not recording.', 'configops'); ?></strong>
 					<?php esc_html_e('Its storage could not be prepared safely. WordPress is still running; check the PHP error log, then reactivate ConfigOps after fixing the database problem.', 'configops'); ?>
+				</p>
+			</div>
+			<?php
+		};
+
+		add_action('admin_notices', $notice);
+		add_action('network_admin_notices', $notice);
+	}
+
+	private static function registerIntegrityFallbackNotice(CaptureRepository $captures): void
+	{
+		$notice = static function () use ($captures): void {
+			if (! $captures->hasUnresolvedIntegrityFallback() || ! current_user_can('configops_view')) {
+				return;
+			}
+			?>
+			<div class="notice notice-error">
+				<p>
+					<strong><?php esc_html_e('ConfigOps found unresolved capture-integrity evidence.', 'configops'); ?></strong>
+					<?php esc_html_e('At least one recording warning could not be attached to its original session. Do not treat that recording as complete; repair the ConfigOps database tables and review the PHP error log.', 'configops'); ?>
 				</p>
 			</div>
 			<?php

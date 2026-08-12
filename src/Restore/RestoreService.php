@@ -106,6 +106,9 @@ final class RestoreService
 		if (! $session) {
 			throw new RuntimeException('The capture session no longer exists.');
 		}
+		if ('completed' !== (string) $session->status) {
+			throw new RuntimeException('This capture did not complete cleanly. Review and undo supported settings individually.');
+		}
 		if ((int) ($session->capture_error_count ?? 0) > 0) {
 			throw new RuntimeException(
 				'This capture is incomplete because some changes could not be recorded. Review and undo supported settings individually.'

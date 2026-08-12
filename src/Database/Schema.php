@@ -25,6 +25,18 @@ final class Schema
 	{
 		if (self::VERSION !== (int) get_option('configops_schema_version', 0)) {
 			$this->install();
+
+			return;
+		}
+
+		if (false !== get_option(CaptureRepository::INTEGRITY_FALLBACK_OPTION, false)) {
+			try {
+				$this->assertInstalledShape();
+			} catch (RuntimeException) {
+				// A value-free emergency marker means a host setting may have saved
+				// while ConfigOps storage failed. Repair and verify before booting.
+				$this->install();
+			}
 		}
 	}
 
@@ -143,8 +155,18 @@ final class Schema
 		) {$charsetCollate};";
 
 		dbDelta($sql);
+		$this->assertInstalledShape();
+
+		update_option('configops_schema_version', self::VERSION, false);
+		if (self::VERSION !== (int) get_option('configops_schema_version', 0)) {
+			throw new RuntimeException('ConfigOps created its tables but could not commit the schema version.');
+		}
+	}
+
+	private function assertInstalledShape(): void
+	{
 		$this->assertTableShape(
-			$sessions,
+			$this->database->prefix . 'configops_capture_sessions',
 			array(
 				'id',
 				'name',
@@ -163,7 +185,7 @@ final class Schema
 			)
 		);
 		$this->assertTableShape(
-			$mutations,
+			$this->database->prefix . 'configops_mutations',
 			array(
 				'id',
 				'session_id',
@@ -173,29 +195,55 @@ final class Schema
 				'old_value',
 				'new_value',
 				'diff',
+				'old_autoload',
+				'new_autoload',
 				'restorable',
 				'restore_mode',
 				'is_redacted',
+				'review_change_count',
+				'technical_change_count',
+				'secret_change_count',
+				'safe_restore_change_count',
 				'classification',
+				'classification_reason',
 				'adapter_id',
+				'adapter_schema_version',
+				'component_version',
 				'source_type',
+				'source_component',
+				'source_file',
+				'source_line',
+				'request_method',
+				'request_uri',
+				'admin_screen',
 				'actor_id',
 				'occurred_at',
 			)
 		);
 		$this->assertTableShape(
-			$writeSignals,
-			array('id', 'session_id', 'request_id', 'operation', 'table_name', 'occurrence_count', 'source_type', 'actor_id', 'occurred_at')
+			$this->database->prefix . 'configops_write_signals',
+			array(
+				'id',
+				'session_id',
+				'request_id',
+				'operation',
+				'table_name',
+				'occurrence_count',
+				'source_type',
+				'source_component',
+				'source_file',
+				'source_line',
+				'request_method',
+				'request_uri',
+				'admin_screen',
+				'actor_id',
+				'occurred_at',
+			)
 		);
 		$this->assertTableShape(
-			$restoreRuns,
+			$this->database->prefix . 'configops_restore_runs',
 			array('id', 'scope_type', 'scope_id', 'session_id', 'actor_id', 'status', 'restored_option_count', 'failure_code', 'started_at', 'finished_at')
 		);
-
-		update_option('configops_schema_version', self::VERSION, false);
-		if (self::VERSION !== (int) get_option('configops_schema_version', 0)) {
-			throw new RuntimeException('ConfigOps created its tables but could not commit the schema version.');
-		}
 	}
 
 	/**

@@ -135,6 +135,9 @@ final class AdminPayloadFactory
 		}
 
 		$captureErrorCount = (int) ($session->capture_error_count ?? 0);
+		if ('stopping' === (string) ($session->status ?? '')) {
+			$captureErrorCount = max(1, $captureErrorCount);
+		}
 		$lastSessionRestore = $this->restoreAudits->latestSessionRun($sessionId);
 		$blockingMutationRestores = $this->restoreAudits->blockingMutationCountForSession($sessionId);
 		$sessionRestoreBlocksRetry = $lastSessionRestore && in_array(
@@ -355,7 +358,9 @@ final class AdminPayloadFactory
 			'reviewChangeCount' => $reviewChangeCount,
 			'technicalChangeCount' => $technicalChangeCount,
 			'writeSignalCount' => (int) ($session->write_signal_count ?? 0),
-			'captureErrorCount' => (int) ($session->capture_error_count ?? 0),
+			'captureErrorCount' => 'stopping' === (string) ($session->status ?? '')
+				? max(1, (int) ($session->capture_error_count ?? 0))
+				: (int) ($session->capture_error_count ?? 0),
 			'startedAt'        => $this->isoDate((string) $session->started_at),
 			'startedAtLabel'   => human_time_diff(strtotime((string) $session->started_at . ' UTC'), time()),
 			'startedDisplay'   => $withActor ? get_date_from_gmt((string) $session->started_at, 'Y-m-d H:i:s') : null,

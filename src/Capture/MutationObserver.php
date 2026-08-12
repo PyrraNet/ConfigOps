@@ -20,11 +20,14 @@ final class MutationObserver
 {
 	private const MAX_DIFF_BYTES = 262144;
 
-	/** @var array<string, array{value: mixed, autoload: ?string}> */
+	/** @var array<string, array{value: mixed, autoload: ?string, session_id: int}> */
 	private array $pendingDeletes = array();
 
-	/** @var array<string, ?string> */
-	private array $pendingAutoload = array();
+	/** @var array<string, int> */
+	private array $pendingAdds = array();
+
+	/** @var array<string, array{session_id: int, autoload: ?string}> */
+	private array $pendingUpdates = array();
 
 	public function __construct(
 		private readonly CaptureRepository $captures,
@@ -41,6 +44,7 @@ final class MutationObserver
 
 	public function register(): void
 	{
+		add_action('add_option', array($this, 'beforeAdd'), 1, 2);
 		add_filter('pre_update_option', array($this, 'beforeUpdate'), 1, 3);
 		add_action('added_option', array($this, 'onAdded'), 10, 2);
 		add_action('updated_option', array($this, 'onUpdated'), 10, 3);
@@ -48,16 +52,48 @@ final class MutationObserver
 		add_action('deleted_option', array($this, 'onDeleted'), 10, 1);
 	}
 
+	public function beforeAdd(string $option, mixed $value): void
+	{
+		unset($value);
+
+		if ($this->internalOptions->isInternal($option)) {
+			unset($this->pendingAdds[$option]);
+			return;
+		}
+
+		$sessionId = $this->captures->activeId();
+		if (null === $sessionId) {
+			unset($this->pendingAdds[$option]);
+			return;
+		}
+
+		// Pin ownership before WordPress writes. The corresponding after-hook may
+		// run after another request has already moved the capture to `stopping`.
+		$this->pendingAdds[$option] = $sessionId;
+	}
+
 	public function beforeUpdate(mixed $value, string $option, mixed $oldValue): mixed
 	{
 		unset($oldValue);
 
-		if ($this->shouldObserve($option)) {
-			try {
-				$this->pendingAutoload[$option] = $this->optionMetadata->autoloadFor($option);
-			} catch (Throwable $error) {
-				$this->reportCaptureError($error, $option);
-			}
+		if ($this->internalOptions->isInternal($option)) {
+			unset($this->pendingUpdates[$option]);
+
+			return $value;
+		}
+
+		$sessionId = $this->captures->activeId();
+		if (null === $sessionId) {
+			unset($this->pendingUpdates[$option]);
+
+			return $value;
+		}
+
+		$this->pendingUpdates[$option] = array('session_id' => $sessionId, 'autoload' => null);
+		try {
+			$this->pendingUpdates[$option]['autoload'] = $this->optionMetadata->autoloadFor($option);
+		} catch (Throwable $error) {
+			$this->reportCaptureError($error, $option, $sessionId);
 		}
 
 		return $value;
@@ -65,12 +101,15 @@ final class MutationObserver
 
 	public function onAdded(string $option, mixed $value): void
 	{
-		if (! $this->shouldObserve($option)) {
+		$sessionId = $this->pendingAdds[$option] ?? null;
+		unset($this->pendingAdds[$option]);
+		if ($this->internalOptions->isInternal($option) || null === $sessionId) {
 			return;
 		}
 
 		try {
 			$this->record(
+				$sessionId,
 				'add',
 				$option,
 				$this->codec->missing(),
@@ -79,37 +118,45 @@ final class MutationObserver
 				$this->optionMetadata->autoloadFor($option)
 			);
 		} catch (Throwable $error) {
-			$this->reportCaptureError($error, $option);
+			$this->reportCaptureError($error, $option, $sessionId);
 		}
 	}
 
 	public function onUpdated(string $option, mixed $oldValue, mixed $value): void
 	{
-		if (! $this->shouldObserve($option)) {
-			unset($this->pendingAutoload[$option]);
+		$pending = $this->pendingUpdates[$option] ?? null;
+		unset($this->pendingUpdates[$option]);
+		if ($this->internalOptions->isInternal($option) || null === $pending) {
 			return;
 		}
 
-		$oldAutoload = $this->pendingAutoload[$option] ?? null;
-		unset($this->pendingAutoload[$option]);
-
 		try {
 			$this->record(
+				$pending['session_id'],
 				'update',
 				$option,
 				$this->codec->encode($oldValue, $option),
 				$this->codec->encode($value, $option),
-				$oldAutoload,
+				$pending['autoload'],
 				$this->optionMetadata->autoloadFor($option)
 			);
 		} catch (Throwable $error) {
-			$this->reportCaptureError($error, $option);
+			$this->reportCaptureError($error, $option, $pending['session_id']);
 		}
 	}
 
 	public function beforeDelete(string $option): void
 	{
-		if (! $this->shouldObserve($option)) {
+		if ($this->internalOptions->isInternal($option)) {
+			unset($this->pendingDeletes[$option]);
+
+			return;
+		}
+
+		$sessionId = $this->captures->activeId();
+		if (null === $sessionId) {
+			unset($this->pendingDeletes[$option]);
+
 			return;
 		}
 
@@ -117,28 +164,24 @@ final class MutationObserver
 			$this->pendingDeletes[$option] = array(
 				'value'    => get_option($option),
 				'autoload' => $this->optionMetadata->autoloadFor($option),
+				'session_id' => $sessionId,
 			);
 		} catch (Throwable $error) {
-			$this->reportCaptureError($error, $option);
+			$this->reportCaptureError($error, $option, $sessionId);
 		}
 	}
 
 	public function onDeleted(string $option): void
 	{
-		if (! $this->shouldObserve($option)) {
-			unset($this->pendingDeletes[$option]);
-			return;
-		}
-
 		$pending = $this->pendingDeletes[$option] ?? null;
 		unset($this->pendingDeletes[$option]);
-
-		if (null === $pending) {
+		if ($this->internalOptions->isInternal($option) || null === $pending) {
 			return;
 		}
 
 		try {
 			$this->record(
+				$pending['session_id'],
 				'delete',
 				$option,
 				$this->codec->encode($pending['value'], $option),
@@ -147,20 +190,12 @@ final class MutationObserver
 				null
 			);
 		} catch (Throwable $error) {
-			$this->reportCaptureError($error, $option);
+			$this->reportCaptureError($error, $option, $pending['session_id']);
 		}
-	}
-
-	private function shouldObserve(string $option): bool
-	{
-		if ($this->internalOptions->isInternal($option)) {
-			return false;
-		}
-
-		return null !== $this->captures->activeId();
 	}
 
 	private function record(
+		int $sessionId,
 		string $type,
 		string $option,
 		EncodedValue $before,
@@ -168,11 +203,6 @@ final class MutationObserver
 		?string $oldAutoload,
 		?string $newAutoload
 	): void {
-		$sessionId = $this->captures->activeId();
-		if (null === $sessionId) {
-			return;
-		}
-
 		$changes = $this->diff->compare($before->display, $after->display);
 		if (empty($changes) && ! $before->redacted && ! $after->redacted && $oldAutoload === $newAutoload) {
 			return;
@@ -255,12 +285,15 @@ final class MutationObserver
 		);
 	}
 
-	private function reportCaptureError(Throwable $error, string $option): void
+	private function reportCaptureError(Throwable $error, string $option, ?int $pinnedSessionId = null): void
 	{
-		try {
-			$sessionId = $this->captures->activeId() ?? 0;
-		} catch (Throwable) {
-			$sessionId = 0;
+		$sessionId = $pinnedSessionId ?? 0;
+		if ($sessionId <= 0) {
+			try {
+				$sessionId = $this->captures->activeId() ?? 0;
+			} catch (Throwable) {
+				$sessionId = 0;
+			}
 		}
 
 		try {

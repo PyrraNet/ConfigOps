@@ -254,7 +254,7 @@ export default function ReviewLedger() {
 	const review = state.review;
 	const selectedStatus = selected?.status === 'active'
 		? { className: 'is-live', label: __('Recording', 'configops') }
-		: selected?.status === 'interrupted'
+		: ['interrupted', 'stopping'].includes(selected?.status)
 			? { className: 'is-incomplete', label: __('Interrupted', 'configops') }
 			: { className: 'is-recorded', label: __('Recorded', 'configops') };
 	const sessionUndo = review.summary.lastSessionRestore;

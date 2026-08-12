@@ -7,6 +7,19 @@
 
 declare(strict_types=1);
 
+if (! defined('WP_DEBUG')) {
+	define('WP_DEBUG', true);
+	define('WP_DEBUG_DISPLAY', true);
+}
+register_shutdown_function(
+	static function (): void {
+		$error = error_get_last();
+		if (is_array($error) && in_array((int) $error['type'], array(E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR), true)) {
+			fwrite(STDERR, sprintf("Fatal integration error: %s in %s:%d\n", $error['message'], $error['file'], $error['line']));
+		}
+	}
+);
+
 $wordpressRoot = rtrim((string) (getenv('CONFIGOPS_WP_ROOT') ?: '/wordpress'), '/');
 require_once $wordpressRoot . '/wp-load.php';
 require_once ABSPATH . 'wp-admin/includes/plugin.php';
@@ -130,6 +143,131 @@ $assert($stopFailureRejected, 'Capture stop must fail closed when its persisted 
 $assert($stopFailureSession === $captures->activeId(), 'A failed stop must preserve the active capture for a safe retry.');
 $assert($stopFailureSession === $captures->stop(), 'Capture stop should succeed cleanly after the storage failure clears.');
 
+$lateMutationSession = $captures->start('Late mutation integrity check', 0, '/wp-admin/options-general.php');
+$captures->stop();
+$captures->incrementMutationCount($lateMutationSession, 1, 0);
+$lateMutationCapture = $captures->find($lateMutationSession);
+$assert(
+	1 === (int) $lateMutationCapture->capture_error_count
+	&& 'late_mutation' === (string) $lateMutationCapture->last_error_code,
+	'A mutation completing after capture finalization must permanently invalidate whole-capture trust.'
+);
+$lateSignalSession = $captures->start('Late database write integrity check', 0, '/wp-admin/options-general.php');
+$captures->stop();
+$captures->incrementWriteSignalCount($lateSignalSession);
+$lateSignalCapture = $captures->find($lateSignalSession);
+$assert(
+	1 === (int) $lateSignalCapture->capture_error_count
+	&& 'late_database_write' === (string) $lateSignalCapture->last_error_code,
+	'A database-write signal completing after finalization must mark the evidence incomplete.'
+);
+
+$timedOutStopSession = $captures->start('Timed out stop recovery', 0, '/wp-admin/options-general.php');
+$wpdb->update(
+	$wpdb->prefix . 'configops_capture_sessions',
+	array(
+		'status'   => 'stopping',
+		'ended_at' => gmdate('Y-m-d H:i:s', time() - 10 * MINUTE_IN_SECONDS),
+	),
+	array('id' => $timedOutStopSession),
+	array('%s', '%s'),
+	array('%d')
+);
+$staleStopRepository = new \ConfigOps\Database\CaptureRepository($wpdb);
+$assert(null === $staleStopRepository->activeId(), 'An abandoned stopping state should not block WordPress indefinitely.');
+$timedOutCapture = $staleStopRepository->find($timedOutStopSession);
+$assert(
+	'interrupted' === (string) $timedOutCapture->status
+	&& 'stop_timed_out' === (string) $timedOutCapture->last_error_code
+	&& 1 === (int) $timedOutCapture->capture_error_count,
+	'An abandoned stop should recover as explicit incomplete evidence, never as a completed capture.'
+);
+$assert(false === get_option('configops_active_capture_id', false), 'Timed-out stop recovery should release the stale active pointer.');
+$postTimeoutSession = $captures->start('Capture after timed out stop', 0, '/wp-admin/options-general.php');
+$assert($postTimeoutSession === $captures->stop(), 'A new capture should work after an abandoned stop is recovered.');
+
+delete_option('fixture_stop_boundary_add');
+$stopBoundarySession = $captures->start('Stop boundary evidence', 0, '/wp-admin/options-general.php');
+$stopDuringAddedOption = static function (string $option) use ($captures): void {
+	if ('fixture_stop_boundary_add' === $option) {
+		$captures->stop();
+	}
+};
+add_action('added_option', $stopDuringAddedOption, 1, 1);
+add_option('fixture_stop_boundary_add', 'written-before-after-hook', '', false);
+remove_action('added_option', $stopDuringAddedOption, 1);
+$stopBoundaryCapture = $captures->find($stopBoundarySession);
+$stopBoundaryRows = $mutations->forSession($stopBoundarySession);
+$assert(
+	1 === count($stopBoundaryRows)
+	&& 'fixture_stop_boundary_add' === (string) $stopBoundaryRows[0]->option_name,
+	'An option write that crossed the stop boundary must remain visible as captured evidence.'
+);
+$assert(
+	1 === (int) $stopBoundaryCapture->capture_error_count
+	&& 'late_mutation' === (string) $stopBoundaryCapture->last_error_code,
+	'A mutation finishing after stop began must fail closed instead of making the capture look complete.'
+);
+delete_option('fixture_stop_boundary_add');
+
+update_option('fixture_failed_evidence_write', 'before', false);
+$failedEvidenceSession = $captures->start('Evidence table failure', 0, '/wp-admin/options-general.php');
+$breakMutationInsert = static function (string $query) use ($wpdb): string {
+	return str_starts_with($query, "INSERT INTO `{$wpdb->prefix}configops_mutations`")
+		? "INSERT INTO `{$wpdb->prefix}configops_missing_mutations` (`id`) VALUES (1)"
+		: $query;
+};
+$previousSuppression = $wpdb->suppress_errors(true);
+add_filter('query', $breakMutationInsert, PHP_INT_MAX, 1);
+$hostWriteSurvived = update_option('fixture_failed_evidence_write', 'after', false);
+remove_filter('query', $breakMutationInsert, PHP_INT_MAX);
+$wpdb->suppress_errors($previousSuppression);
+$captures->stop();
+$failedEvidenceCapture = $captures->find($failedEvidenceSession);
+$assert(true === $hostWriteSurvived && 'after' === get_option('fixture_failed_evidence_write'), 'A ConfigOps evidence-table failure must never break the host setting save.');
+$assert(
+	1 === (int) $failedEvidenceCapture->capture_error_count
+	&& 'option_capture_failed' === (string) $failedEvidenceCapture->last_error_code,
+	'A failed mutation insert must make the completed capture visibly incomplete.'
+);
+$assert(array() === $mutations->forSession($failedEvidenceSession), 'A failed mutation insert must not leave fabricated evidence behind.');
+delete_option('fixture_failed_evidence_write');
+
+$fallbackSession = $captures->start('Integrity fallback recovery', 0, '/wp-admin/options-general.php');
+$breakIntegrityUpdate = static function (string $query) use ($wpdb): string {
+	return str_contains($query, "UPDATE {$wpdb->prefix}configops_capture_sessions")
+		&& str_contains($query, 'capture_error_count = capture_error_count + 1')
+		? "UPDATE `{$wpdb->prefix}configops_missing_sessions` SET `id` = `id`"
+		: $query;
+};
+$previousSuppression = $wpdb->suppress_errors(true);
+add_filter('query', $breakIntegrityUpdate, PHP_INT_MAX, 1);
+$fallbackRaised = false;
+try {
+	$captures->recordCaptureError($fallbackSession, 'forced_integrity_failure');
+} catch (RuntimeException) {
+	$fallbackRaised = true;
+}
+remove_filter('query', $breakIntegrityUpdate, PHP_INT_MAX);
+$wpdb->suppress_errors($previousSuppression);
+$fallbackLedger = get_option(\ConfigOps\Database\CaptureRepository::INTEGRITY_FALLBACK_OPTION, array());
+$assert($fallbackRaised, 'A canonical integrity-write failure must be reported to its caller.');
+$assert(
+	is_array($fallbackLedger)
+	&& 'forced_integrity_failure' === (string) ($fallbackLedger['events'][(string) $fallbackSession]['code'] ?? ''),
+	'A value-free emergency marker must survive when the canonical session warning cannot be written.'
+);
+$fallbackRepository = new \ConfigOps\Database\CaptureRepository($wpdb);
+$assert(false === $fallbackRepository->reconcileIntegrityFallback(), 'A recovered session table should absorb its emergency integrity marker.');
+$assert(false === get_option(\ConfigOps\Database\CaptureRepository::INTEGRITY_FALLBACK_OPTION, false), 'A reconciled emergency marker should be removed from wp_options.');
+$reconciledFallbackCapture = $fallbackRepository->find($fallbackSession);
+$assert(
+	1 === (int) $reconciledFallbackCapture->capture_error_count
+	&& 'forced_integrity_failure' === (string) $reconciledFallbackCapture->last_error_code,
+	'Emergency-marker reconciliation must permanently make the original capture incomplete.'
+);
+$assert($fallbackSession === $captures->stop(), 'A capture should remain stoppable after its integrity fallback is reconciled.');
+
 delete_option('fixture_retention');
 $retentionSession = $captures->start('Expired retention fixture', 0, '/wp-admin/options-general.php');
 add_option('fixture_retention', 'temporary', '', false);
@@ -227,7 +365,7 @@ $interruptedRestoreRejected = false;
 try {
 	$restore->restoreSession($interruptedSession);
 } catch (RuntimeException $error) {
-	$interruptedRestoreRejected = str_contains($error->getMessage(), 'incomplete');
+	$interruptedRestoreRejected = str_contains($error->getMessage(), 'did not complete cleanly');
 }
 $assert($interruptedRestoreRejected, 'Whole-capture undo must reject a session interrupted by deactivation.');
 delete_option('fixture_interrupted');
@@ -269,6 +407,7 @@ try {
 		new \ConfigOps\Capture\SourceAttributor(CONFIGOPS_PATH),
 		new \ConfigOps\Capture\RequestContext()
 	);
+	$failureProbe->beforeUpdate(chr(0xB1) . 'invalid', 'fixture_invalid_utf8', 'valid');
 	$failureProbe->onUpdated('fixture_invalid_utf8', 'valid', chr(0xB1) . 'invalid');
 } catch (Throwable) {
 	$observerCallbackSurvived = false;
