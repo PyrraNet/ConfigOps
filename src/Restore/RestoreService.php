@@ -218,20 +218,22 @@ final class RestoreService
 		}
 
 		if (! empty($failedCompensations)) {
-			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- compensationFailure() escapes the message; the previous throwable is metadata.
+			// phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- compensationFailure() escapes the message; the previous throwable is metadata.
 			throw $this->compensationFailure(
 				$cause->getMessage() . ' Compensation also failed for: ' . implode(', ', $failedCompensations) . '.',
 				true,
 				$cause
 			);
+			// phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
 		}
 
-		// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- compensationFailure() escapes the message; the previous throwable is metadata.
+		// phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- compensationFailure() escapes the message; the previous throwable is metadata.
 		throw $this->compensationFailure(
 			$cause->getMessage() . ' Earlier restore steps were compensated.',
 			false,
 			$cause
 		);
+		// phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
 	}
 
 	private function finalizeSuccessfulAudit(int $auditId, int $restoredOptionCount): void
@@ -239,11 +241,12 @@ final class RestoreService
 		try {
 			$this->audit->succeed($auditId, $restoredOptionCount);
 		} catch (Throwable $error) {
-			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message; the previous throwable is metadata.
+			// phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message; the previous throwable is metadata.
 			throw $this->runtimeFailure(
 				'The settings were undone, but ConfigOps could not finalize the audit record. Do not retry this undo until the running audit entry has been inspected.',
 				$error
 			);
+			// phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
 		}
 	}
 
@@ -370,20 +373,22 @@ final class RestoreService
 					throw new RuntimeException('The original current value could not be verified after compensation.');
 				}
 			} catch (Throwable) {
-				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- compensationFailure() escapes the message; the previous throwable is metadata.
+				// phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- compensationFailure() escapes the message; the previous throwable is metadata.
 				throw $this->compensationFailure(
 					$error->getMessage() . ' The original current value could not be restored completely.',
 					true,
 					$error
 				);
+				// phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
 			}
 
-			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- compensationFailure() escapes the message; the previous throwable is metadata.
+			// phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- compensationFailure() escapes the message; the previous throwable is metadata.
 			throw $this->compensationFailure(
 				$error->getMessage() . ' The original current value was reapplied and verified.',
 				false,
 				$error
 			);
+			// phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
 		}
 	}
 
