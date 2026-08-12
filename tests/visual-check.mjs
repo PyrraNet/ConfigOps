@@ -168,6 +168,44 @@ try {
 	}
 	await page.screenshot({ path: new URL('configops-review-mobile.png', artifacts).pathname, fullPage: true });
 
+	const injectIncompleteCapture = async (route) => {
+		const url = decodeURIComponent(route.request().url());
+		if (route.request().method() !== 'GET' || !url.includes('/configops/v1/captures/') || !url.includes('/mutations')) {
+			await route.continue();
+
+			return;
+		}
+
+		const response = await route.fetch();
+		const payload = await response.json();
+		payload.summary.captureErrors = 2;
+		payload.summary.allRestorable = false;
+		await route.fulfill({ response, json: payload });
+	};
+	await page.route('**/*', injectIncompleteCapture);
+	await page.setViewportSize({ width: 1440, height: 1100 });
+	await page.reload({ waitUntil: 'networkidle' });
+	const integrityWarning = page.getByRole('alert').filter({ hasText: 'Capture incomplete' });
+	await integrityWarning.waitFor();
+	if (await page.getByRole('button', { name: 'Undo this capture' }).count()) {
+		throw new Error('An incomplete capture still exposes whole-capture undo.');
+	}
+	if (!await integrityWarning.getByText('2', { exact: true }).isVisible()) {
+		throw new Error('The integrity warning does not expose the number of missed observations.');
+	}
+	await page.screenshot({ path: new URL('configops-incomplete-capture-desktop.png', artifacts).pathname, fullPage: true });
+
+	await page.setViewportSize({ width: 390, height: 844 });
+	const incompleteMobileViewport = await page.evaluate(() => ({
+		clientWidth: document.documentElement.clientWidth,
+		scrollWidth: document.documentElement.scrollWidth,
+	}));
+	if (incompleteMobileViewport.scrollWidth > incompleteMobileViewport.clientWidth) {
+		throw new Error(`Capture integrity warning caused page-level mobile overflow: ${JSON.stringify(incompleteMobileViewport)}.`);
+	}
+	await page.screenshot({ path: new URL('configops-incomplete-capture-mobile.png', artifacts).pathname, fullPage: true });
+	await page.unroute('**/*', injectIncompleteCapture);
+
 	await page.setViewportSize({ width: 1440, height: 1100 });
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops&view=support`, { waitUntil: 'networkidle' });
 	await page.getByRole('heading', { name: 'Plugin support', exact: true }).waitFor();

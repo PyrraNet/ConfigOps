@@ -192,7 +192,19 @@ final class SqlWriteSentry
 	private function reportCaptureError(Throwable $error): void
 	{
 		try {
-			do_action('configops_capture_error', $error, '[database-write-signal]', $this->captures->activeId() ?? 0);
+			$sessionId = $this->captures->activeId() ?? 0;
+		} catch (Throwable) {
+			$sessionId = 0;
+		}
+
+		try {
+			$this->captures->recordCaptureError($sessionId, 'database_write_capture_failed');
+		} catch (Throwable) {
+			// Failure to persist the warning must not escape into the host query.
+		}
+
+		try {
+			do_action('configops_capture_error', $error, '[database-write-signal]', $sessionId);
 		} catch (Throwable) {
 			// Detection and reporting must never escape into the host query.
 		}

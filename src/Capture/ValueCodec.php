@@ -163,6 +163,12 @@ final class ValueCodec
 
 				return array('type' => 'unsupported', 'label' => 'string larger than 256 KiB');
 			}
+			if ($this->opaqueStringContainsSecret($value, $optionName, $path)) {
+				$state['restorable'] = false;
+				$state['redacted']   = true;
+
+				return array('type' => 'redacted');
+			}
 
 			return array('type' => 'string', 'value' => $value);
 		}
@@ -201,6 +207,102 @@ final class ValueCodec
 		$label               = is_object($value) ? 'object(' . $value::class . ')' : get_debug_type($value);
 
 		return array('type' => 'unsupported', 'label' => $label);
+	}
+
+	/**
+	 * Fail closed for secrets hidden inside strings that plugins treat as mini
+	 * documents. The complete opaque string is redacted because changing its
+	 * byte representation could break the owning plugin.
+	 *
+	 * @param list<int|string> $path Current option path.
+	 */
+	private function opaqueStringContainsSecret(string $value, string $optionName, array $path): bool
+	{
+		$trimmed = trim($value);
+		if ('' === $trimmed) {
+			return false;
+		}
+
+		if (1 === preg_match('/-----BEGIN(?: [A-Z0-9]+)? PRIVATE KEY-----/', $trimmed)) {
+			return true;
+		}
+
+		if (1 === preg_match('/(?:^|[\r\n])\s*Authorization\s*[:=]\s*(?:Basic|Bearer)\s+\S+/i', $trimmed)) {
+			return true;
+		}
+
+		if (1 === preg_match('~^[a-z][a-z0-9+.-]*://[^/@\s:]+:[^@\s]+@~i', $trimmed)) {
+			return true;
+		}
+
+		if (1 === preg_match(
+			'/(?:^|[?&;\s])(?:password|passwd|passphrase|pwd|secret|token|access_token|refresh_token|api_key|apikey|private_key|client_secret|consumer_secret|authorization|credentials?)\s*=/i',
+			$trimmed
+		)) {
+			return true;
+		}
+
+		if (1 === preg_match(
+			'/["\'](?:password|passwd|passphrase|pwd|secret|token|access[_-]?token|refresh[_-]?token|api[_-]?key|private[_-]?key|client[_-]?secret|consumer[_-]?secret|authorization|credentials?)["\']\s*:/i',
+			$trimmed
+		)) {
+			return true;
+		}
+
+		if (1 === preg_match(
+			'/<(?:password|passwd|passphrase|pwd|secret|token|api[_-]?key|private[_-]?key|client[_-]?secret|credentials?)(?:\s[^>]*)?>/i',
+			$trimmed
+		)) {
+			return true;
+		}
+
+		$first = $trimmed[0] ?? '';
+		if ('{' !== $first && '[' !== $first) {
+			return false;
+		}
+
+		try {
+			$decoded = json_decode($trimmed, true, self::MAX_DEPTH, JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING);
+		} catch (\JsonException $error) {
+			return JSON_ERROR_DEPTH === $error->getCode();
+		}
+
+		$visited = 0;
+
+		return $this->structuredValueContainsSecret($decoded, $optionName, $path, 0, $visited);
+	}
+
+	/**
+	 * @param list<int|string> $path Current path within the decoded document.
+	 */
+	private function structuredValueContainsSecret(
+		mixed $value,
+		string $optionName,
+		array $path,
+		int $depth,
+		int &$visited
+	): bool {
+		++$visited;
+		// A structured document that exceeds the inspection budget is opaque by
+		// definition. Redact it instead of assuming the unvisited tail is safe.
+		if ($visited > self::MAX_NODES || $depth > self::MAX_DEPTH) {
+			return true;
+		}
+		if (! is_array($value)) {
+			return false;
+		}
+
+		foreach ($value as $key => $child) {
+			$childPath = array_merge($path, array($key));
+			if ($this->sensitiveValues->isSensitive($optionName, $childPath)) {
+				return true;
+			}
+			if ($this->structuredValueContainsSecret($child, $optionName, $childPath, $depth + 1, $visited)) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**

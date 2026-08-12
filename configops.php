@@ -28,6 +28,7 @@ define('CONFIGOPS_URL', plugin_dir_url(__FILE__));
 require_once CONFIGOPS_PATH . '/src/Autoload.php';
 
 register_activation_hook(CONFIGOPS_FILE, array(\ConfigOps\Plugin::class, 'activate'));
+register_deactivation_hook(CONFIGOPS_FILE, array(\ConfigOps\Plugin::class, 'deactivate'));
 
 add_action(
 	'plugins_loaded',

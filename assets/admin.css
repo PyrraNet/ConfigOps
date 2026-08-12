@@ -674,6 +674,61 @@ body.toplevel_page_configops #wpbody-content {
 	font-size: 11px;
 }
 
+.configops-integrity-warning {
+	display: grid;
+	grid-template-columns: 28px minmax(0, 1fr) auto auto;
+	gap: 12px;
+	align-items: center;
+	margin: 22px 0 6px;
+	padding: 13px 14px;
+	border: 1px solid color-mix(in srgb, var(--co-danger) 42%, var(--co-border));
+	border-left: 3px solid var(--co-danger);
+	background: color-mix(in srgb, var(--co-danger) 5%, var(--co-paper));
+}
+
+.configops-integrity-mark {
+	display: grid;
+	width: 24px;
+	height: 24px;
+	place-items: center;
+	border-radius: 50%;
+	background: var(--co-danger);
+	color: #fff;
+	font-family: var(--co-font-code);
+	font-size: 12px;
+	font-weight: 750;
+}
+
+.configops-integrity-warning h3,
+.configops-integrity-warning p {
+	margin: 0;
+}
+
+.configops-integrity-warning h3 {
+	color: var(--co-text);
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.configops-integrity-warning p {
+	margin-top: 3px;
+	color: var(--co-text-muted);
+	font-size: 11px;
+	line-height: 1.45;
+}
+
+.configops-integrity-warning > strong {
+	display: grid;
+	min-width: 24px;
+	height: 24px;
+	place-items: center;
+	border: 1px solid color-mix(in srgb, var(--co-danger) 35%, var(--co-border));
+	border-radius: 999px;
+	color: var(--co-danger);
+	font-family: var(--co-font-code);
+	font-size: 10px;
+}
+
 .configops-capture-reference {
 	display: inline-flex;
 	gap: 8px;
@@ -700,6 +755,11 @@ body.toplevel_page_configops #wpbody-content {
 
 .configops-capture-reference > .is-live {
 	border-color: var(--co-danger);
+	color: var(--co-danger);
+}
+
+.configops-capture-reference > .is-incomplete {
+	border-color: color-mix(in srgb, var(--co-danger) 55%, var(--co-border));
 	color: var(--co-danger);
 }
 
@@ -1815,6 +1875,15 @@ body.toplevel_page_configops #wpbody-content {
 	.configops-review-header .button,
 	.configops-provenance .button {
 		width: 100%;
+	}
+
+	.configops-integrity-warning {
+		grid-template-columns: 28px minmax(0, 1fr) auto;
+	}
+
+	.configops-integrity-warning .configops-hint {
+		grid-column: 2 / -1;
+		justify-self: start;
 	}
 
 	.configops-review-toolbar {

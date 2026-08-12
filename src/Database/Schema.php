@@ -9,11 +9,13 @@ declare(strict_types=1);
 
 namespace ConfigOps\Database;
 
+use ConfigOps\Execution\OperationLock;
+use RuntimeException;
 use wpdb;
 
 final class Schema
 {
-	private const VERSION = 6;
+	private const VERSION = 7;
 
 	public function __construct(private readonly wpdb $database)
 	{
@@ -27,6 +29,13 @@ final class Schema
 	}
 
 	public function install(): void
+	{
+		(new OperationLock($this->database))->run('schema-upgrade', function (): void {
+			$this->installUnlocked();
+		});
+	}
+
+	private function installUnlocked(): void
 	{
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
@@ -45,6 +54,9 @@ final class Schema
 			review_change_count bigint(20) unsigned NOT NULL DEFAULT 0,
 			technical_change_count bigint(20) unsigned NOT NULL DEFAULT 0,
 			write_signal_count bigint(20) unsigned NOT NULL DEFAULT 0,
+			capture_error_count bigint(20) unsigned NOT NULL DEFAULT 0,
+			last_error_code varchar(64) NULL,
+			last_error_at datetime NULL,
 			started_at datetime NOT NULL,
 			ended_at datetime NULL,
 			PRIMARY KEY  (id),
@@ -113,6 +125,74 @@ final class Schema
 		) {$charsetCollate};";
 
 		dbDelta($sql);
+		$this->assertTableShape(
+			$sessions,
+			array(
+				'id',
+				'name',
+				'status',
+				'actor_id',
+				'initial_url',
+				'mutation_count',
+				'review_change_count',
+				'technical_change_count',
+				'write_signal_count',
+				'capture_error_count',
+				'last_error_code',
+				'last_error_at',
+				'started_at',
+				'ended_at',
+			)
+		);
+		$this->assertTableShape(
+			$mutations,
+			array(
+				'id',
+				'session_id',
+				'request_id',
+				'mutation_type',
+				'option_name',
+				'old_value',
+				'new_value',
+				'diff',
+				'restorable',
+				'restore_mode',
+				'is_redacted',
+				'classification',
+				'adapter_id',
+				'source_type',
+				'actor_id',
+				'occurred_at',
+			)
+		);
+		$this->assertTableShape(
+			$writeSignals,
+			array('id', 'session_id', 'request_id', 'operation', 'table_name', 'occurrence_count', 'source_type', 'actor_id', 'occurred_at')
+		);
+
 		update_option('configops_schema_version', self::VERSION, false);
+		if (self::VERSION !== (int) get_option('configops_schema_version', 0)) {
+			throw new RuntimeException('ConfigOps created its tables but could not commit the schema version.');
+		}
+	}
+
+	/**
+	 * @param list<string> $requiredColumns Columns required before boot can continue.
+	 */
+	private function assertTableShape(string $table, array $requiredColumns): void
+	{
+		$exists = $this->database->get_var(
+			$this->database->prepare('SHOW TABLES LIKE %s', $this->database->esc_like($table))
+		);
+		if ($table !== $exists) {
+			throw new RuntimeException('ConfigOps storage is unavailable after the schema upgrade.');
+		}
+
+		$quotedTable = '`' . str_replace('`', '``', $table) . '`';
+		$columns = $this->database->get_col("SHOW COLUMNS FROM {$quotedTable}", 0);
+		$missing = array_diff($requiredColumns, is_array($columns) ? $columns : array());
+		if (! empty($missing)) {
+			throw new RuntimeException('ConfigOps storage is incomplete after the schema upgrade.');
+		}
 	}
 }

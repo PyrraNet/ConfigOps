@@ -97,6 +97,29 @@ $assert(! $secret->restorable, 'A redacted option must never be presented as res
 $assert(! str_contains($secret->payload, 'correct horse'), 'Secret material must not reach the stored payload.');
 $assert(str_contains($secret->payload, 'redacted'), 'The payload should retain an explicit redaction marker.');
 
+$opaqueJsonSecret = '{"transport":{"host":"smtp.example.test","password":"do-not-persist"}}';
+$opaqueJson = $codec->encode($opaqueJsonSecret, 'fixture_opaque_blob');
+$assert($opaqueJson->redacted && ! $opaqueJson->restorable, 'Secrets nested in an opaque JSON string must redact the complete string.');
+$assert(! str_contains($opaqueJson->payload, 'do-not-persist'), 'Opaque JSON secret plaintext must never reach the stored payload.');
+
+$ordinaryJson = $codec->encode('{"transport":{"host":"smtp.example.test","port":587}}', 'fixture_opaque_blob');
+$assert($ordinaryJson->restorable && ! $ordinaryJson->redacted, 'A JSON settings string without credential fields should remain usable evidence.');
+
+$malformedJsonSecret = $codec->encode('{"password":"still-secret",}', 'fixture_opaque_blob');
+$assert($malformedJsonSecret->redacted && ! str_contains($malformedJsonSecret->payload, 'still-secret'), 'Malformed JSON must not bypass recognizable secret-key redaction.');
+
+$xmlSecret = $codec->encode('<transport><password>xml-secret</password></transport>', 'fixture_opaque_blob');
+$assert($xmlSecret->redacted && ! str_contains($xmlSecret->payload, 'xml-secret'), 'Credentials embedded in XML-like settings strings must be redacted.');
+
+$credentialDsn = $codec->encode('smtp://mailer:do-not-persist@smtp.example.test:587', 'fixture_connection');
+$assert($credentialDsn->redacted && ! str_contains($credentialDsn->payload, 'do-not-persist'), 'Credentials embedded in a connection URI must be redacted.');
+
+$privateKey = $codec->encode("-----BEGIN PRIVATE KEY-----\ndo-not-persist\n-----END PRIVATE KEY-----", 'fixture_certificate');
+$assert($privateKey->redacted && ! str_contains($privateKey->payload, 'do-not-persist'), 'PEM private keys must be redacted even under an unfamiliar option name.');
+
+$publicUrl = $codec->encode('https://example.test/callback?mode=active', 'fixture_callback');
+$assert($publicUrl->restorable && ! $publicUrl->redacted, 'Ordinary URLs must not be mistaken for credential-bearing connection strings.');
+
 $adapterDetector = new class implements SensitiveValueDetector {
 	public function isSensitive(string $optionName, array $path): bool
 	{
@@ -109,6 +132,9 @@ $adapterCodec = new ValueCodec($adapterDetector);
 $adapterSecret = $adapterCodec->encode(array('vendor_credential' => 'adapter-owned-secret'), 'vendor_settings');
 $assert($adapterSecret->redacted, 'Adapters should be able to extend secret semantics without changing the codec.');
 $assert(! str_contains($adapterSecret->payload, 'adapter-owned-secret'), 'Adapter-declared secrets must follow the same storage boundary.');
+$adapterJsonSecret = $adapterCodec->encode('{"nested":{"vendor_credential":"adapter-json-secret"}}', 'vendor_settings');
+$assert($adapterJsonSecret->redacted, 'Adapter-owned secret paths must also protect opaque JSON settings strings.');
+$assert(! str_contains($adapterJsonSecret->payload, 'adapter-json-secret'), 'Adapter-owned JSON secrets must never enter storage.');
 
 $nonFinite = $codec->encode(INF, 'fixture_ratio');
 $assert(! $nonFinite->restorable, 'Non-finite floats must fail closed.');

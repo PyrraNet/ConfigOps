@@ -18,7 +18,7 @@ final class HeuristicSensitiveValueDetector implements SensitiveValueDetector
 		$normalized     = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '_', $withBoundaries) ?? $withBoundaries);
 
 		return 1 === preg_match(
-			'/(^|_)(password|passwd|passphrase|pass|pwd|secret|token|access_token|refresh_token|api_key|apikey|private_key|client_secret|consumer_key|consumer_secret|license_key|encryption_key|signing_key|auth_token)($|_)/',
+			'/(^|_)(password|passwd|passphrase|pass|pwd|secret|token|access_token|refresh_token|api_key|apikey|private_key|client_secret|consumer_key|consumer_secret|license_key|encryption_key|signing_key|auth_token|authorization|credentials?|bearer_token|hmac_secret|salt)($|_)/',
 			$normalized
 		);
 	}

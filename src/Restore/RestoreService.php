@@ -77,6 +77,11 @@ final class RestoreService
 		if (! $session) {
 			throw new RuntimeException('The capture session no longer exists.');
 		}
+		if ((int) ($session->capture_error_count ?? 0) > 0) {
+			throw new RuntimeException(
+				'This capture is incomplete because some changes could not be recorded. Review and undo supported settings individually.'
+			);
+		}
 		if ((int) ($session->write_signal_count ?? 0) > 0) {
 			throw new RuntimeException(
 				'This capture contains unmanaged database writes. Restore reviewed Options API mutations individually or add an adapter.'

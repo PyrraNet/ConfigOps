@@ -240,6 +240,11 @@ export default function ReviewLedger() {
 	const selected = state.selected;
 	const review = state.review;
 	const canRestore = !state.active && state.capabilities.rollback;
+	const selectedStatus = selected?.status === 'active'
+		? { className: 'is-live', label: __('Recording', 'configops') }
+		: selected?.status === 'interrupted'
+			? { className: 'is-incomplete', label: __('Interrupted', 'configops') }
+			: { className: 'is-recorded', label: __('Recorded', 'configops') };
 	const [filter, setFilter] = window.wp.element.useState('review');
 	const filteredGroups = window.wp.element.useMemo(() => {
 		const selectChanges = (mutation) => mutation.diff.filter((change) => {
@@ -309,8 +314,8 @@ export default function ReviewLedger() {
 				<div>
 					<div className="configops-capture-reference">
 						<span>{__('Capture', 'configops')} <code>#{selected.id}</code></span>
-						<span className={selected.status === 'active' ? 'is-live' : 'is-recorded'}>
-							{selected.status === 'active' ? __('Recording', 'configops') : __('Recorded', 'configops')}
+						<span className={selectedStatus.className}>
+							{selectedStatus.label}
 						</span>
 					</div>
 					<div className="configops-review-title">
@@ -333,6 +338,22 @@ export default function ReviewLedger() {
 					</button>
 				)}
 			</header>
+
+			{review.summary.captureErrors > 0 && (
+				<section className="configops-integrity-warning" role="alert" aria-labelledby="configops-integrity-title">
+					<span className="configops-integrity-mark" aria-hidden="true">!</span>
+					<div>
+						<h3 id="configops-integrity-title">{__('Capture incomplete', 'configops')}</h3>
+						<p>
+							{__('WordPress saved the setting, but ConfigOps could not record every piece of evidence. Review the visible changes carefully; whole-capture undo is disabled.', 'configops')}
+						</p>
+					</div>
+					<strong>{review.summary.captureErrors}</strong>
+					<Hint label={__('What can I do?', 'configops')} align="end">
+						{__('You can still inspect the evidence and undo supported settings individually. Start a new capture and repeat the save before turning these changes into a release.', 'configops')}
+					</Hint>
+				</section>
+			)}
 
 			<div className="configops-review-toolbar">
 				<div className="configops-review-filters" role="group" aria-label={__('Filter changes', 'configops')}>
@@ -359,6 +380,11 @@ export default function ReviewLedger() {
 					/>
 				</div>
 				<div className="configops-review-safety">
+					{review.summary.captureErrors > 0 && (
+						<Hint label={__('Why is this capture incomplete?', 'configops')} align="end" trigger={`${review.summary.captureErrors} ${__('missed', 'configops')}`}>
+							{__('At least one observation failed after WordPress processed a settings change. ConfigOps kept the host save running, marked the evidence incomplete, and disabled whole-capture undo.', 'configops')}
+						</Hint>
+					)}
 					{review.summary.unmanagedWrites > 0 && (
 						<Hint label={__('What is an unmanaged write?', 'configops')} align="end" trigger={`${review.summary.unmanagedWrites} ${__('unmanaged DB', 'configops')}`}>
 							{__('A plugin wrote outside WordPress settings. ConfigOps kept no query or values, so undoing the whole capture is disabled.', 'configops')}
@@ -373,7 +399,9 @@ export default function ReviewLedger() {
 						<Hint label={review.summary.allRestorable ? __('How safe is undo?', 'configops') : __('Why can’t I undo the whole capture?', 'configops')} align="end" trigger={review.summary.allRestorable ? __('Undo checked', 'configops') : __('Capture undo limited', 'configops')}>
 							{review.summary.allRestorable
 								? __('ConfigOps will undo only when the current value still matches this capture. Files and custom tables remain outside generic rollback.', 'configops')
-								: __('At least one recorded change cannot be reconstructed safely, so whole-capture undo stays off. Supported changes can still be undone individually below.', 'configops')}
+								: review.summary.captureErrors > 0
+									? __('The recording is incomplete, so ConfigOps cannot prove a whole-capture undo is safe. Supported visible changes can still be undone individually below.', 'configops')
+									: __('At least one recorded change cannot be reconstructed safely, so whole-capture undo stays off. Supported changes can still be undone individually below.', 'configops')}
 						</Hint>
 					)}
 				</div>

@@ -42,6 +42,7 @@ export default function Sessions() {
 											{session.reviewChangeCount === 1 ? __('1 setting', 'configops') : sprintf(__('%d settings', 'configops'), session.reviewChangeCount)}
 											{session.technicalChangeCount > 0 && <span>{sprintf(__(' · %d technical', 'configops'), session.technicalChangeCount)}</span>}
 											{session.writeSignalCount > 0 && <em>{sprintf(__(' · %d outside API', 'configops'), session.writeSignalCount)}</em>}
+											{session.captureErrorCount > 0 && <em>{sprintf(__(' · %d missed', 'configops'), session.captureErrorCount)}</em>}
 										</span>
 										<time dateTime={session.startedAt}>{sprintf(__('%s ago', 'configops'), session.startedAtLabel)}</time>
 									</span>

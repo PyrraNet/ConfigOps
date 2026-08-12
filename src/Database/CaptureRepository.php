@@ -31,6 +31,8 @@ final class CaptureRepository
 			throw new RuntimeException('A capture session is already active.');
 		}
 
+		$name = $this->normalizeName($name);
+
 		$inserted = $this->database->insert(
 			$this->table,
 			array(
@@ -137,6 +139,40 @@ final class CaptureRepository
 		return $id;
 	}
 
+	public function interruptActive(string $code = 'capture_interrupted'): ?int
+	{
+		$id = (int) get_option(self::ACTIVE_OPTION, 0);
+		if ($id <= 0) {
+			return null;
+		}
+
+		$code = substr(sanitize_key($code), 0, 64);
+		$updated = $this->database->query(
+			$this->database->prepare(
+				"UPDATE {$this->table}
+				SET status = 'interrupted',
+					capture_error_count = capture_error_count + 1,
+					last_error_code = %s,
+					last_error_at = %s,
+					ended_at = %s
+				WHERE id = %d AND status IN ('starting', 'active')",
+				'' === $code ? 'capture_interrupted' : $code,
+				current_time('mysql', true),
+				current_time('mysql', true),
+				$id
+			)
+		);
+
+		delete_option(self::ACTIVE_OPTION);
+		$this->invalidateActiveSession();
+
+		if (false === $updated) {
+			throw new RuntimeException('The interrupted capture could not be closed safely.');
+		}
+
+		return $updated > 0 ? $id : null;
+	}
+
 	public function activeId(): ?int
 	{
 		$session = $this->activeSession();
@@ -237,6 +273,41 @@ final class CaptureRepository
 		}
 	}
 
+	public function recordCaptureError(int $sessionId, string $code): void
+	{
+		if ($sessionId <= 0) {
+			return;
+		}
+
+		$code = substr(sanitize_key($code), 0, 64);
+		if ('' === $code) {
+			$code = 'capture_failed';
+		}
+
+		$updated = $this->database->query(
+			$this->database->prepare(
+				"UPDATE {$this->table}
+				SET capture_error_count = capture_error_count + 1,
+					last_error_code = %s,
+					last_error_at = %s
+				WHERE id = %d AND status IN ('starting', 'active')",
+				$code,
+				current_time('mysql', true),
+				$sessionId
+			)
+		);
+
+		if (false === $updated) {
+			throw new RuntimeException('The capture integrity error could not be stored.');
+		}
+
+		if ($this->activeSession && (int) $this->activeSession->id === $sessionId && $updated > 0) {
+			$this->activeSession->capture_error_count = (int) ($this->activeSession->capture_error_count ?? 0) + 1;
+			$this->activeSession->last_error_code = $code;
+			$this->activeSession->last_error_at = current_time('mysql', true);
+		}
+	}
+
 	public function find(int $id): ?object
 	{
 		$row = $this->database->get_row(
@@ -280,5 +351,24 @@ final class CaptureRepository
 	{
 		$this->activeResolved = false;
 		$this->activeSession  = null;
+	}
+
+	private function normalizeName(string $name): string
+	{
+		$name = trim(sanitize_text_field($name));
+		if ('' === $name) {
+			$name = 'Capture ' . gmdate('Y-m-d H:i');
+		}
+
+		if (function_exists('mb_substr')) {
+			return mb_substr($name, 0, 191, 'UTF-8');
+		}
+
+		$characters = preg_split('//u', $name, -1, PREG_SPLIT_NO_EMPTY);
+		if (is_array($characters)) {
+			return implode('', array_slice($characters, 0, 191));
+		}
+
+		return substr($name, 0, 191);
 	}
 }

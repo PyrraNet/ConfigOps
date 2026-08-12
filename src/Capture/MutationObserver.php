@@ -264,6 +264,14 @@ final class MutationObserver
 		}
 
 		try {
+			$this->captures->recordCaptureError($sessionId, 'option_capture_failed');
+		} catch (Throwable $integrityError) {
+			if (defined('WP_DEBUG') && WP_DEBUG) {
+				error_log('ConfigOps could not persist a capture integrity warning: ' . $integrityError->getMessage());
+			}
+		}
+
+		try {
 			do_action('configops_capture_error', $error, $option, $sessionId);
 		} catch (Throwable $reportingError) {
 			if (defined('WP_DEBUG') && WP_DEBUG) {

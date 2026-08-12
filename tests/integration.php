@@ -34,6 +34,18 @@ $assert = static function (bool $condition, string $message) use (&$assertions):
 	}
 };
 
+$sessionTable = $wpdb->prefix . 'configops_capture_sessions';
+$sessionColumns = $wpdb->get_col("SHOW COLUMNS FROM `{$sessionTable}`", 0);
+$assert(
+	in_array('capture_error_count', $sessionColumns, true)
+	&& in_array('last_error_code', $sessionColumns, true)
+	&& in_array('last_error_at', $sessionColumns, true),
+	'Schema activation must verify and expose every capture-integrity column before boot.'
+);
+update_option('configops_schema_version', 6, false);
+(new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
+$assert(7 === (int) get_option('configops_schema_version'), 'A stale schema version should upgrade idempotently under the schema lock.');
+
 $administrator = get_role('administrator');
 $assert(false !== $administrator, 'WordPress should provide an administrator role for capability checks.');
 $administrator->remove_cap('configops_view');
@@ -53,9 +65,36 @@ $metadata  = new \ConfigOps\Database\OptionMetadataRepository($wpdb);
 $operationLock = new \ConfigOps\Execution\OperationLock($wpdb);
 $restore       = new \ConfigOps\Restore\RestoreService($captures, $mutations, $codec, $metadata, $operationLock, $adapters);
 
+$longCaptureName = str_repeat('Ü', 220);
+$longNameSession = $captures->start($longCaptureName, 0, '/wp-admin/options-general.php');
+$captures->stop();
+$storedLongName = (string) $captures->find($longNameSession)->name;
+$assert(191 === mb_strlen($storedLongName, 'UTF-8'), 'Capture names should be centrally limited to the native 191-character database boundary.');
+
+$interruptedSession = $captures->start('Interrupted lifecycle check', 0, '/wp-admin/options-general.php');
+update_option('fixture_interrupted', 'changed', false);
+$assert($interruptedSession === $captures->interruptActive('plugin_deactivated'), 'Deactivation should explicitly close the active capture.');
+$interruptedCapture = $captures->find($interruptedSession);
+$assert(
+	'interrupted' === (string) $interruptedCapture->status
+	&& 1 === (int) $interruptedCapture->capture_error_count
+	&& 'plugin_deactivated' === (string) $interruptedCapture->last_error_code,
+	'An interrupted capture must remain visibly incomplete after the plugin returns.'
+);
+$assert(null === $captures->activeId(), 'An interrupted capture must never resume implicitly after reactivation.');
+$interruptedRestoreRejected = false;
+try {
+	$restore->restoreSession($interruptedSession);
+} catch (RuntimeException $error) {
+	$interruptedRestoreRejected = str_contains($error->getMessage(), 'incomplete');
+}
+$assert($interruptedRestoreRejected, 'Whole-capture undo must reject a session interrupted by deactivation.');
+delete_option('fixture_interrupted');
+
 delete_option('fixture_nested');
 delete_option('fixture_deleted');
 delete_option('fixture_credentials');
+delete_option('fixture_opaque_credentials');
 delete_option('_transient_fixture_cache');
 delete_option('fixture_semantic_reorder');
 
@@ -68,6 +107,7 @@ update_option('fixture_nested', array('mail' => array('retry' => 4, 'enabled' =>
 update_option('fixture_semantic_reorder', array('second' => 2, 'first' => 1));
 update_option('_transient_fixture_cache', array('checked' => time()));
 add_option('fixture_credentials', array('username' => 'mailer', 'password' => 'never-store-me'), '', false);
+add_option('fixture_opaque_credentials', '{"smtp":{"password":"opaque-never-store-me"}}', '', false);
 delete_option('fixture_deleted');
 set_transient('configops_flash_integration', array('code' => 'internal'), 60);
 
@@ -96,15 +136,28 @@ remove_action('configops_capture_error', $throwingReporter);
 
 $captures->stop();
 
+$incompleteCapture = $captures->find($sessionId);
+$assert(1 === (int) $incompleteCapture->capture_error_count, 'A failed observation must permanently mark its capture as incomplete.');
+$assert('option_capture_failed' === (string) $incompleteCapture->last_error_code, 'Capture integrity failures should retain a bounded machine-readable code.');
+$assert('' !== (string) $incompleteCapture->last_error_at, 'Capture integrity failures should retain their UTC occurrence time.');
+
+$incompleteRestoreRejected = false;
+try {
+	$restore->restoreSession($sessionId);
+} catch (RuntimeException $error) {
+	$incompleteRestoreRejected = str_contains($error->getMessage(), 'incomplete');
+}
+$assert($incompleteRestoreRejected, 'Whole-capture undo must fail closed when ConfigOps missed evidence.');
+
 $rows = $mutations->forSession($sessionId);
-$assert(4 === count($rows), 'The active capture should record add, update, runtime, and delete mutations.');
+$assert(5 === count($rows), 'The active capture should record add, update, runtime, opaque-secret, and delete mutations.');
 $summary = $mutations->summaryForSession($sessionId);
 $assert(
-	array('total' => 5, 'derived' => 1, 'redacted' => 1, 'not_restorable' => 1) === $summary,
+	array('total' => 6, 'derived' => 1, 'redacted' => 2, 'not_restorable' => 2) === $summary,
 	'Session summaries should remain accurate without loading every mutation payload.'
 );
 $iteratedRows = iterator_to_array($mutations->iterateForSession($sessionId, 2), false);
-$assert(4 === count($iteratedRows), 'Batched mutation iteration should traverse the complete session.');
+$assert(5 === count($iteratedRows), 'Batched mutation iteration should traverse the complete session.');
 
 $byName = array();
 foreach ($rows as $row) {
@@ -119,6 +172,11 @@ $assert('derived' === $byName['_transient_fixture_cache']->classification, 'Tran
 $assert(1 === (int) $byName['fixture_credentials']->is_redacted, 'Nested passwords should be redacted before storage.');
 $assert(! str_contains((string) $byName['fixture_credentials']->new_value, 'never-store-me'), 'Stored mutation payloads must contain no secret plaintext.');
 $assert(0 === (int) $byName['fixture_credentials']->restorable, 'Redacted mutations must not be restorable.');
+$assert(1 === (int) $byName['fixture_opaque_credentials']->is_redacted, 'Opaque JSON credentials should be marked as protected evidence.');
+$assert(
+	! str_contains((string) $byName['fixture_opaque_credentials']->new_value, 'opaque-never-store-me'),
+	'Opaque JSON credential plaintext must never enter the mutation table.'
+);
 $assert($observerCallbackSurvived, 'A codec and error-listener failure must not escape the observer callback.');
 $assert(! isset($byName['configops_flash_integration']), 'ConfigOps-owned transients must never observe themselves.');
 $assert(! isset($byName['fixture_semantic_reorder']), 'Semantically unchanged associative key order must not create capture noise.');
@@ -288,6 +346,7 @@ $assert('baseline' === get_option('fixture_compensation_failure'), 'A later retr
 
 delete_option('fixture_nested');
 delete_option('fixture_credentials');
+delete_option('fixture_opaque_credentials');
 delete_option('_transient_fixture_cache');
 delete_option('fixture_semantic_reorder');
 delete_option('fixture_compensation_failure');
@@ -522,6 +581,17 @@ $payloadFactory = new \ConfigOps\Admin\AdminPayloadFactory(
 	new \ConfigOps\Admin\ReviewPresenter($adapters),
 	$adapters
 );
+$incompletePayload = $payloadFactory->mutationPage($sessionId);
+$assert(
+	1 === $incompletePayload['summary']['captureErrors']
+	&& false === $incompletePayload['summary']['allRestorable'],
+	'The UI contract must expose incomplete evidence and disable whole-capture undo.'
+);
+$incompleteState = $payloadFactory->state($sessionId, '', '', false);
+$assert(
+	1 === $incompleteState['selected']['captureErrorCount'],
+	'Session navigation must keep capture integrity failures visible without loading the review.'
+);
 $shellPayload = $payloadFactory->state($bulkSession, '', '', false);
 $assert(true === $shellPayload['review']['deferred'], 'The PHP shell must defer mutation history instead of inflating initial HTML.');
 $assert(array() === $shellPayload['review']['groups'], 'Deferred shell state must contain no mutation diff payloads.');
@@ -548,6 +618,10 @@ $assert(
 	'The mutation connection should continue from an opaque monotonic boundary without an offset scan.'
 );
 $assert(false === $pageData['pageInfo']['hasNext'], 'The final mutation connection page should close its continuation honestly.');
+$assert(
+	'private, no-store' === ($pageResponse->get_headers()['Cache-Control'] ?? ''),
+	'Configuration evidence must never be retained by browser, proxy, or shared wp-admin caches.'
+);
 
 $startRequest = new WP_REST_Request('POST', '/configops/v1/captures');
 $startRequest->set_body_params(array('name' => 'REST command contract'));

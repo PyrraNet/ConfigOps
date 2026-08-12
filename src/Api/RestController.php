@@ -134,12 +134,9 @@ final class RestController
 		$response = $this->response(
 			$this->payloads->mutationPage($sessionId, (int) $request['after'], (int) $request['limit'])
 		);
-		$response->header(
-			'Cache-Control',
-			'completed' === (string) $session->status
-				? 'private, max-age=60, stale-while-revalidate=300'
-				: 'private, no-store'
-		);
+		// Captures can contain configuration values. Never let a browser, proxy,
+		// or shared wp-admin cache retain this evidence.
+		$response->header('Cache-Control', 'private, no-store');
 
 		return $response;
 	}

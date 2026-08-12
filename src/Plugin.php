@@ -38,6 +38,7 @@ use ConfigOps\Restore\RestoreService;
 final class Plugin
 {
 	private static ?self $instance = null;
+	private static bool $bootAttempted = false;
 
 	private function __construct()
 	{
@@ -96,8 +97,15 @@ final class Plugin
 
 	public static function boot(): void
 	{
-		if (null === self::$instance) {
+		if (null !== self::$instance || self::$bootAttempted) {
+			return;
+		}
+
+		self::$bootAttempted = true;
+		try {
 			self::$instance = new self();
+		} catch (\Throwable $error) {
+			self::registerBootFailure($error);
 		}
 	}
 
@@ -109,11 +117,52 @@ final class Plugin
 		(new CapabilityManager())->install();
 	}
 
+	public static function deactivate(): void
+	{
+		global $wpdb;
+
+		try {
+			(new CaptureRepository($wpdb))->interruptActive('plugin_deactivated');
+		} catch (\Throwable $error) {
+			// A deactivation must not strand WordPress. The active pointer is removed
+			// by the repository before it reports an interrupted-session write error.
+			error_log('ConfigOps could not close its active capture during deactivation: ' . $error->getMessage());
+		}
+	}
+
 	/**
 	 * @return list<string>
 	 */
 	public static function capabilities(): array
 	{
 		return CapabilityManager::capabilities();
+	}
+
+	private static function registerBootFailure(\Throwable $error): void
+	{
+		try {
+			do_action('configops_boot_error', $error);
+		} catch (\Throwable) {
+			// Failure reporting must not replace the original boot failure.
+		}
+
+		error_log('ConfigOps did not start: ' . $error->getMessage());
+
+		$notice = static function (): void {
+			if (! current_user_can('activate_plugins')) {
+				return;
+			}
+			?>
+			<div class="notice notice-error">
+				<p>
+					<strong><?php esc_html_e('ConfigOps is not recording.', 'configops'); ?></strong>
+					<?php esc_html_e('Its storage could not be prepared safely. WordPress is still running; check the PHP error log, then reactivate ConfigOps after fixing the database problem.', 'configops'); ?>
+				</p>
+			</div>
+			<?php
+		};
+
+		add_action('admin_notices', $notice);
+		add_action('network_admin_notices', $notice);
 	}
 }

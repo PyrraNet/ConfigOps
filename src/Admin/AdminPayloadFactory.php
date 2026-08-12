@@ -64,7 +64,7 @@ final class AdminPayloadFactory
 		$review = $selected
 			? (
 				$includeReview
-					? $this->reviewPayload((int) $selected->id, 0, self::PAGE_SIZE)
+					? $this->reviewPayload((int) $selected->id, 0, self::PAGE_SIZE, $selected)
 					: $this->emptyReview(true)
 			)
 			: $this->emptyReview();
@@ -96,13 +96,13 @@ final class AdminPayloadFactory
 			return $this->emptyReview();
 		}
 
-		return $this->reviewPayload($sessionId, $afterId, $limit);
+		return $this->reviewPayload($sessionId, $afterId, $limit, $session);
 	}
 
 	/**
 	 * @return array<string, mixed>
 	 */
-	private function reviewPayload(int $sessionId, int $afterId, int $limit): array
+	private function reviewPayload(int $sessionId, int $afterId, int $limit, object $session): array
 	{
 		$summary = $this->mutations->summaryForSession($sessionId);
 		$rows    = $this->mutations->forSessionAfter($sessionId, $afterId, $limit);
@@ -121,6 +121,8 @@ final class AdminPayloadFactory
 			$groups = $this->attachWriteSignals($groups, $this->writeSignals->forSession($sessionId));
 		}
 
+		$captureErrorCount = (int) ($session->capture_error_count ?? 0);
+
 		return array(
 			'summary'  => array(
 				'total'           => $view->totalCount,
@@ -128,7 +130,8 @@ final class AdminPayloadFactory
 				'derived'         => $view->derivedCount,
 				'redacted'        => $view->redactedCount,
 				'unmanagedWrites' => $signalCount,
-				'allRestorable'   => $view->allRestorable && 0 === $signalCount,
+				'captureErrors'    => $captureErrorCount,
+				'allRestorable'   => $view->allRestorable && 0 === $signalCount && 0 === $captureErrorCount,
 			),
 			'groups'   => $groups,
 			'pageInfo' => array(
@@ -326,6 +329,7 @@ final class AdminPayloadFactory
 			'reviewChangeCount' => $reviewChangeCount,
 			'technicalChangeCount' => $technicalChangeCount,
 			'writeSignalCount' => (int) ($session->write_signal_count ?? 0),
+			'captureErrorCount' => (int) ($session->capture_error_count ?? 0),
 			'startedAt'        => $this->isoDate((string) $session->started_at),
 			'startedAtLabel'   => human_time_diff(strtotime((string) $session->started_at . ' UTC'), time()),
 			'startedDisplay'   => $withActor ? get_date_from_gmt((string) $session->started_at, 'Y-m-d H:i:s') : null,
@@ -345,6 +349,7 @@ final class AdminPayloadFactory
 				'derived'         => 0,
 				'redacted'        => 0,
 				'unmanagedWrites' => 0,
+				'captureErrors'    => 0,
 				'allRestorable'   => true,
 			),
 			'groups'   => array(),
