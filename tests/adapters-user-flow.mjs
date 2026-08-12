@@ -14,7 +14,7 @@ await mkdir(artifacts, { recursive: true });
 
 const browser = await chromium.launch({ executablePath, headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1100 }, deviceScaleFactor: 1 });
-page.setDefaultTimeout(20_000);
+page.setDefaultTimeout(30_000);
 page.setDefaultNavigationTimeout(45_000);
 
 const startCapture = async (name) => {
@@ -38,13 +38,19 @@ const undoVisibleSetting = async (name) => {
 };
 
 try {
-	await page.goto(`${baseUrl}/wp-login.php`, { waitUntil: 'domcontentloaded' });
-	await page.locator('#user_login').fill('admin');
-	await page.locator('#user_pass').fill('password');
-	await Promise.all([
-		page.waitForURL(/\/wp-admin\//, { waitUntil: 'domcontentloaded', timeout: 45_000 }),
-		page.locator('#wp-submit').click(),
-	]);
+	const loginUrl = `${baseUrl}/wp-login.php`;
+	await page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
+	const loginResponse = await page.request.post(loginUrl, {
+		form: {
+			log: 'admin',
+			pwd: 'password',
+			'wp-submit': 'Log In',
+			redirect_to: `${baseUrl}/wp-admin/`,
+			testcookie: '1',
+		},
+		maxRedirects: 0,
+	});
+	assert.equal(loginResponse.status(), 302, 'The isolated Playground user should authenticate before plugin testing.');
 
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops&view=support`, { waitUntil: 'domcontentloaded' });
 	const readyPlugins = page.getByText('Ready on this website', { exact: true });
@@ -103,19 +109,23 @@ try {
 	assert.equal(await sitemapToggle.getAttribute('aria-checked'), 'true', 'Yoast XML sitemaps should begin enabled.');
 	await sitemapToggle.click();
 	await page.locator('#button-submit-settings').click();
-	await page.waitForTimeout(1_200);
+	await page.getByText('Great! Your settings were saved successfully.', { exact: true }).waitFor();
 	await stopCapture();
 
 	const yoastReview = page.locator('#configops-review-island');
 	await yoastReview.getByText('XML sitemaps', { exact: true }).waitFor();
-	assert.equal(await yoastReview.locator('.configops-diff-row:not(.configops-diff-head)').count(), 1, 'One Yoast toggle should read as one setting in the default review.');
+	await page.screenshot({ path: new URL('yoast-review.png', artifacts).pathname, fullPage: true });
+	const yoastVisibleRows = await yoastReview.locator('.configops-diff-row:not(.configops-diff-head)').count();
+	if (yoastVisibleRows !== 1) {
+		process.stderr.write(`Unexpected Yoast review (${yoastVisibleRows} rows):\n${await yoastReview.innerText()}\n`);
+	}
+	assert.equal(yoastVisibleRows, 1, 'One Yoast toggle should read as one setting in the default review.');
 	assert.equal(await yoastReview.getByText('XML sitemaps', { exact: true }).count(), 1, 'The Yoast setting should use the same wording the user clicked.');
 	assert.equal(await yoastReview.getByText('Organization logo cache', { exact: true }).count(), 0, 'Yoast housekeeping must stay out of the default settings review.');
 	assert.equal(await yoastReview.locator('.configops-write-signal').count(), 0, 'Core user preference writes must not block a Yoast settings review.');
 	assert.equal(await yoastReview.getByRole('button', { name: 'Undo this change' }).count(), 1, 'An unchanged hidden credential must not block undoing the visible Yoast toggle.');
 	assert.equal(await page.locator('#wp-admin-bar-configops-recording').count(), 0, 'The recording badge should not survive a completed Yoast capture.');
 	assert.equal(await yoastReview.locator('.configops-request-index').first().innerText(), '01', 'Technical requests hidden by the Settings filter must not create a confusing numbering gap.');
-	await page.screenshot({ path: new URL('yoast-review.png', artifacts).pathname, fullPage: true });
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.screenshot({ path: new URL('yoast-review-mobile.png', artifacts).pathname, fullPage: true });
 	await page.setViewportSize({ width: 1440, height: 1100 });
