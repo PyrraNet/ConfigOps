@@ -39,6 +39,9 @@ const undoVisibleSetting = async (name) => {
 
 try {
 	const loginUrl = `${baseUrl}/wp-login.php`;
+	await Promise.all(
+		Array.from({ length: 12 }, (_, index) => page.request.get(`${loginUrl}?configops_warm=${index}`))
+	);
 	await page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
 	const loginResponse = await page.request.post(loginUrl, {
 		form: {
@@ -51,8 +54,16 @@ try {
 		maxRedirects: 0,
 	});
 	assert.equal(loginResponse.status(), 302, 'The isolated Playground user should authenticate before plugin testing.');
+	let dashboardReady = false;
+	for (let attempt = 0; attempt < 6 && !dashboardReady; attempt += 1) {
+		await page.goto(`${baseUrl}/wp-admin/`, { waitUntil: 'domcontentloaded' });
+		dashboardReady = await page.getByRole('heading', { name: 'Dashboard', exact: true }).isVisible().catch(() => false);
+	}
+	assert.equal(dashboardReady, true, 'Plugin onboarding redirects should settle before the settings workflow begins.');
 
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops&view=support`, { waitUntil: 'domcontentloaded' });
+	assert.match(page.url(), /\/wp-admin\/admin\.php/, 'The browser should reach the authenticated ConfigOps support screen.');
+	await page.getByRole('heading', { name: 'Plugin support', exact: true }).waitFor();
 	const readyPlugins = page.getByText('Ready on this website', { exact: true });
 	await readyPlugins.first().waitFor();
 	assert.equal(await readyPlugins.count(), 2, 'Both exact plugin releases should be ready before user-flow testing.');
@@ -82,6 +93,7 @@ try {
 	assert.equal(await mailReview.locator('.configops-write-signal').count(), 0, 'Known runtime locks must not be presented as unmanaged user changes.');
 	assert.equal((await mailReview.innerText()).includes('not-a-real-password'), false, 'The typed SMTP password must never be rendered or bootstrapped.');
 	assert.equal(await mailReview.getByRole('button', { name: 'Undo 7 safe settings' }).count(), 1, 'Visible non-secret SMTP fields should remain individually reversible.');
+	assert.equal(await mailReview.locator('.configops-provenance strong').getByText('WP Mail SMTP', { exact: true }).count(), 1, 'A user should see the responsible plugin before its technical source path.');
 	assert.equal(await page.locator('#wp-admin-bar-configops-recording').count(), 0, 'Stopping from the React control should remove the recording badge immediately.');
 	assert.equal(await mailReview.locator('.configops-request-index').first().innerText(), '01', 'Filtered request groups should begin at one.');
 	await page.screenshot({ path: new URL('wp-mail-smtp-review.png', artifacts).pathname, fullPage: true });
@@ -124,6 +136,8 @@ try {
 	assert.equal(await yoastReview.getByText('Organization logo cache', { exact: true }).count(), 0, 'Yoast housekeeping must stay out of the default settings review.');
 	assert.equal(await yoastReview.locator('.configops-write-signal').count(), 0, 'Core user preference writes must not block a Yoast settings review.');
 	assert.equal(await yoastReview.getByRole('button', { name: 'Undo this change' }).count(), 1, 'An unchanged hidden credential must not block undoing the visible Yoast toggle.');
+	assert.equal(await yoastReview.locator('.configops-provenance strong').getByText('Yoast SEO', { exact: true }).count(), 1, 'Yoast provenance should lead with a recognizable product name.');
+	assert.equal(await page.getByRole('button', { name: 'Why can’t I undo the whole capture?' }).count(), 1, 'Undo limits should say they affect the whole capture, not the visible per-setting action.');
 	assert.equal(await page.locator('#wp-admin-bar-configops-recording').count(), 0, 'The recording badge should not survive a completed Yoast capture.');
 	assert.equal(await yoastReview.locator('.configops-request-index').first().innerText(), '01', 'Technical requests hidden by the Settings filter must not create a confusing numbering gap.');
 	await page.setViewportSize({ width: 390, height: 844 });
@@ -135,6 +149,11 @@ try {
 	assert.equal(await page.locator('#card-wpseo-enable_xml_sitemap [role=switch]').getAttribute('aria-checked'), 'true', 'Safe undo should restore the Yoast toggle through the real plugin screen.');
 
 	process.stdout.write('Real WP Mail SMTP and Yoast user flows passed: save, explain, hide noise, preserve secrets, and undo.\n');
+} catch (error) {
+	await page.screenshot({ path: new URL('failure-state.png', artifacts).pathname, fullPage: true }).catch(() => {});
+	const pageSummary = await page.locator('body').innerText({ timeout: 2_000 }).catch(() => '[body unavailable]');
+	process.stderr.write(`Browser flow failed at ${page.url()}:\n${pageSummary.slice(0, 8_000)}\n`);
+	throw error;
 } finally {
 	await browser.close();
 }

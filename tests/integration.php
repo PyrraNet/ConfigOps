@@ -33,6 +33,12 @@ $assert = static function (bool $condition, string $message) use (&$assertions):
 	}
 };
 
+$administrator = get_role('administrator');
+$assert(false !== $administrator, 'WordPress should provide an administrator role for capability checks.');
+$administrator->remove_cap('configops_view');
+(new \ConfigOps\Access\CapabilityManager())->maybeInstall();
+$assert($administrator->has_cap('configops_view'), 'ConfigOps should repair a missing administrator capability even when its install version is current.');
+
 $captures  = new \ConfigOps\Database\CaptureRepository($wpdb);
 $mutations = new \ConfigOps\Database\MutationRepository($wpdb);
 $writeSignals = new \ConfigOps\Database\DatabaseWriteSignalRepository($wpdb);

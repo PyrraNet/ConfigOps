@@ -1563,7 +1563,14 @@ body.toplevel_page_configops #wpbody-content {
 	text-transform: uppercase;
 }
 
+.configops-provenance > div:first-child strong {
+	display: block;
+	margin-bottom: 4px;
+	font-size: 12px;
+}
+
 .configops-provenance code {
+	display: inline-block;
 	overflow-wrap: anywhere;
 	padding: 2px 4px;
 	background: var(--co-ink-100);

@@ -93,15 +93,15 @@ jobs:
         env:
           CONFIGOPS_CHROME_PATH: /usr/bin/google-chrome
         run: |
-          npx wp-playground-cli start \
+          npx wp-playground-cli server \
             --php=8.3 \
             --wp=latest \
             --port=9401 \
+            --workers=6 \
             --blueprint=tests/adapters.blueprint.json \
-            --auto-mount \
-            --login \
-            --skip-browser \
-            --reset > /tmp/configops-adapter-ui.log 2>&1 &
+            --mount="$GITHUB_WORKSPACE:/wordpress/wp-content/plugins/configops" \
+            --mount="$GITHUB_WORKSPACE/tests/fixtures/configops-playground-loader.php:/wordpress/wp-content/mu-plugins/configops-playground-loader.php" \
+            --login > /tmp/configops-adapter-ui.log 2>&1 &
           playground_pid=$!
           trap 'kill "$playground_pid" 2>/dev/null || true' EXIT
           for attempt in {1..60}; do

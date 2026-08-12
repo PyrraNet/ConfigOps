@@ -23,6 +23,7 @@ const fieldKindLabel = (kind, __) => {
 const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canRestore, busy, filter }) {
 	const { __ } = window.wp.i18n;
 	const sourceLabel = mutation.source.file || mutation.source.type;
+	const sourceOwner = mutation.adapter?.name || mutation.source.component || __('WordPress', 'configops');
 	const [open, setOpen] = window.wp.element.useState(filter !== 'noise');
 	const classificationDescriptionId = `configops-classification-${mutation.id}`;
 	const restoreDescriptionId = `configops-restore-${mutation.id}`;
@@ -98,7 +99,8 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 				</div>
 				<footer className="configops-provenance">
 					<div>
-						<span>{__('Changed by', 'configops')}</span>
+						<span>{__('Changed through', 'configops')}</span>
+						<strong>{sourceOwner}</strong>
 						<code>{sourceLabel}{mutation.source.line > 0 ? `:${mutation.source.line}` : ''}</code>
 					</div>
 					{!mutation.restorable && !mutation.redacted && filter !== 'noise' && (
@@ -368,10 +370,10 @@ export default function ReviewLedger() {
 						</Hint>
 					)}
 					{review.summary.total > 0 && (
-						<Hint label={__('How safe is undo?', 'configops')} align="end" trigger={review.summary.allRestorable ? __('Undo checked', 'configops') : __('Undo has limits', 'configops')}>
+						<Hint label={review.summary.allRestorable ? __('How safe is undo?', 'configops') : __('Why can’t I undo the whole capture?', 'configops')} align="end" trigger={review.summary.allRestorable ? __('Undo checked', 'configops') : __('Capture undo limited', 'configops')}>
 							{review.summary.allRestorable
 								? __('ConfigOps will undo only when the current value still matches this capture. Files and custom tables remain outside generic rollback.', 'configops')
-								: __('At least one setting cannot be reconstructed safely. Open the change to see why; full-session undo stays disabled.', 'configops')}
+								: __('At least one recorded change cannot be reconstructed safely, so whole-capture undo stays off. Supported changes can still be undone individually below.', 'configops')}
 						</Hint>
 					)}
 				</div>

@@ -24,6 +24,14 @@
       "options": {
         "activate": true
       }
+    },
+    {
+      "step": "activatePlugin",
+      "pluginPath": "configops/configops.php"
+    },
+    {
+      "step": "runPHP",
+      "code": "<?php file_put_contents('/wordpress/wp-content/configops-adapters-ready', '1');"
     }
   ]
 }

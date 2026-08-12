@@ -16,9 +16,21 @@ final class CapabilityManager
 
 	public function maybeInstall(): void
 	{
-		if ((int) get_option(self::VERSION_OPTION, 0) < self::VERSION) {
-			$this->install();
+		$administrator = get_role('administrator');
+		$versionCurrent = (int) get_option(self::VERSION_OPTION, 0) >= self::VERSION;
+
+		if ($versionCurrent && $administrator) {
+			$missing = array_filter(
+				self::capabilities(),
+				static fn (string $capability): bool => ! $administrator->has_cap($capability)
+			);
+
+			if (array() === $missing) {
+				return;
+			}
 		}
+
+		$this->install();
 	}
 
 	public function install(): void
