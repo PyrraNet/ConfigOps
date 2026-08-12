@@ -37,7 +37,9 @@ jobs:
         with:
           build-dir: ./.release-check/configops
           strict: true
-          wp-version: '7.0.3'
+          # The action currently treats every value except "trunk" as latest.
+          # Trunk avoids release-mirror races; the matrix below still covers WordPress 7.0 and latest.
+          wp-version: trunk
 
       - name: Create release checksum
         run: |
