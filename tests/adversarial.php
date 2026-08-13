@@ -67,6 +67,7 @@ $enrich = static function (string $cookie, int $session = 77, array $changes = a
 foreach (
 	array(
 		'not-base64',
+		'<script>alert(1)</script>' . $validIntent(array(array('name' => 'fixture_settings[mail][retry]'))),
 		str_repeat('A', 3801),
 		$encodeIntent(array('v' => 2, 'session' => 77, 'capturedAt' => time(), 'fields' => array())),
 		$validIntent(array(array('name' => 'fixture_settings[mail][retry]')), array('capturedAt' => time() - 181)),
@@ -78,6 +79,14 @@ foreach (
 	$result = $enrich($hostileCookie);
 	$assert(! isset($result[0]['intent']), 'Malformed, stale, future, deep, or oversized intent evidence must be ignored.');
 }
+
+$_COOKIE[IntentContext::COOKIE_NAME] = array('forged' => 'cookie');
+$nonScalarIntent = (new IntentContext())->enrich(
+	77,
+	'fixture_settings',
+	array(array('op' => 'replace', 'path' => '/mail/retry'))
+);
+$assert(! isset($nonScalarIntent[0]['intent']), 'Non-scalar cookie input must fail closed without emitting a PHP warning.');
 
 $ambiguous = $enrich(
 	$validIntent(

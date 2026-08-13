@@ -105,7 +105,12 @@ final class IntentContext
 	 */
 	private function readCookie(): ?array
 	{
-		$raw = isset($_COOKIE[self::COOKIE_NAME]) ? wp_unslash((string) $_COOKIE[self::COOKIE_NAME]) : '';
+		$cookie = $_COOKIE[self::COOKIE_NAME] ?? '';
+		if (! is_string($cookie)) {
+			return null;
+		}
+
+		$raw = sanitize_text_field(wp_unslash($cookie));
 		if ('' === $raw || strlen($raw) > self::MAX_COOKIE_BYTES) {
 			return null;
 		}
