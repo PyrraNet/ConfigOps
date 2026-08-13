@@ -83,7 +83,10 @@ try {
 		await page.getByRole('button', { name: 'Stop & review' }).click();
 		await page.waitForLoadState('networkidle');
 	}
-	if (await page.getByRole('button', { name: 'New capture' }).isVisible().catch(() => false)) {
+	const captureIsland = page.locator('#configops-capture-island');
+	await captureIsland.waitFor();
+	await page.waitForFunction(() => document.getElementById('configops-capture-island')?.getAttribute('aria-busy') !== 'true');
+	if (!await page.locator('#configops-capture-name').isVisible()) {
 		await page.getByRole('button', { name: 'New capture' }).click();
 	}
 

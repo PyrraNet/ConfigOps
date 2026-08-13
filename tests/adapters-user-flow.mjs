@@ -19,7 +19,10 @@ page.setDefaultNavigationTimeout(45_000);
 
 const startCapture = async (name) => {
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops`, { waitUntil: 'domcontentloaded' });
-	if (await page.getByRole('button', { name: 'New capture' }).isVisible().catch(() => false)) {
+	const captureIsland = page.locator('#configops-capture-island');
+	await captureIsland.waitFor();
+	await page.waitForFunction(() => document.getElementById('configops-capture-island')?.getAttribute('aria-busy') !== 'true');
+	if (!await page.locator('#configops-capture-name').isVisible()) {
 		await page.getByRole('button', { name: 'New capture' }).click();
 	}
 	await page.locator('#configops-capture-name').fill(name);
