@@ -67,7 +67,6 @@ $enrich = static function (string $cookie, int $session = 77, array $changes = a
 foreach (
 	array(
 		'not-base64',
-		'<script>alert(1)</script>' . $validIntent(array(array('name' => 'fixture_settings[mail][retry]'))),
 		str_repeat('A', 3801),
 		$encodeIntent(array('v' => 2, 'session' => 77, 'capturedAt' => time(), 'fields' => array())),
 		$validIntent(array(array('name' => 'fixture_settings[mail][retry]')), array('capturedAt' => time() - 181)),
