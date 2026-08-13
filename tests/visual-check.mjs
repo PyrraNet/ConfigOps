@@ -168,6 +168,86 @@ try {
 	}
 	await page.screenshot({ path: new URL('configops-review-mobile.png', artifacts).pathname, fullPage: true });
 
+	const injectMediaReference = async (route) => {
+		const url = decodeURIComponent(route.request().url());
+		if (route.request().method() !== 'GET' || !url.includes('/configops/v1/captures/') || !url.includes('/mutations')) {
+			await route.continue();
+
+			return;
+		}
+
+		const response = await route.fetch();
+		const payload = await response.json();
+		const firstMutation = payload.groups?.flatMap((group) => group.mutations || [])[0];
+		const firstChange = firstMutation?.diff?.[0];
+		if (firstMutation && firstChange) {
+			firstMutation.classification = 'reference';
+			firstMutation.classificationLabel = 'Website-specific link';
+			firstMutation.displayName = 'Site icon';
+			firstMutation.optionName = 'site_icon';
+			firstChange.label = 'Site icon';
+			firstChange.group = 'Site identity';
+			firstChange.kind = 'reference';
+			firstChange.reference_type = 'media';
+			firstChange.before_reference = {
+				type: 'media',
+				id: 41,
+				status: 'available',
+				current_status: 'missing',
+				title: 'Previous brand mark',
+				filename: 'brand-mark-old.png',
+				mime: 'image/png',
+				width: 512,
+				height: 512,
+				filesize: 18432,
+				preview_url: '',
+			};
+			firstChange.after_reference = {
+				type: 'media',
+				id: 42,
+				status: 'available',
+				current_status: 'available',
+				title: 'Current brand mark',
+				filename: 'brand-mark.png',
+				mime: 'image/png',
+				width: 512,
+				height: 512,
+				filesize: 24576,
+				preview_url: `${baseUrl}/wp-includes/images/w-logo-blue-white-bg.png`,
+			};
+		}
+		await route.fulfill({ response, json: payload });
+	};
+	await page.route('**/*', injectMediaReference);
+	await page.setViewportSize({ width: 1440, height: 1100 });
+	await page.reload({ waitUntil: 'networkidle' });
+	const mediaRow = page.locator('.configops-mutation').first();
+	await mediaRow.getByText('Site icon', { exact: true }).first().waitFor();
+	if (await mediaRow.locator('.configops-reference-value').count() !== 2) {
+		throw new Error('A media diff did not replace both raw attachment IDs with reference evidence.');
+	}
+	if (await mediaRow.locator('.configops-media-preview img').count() !== 1 || !await mediaRow.getByText('Missing', { exact: true }).isVisible()) {
+		throw new Error('Media review does not expose both the thumbnail and missing-attachment state.');
+	}
+	if (await mediaRow.getByRole('button', { name: 'Undo this setting' }).count()) {
+		throw new Error('A missing media target still exposes an undo command.');
+	}
+	if (!await mediaRow.getByText('Undo unavailable', { exact: true }).isVisible()) {
+		throw new Error('A missing media target does not explain why undo is unavailable.');
+	}
+	await page.screenshot({ path: new URL('configops-media-review-desktop.png', artifacts).pathname, fullPage: true });
+
+	await page.setViewportSize({ width: 390, height: 844 });
+	const mediaMobileViewport = await page.evaluate(() => ({
+		clientWidth: document.documentElement.clientWidth,
+		scrollWidth: document.documentElement.scrollWidth,
+	}));
+	if (mediaMobileViewport.scrollWidth > mediaMobileViewport.clientWidth) {
+		throw new Error(`Media reference review caused page-level mobile overflow: ${JSON.stringify(mediaMobileViewport)}.`);
+	}
+	await page.screenshot({ path: new URL('configops-media-review-mobile.png', artifacts).pathname, fullPage: true });
+	await page.unroute('**/*', injectMediaReference);
+
 	const injectIncompleteCapture = async (route) => {
 		const url = decodeURIComponent(route.request().url());
 		if (route.request().method() !== 'GET' || !url.includes('/configops/v1/captures/') || !url.includes('/mutations')) {

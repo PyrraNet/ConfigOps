@@ -14,9 +14,17 @@ abstract class AbstractOptionAdapter implements ConfigAdapter
 	/** @var array<string, array<string, FieldDefinition>> */
 	private array $fields = array();
 
-	final protected function define(string $optionName, string $path, string $label, string $group, string $kind, string $explanation): void
+	final protected function define(
+		string $optionName,
+		string $path,
+		string $label,
+		string $group,
+		string $kind,
+		string $explanation,
+		?string $referenceType = null
+	): void
 	{
-		$this->fields[$optionName][$path] = new FieldDefinition($label, $group, $kind, $explanation);
+		$this->fields[$optionName][$path] = new FieldDefinition($label, $group, $kind, $explanation, $referenceType);
 	}
 
 	public function field(string $optionName, string $jsonPointer): ?FieldDefinition

@@ -104,6 +104,98 @@ $operationLock = new \ConfigOps\Execution\OperationLock($wpdb);
 $restoreAudit  = new \ConfigOps\Database\RestoreAuditRepository($wpdb);
 $restore       = new \ConfigOps\Restore\RestoreService($captures, $mutations, $codec, $metadata, $operationLock, $adapters, $restoreAudit);
 
+$createMediaFixture = static function (string $filename, string $title, int $width, int $height): int {
+	$attachment = wp_insert_attachment(
+		array(
+			'post_mime_type' => 'image/png',
+			'post_title'     => $title,
+			'post_status'    => 'inherit',
+			'guid'           => home_url('/wp-content/uploads/' . $filename),
+		),
+		'',
+		0,
+		true
+	);
+	if (is_wp_error($attachment)) {
+		throw new RuntimeException('Could not insert the media-reference fixture.');
+	}
+	update_post_meta((int) $attachment, '_wp_attached_file', $filename);
+	wp_update_attachment_metadata(
+		(int) $attachment,
+		array(
+			'file'     => $filename,
+			'width'    => $width,
+			'height'   => $height,
+			'filesize' => 1024,
+		)
+	);
+
+	return (int) $attachment;
+};
+
+$siteIconBefore = $createMediaFixture('configops-icon-before.png', 'Original site icon', 512, 512);
+$siteIconAfter  = $createMediaFixture('configops-icon-after.png', 'New site icon', 512, 512);
+update_option('site_icon', $siteIconBefore, false);
+$mediaSession = $captures->start('Core media reference', 0, '/wp-admin/options-general.php');
+update_option('site_icon', $siteIconAfter, false);
+$captures->stop();
+$mediaRows = $mutations->forSession($mediaSession);
+$assert(1 === count($mediaRows), 'A site-icon selection should be captured as one Options API mutation.');
+$mediaMutation = $mediaRows[0];
+$mediaDiff = json_decode((string) $mediaMutation->diff, true);
+$mediaChange = is_array($mediaDiff) ? ($mediaDiff[0] ?? array()) : array();
+$assert('reference' === (string) $mediaMutation->classification && 1 === (int) $mediaMutation->restorable, 'Site icons should remain locally undoable media references.');
+$assert('media' === ($mediaChange['reference_type'] ?? '') && 'Site icon' === ($mediaChange['label'] ?? ''), 'Site-icon evidence should carry the media type and a plain-language label.');
+$assert(
+	'configops-icon-before.png' === ($mediaChange['before_reference']['filename'] ?? '')
+	&& 512 === ($mediaChange['before_reference']['width'] ?? 0)
+	&& 'image/png' === ($mediaChange['before_reference']['mime'] ?? ''),
+	'Media evidence should retain a bounded filename, dimensions, and MIME type instead of only a raw ID.'
+);
+
+$mediaPayloadFactory = new \ConfigOps\Admin\AdminPayloadFactory(
+	$captures,
+	$mutations,
+	$writeSignals,
+	new \ConfigOps\Admin\ReviewPresenter($adapters),
+	$adapters,
+	$restoreAudit
+);
+$mediaPayload = $mediaPayloadFactory->mutationPage($mediaSession);
+$mediaPayloadChange = $mediaPayload['groups'][0]['mutations'][0]['diff'][0] ?? array();
+$assert(
+	'available' === ($mediaPayloadChange['before_reference']['current_status'] ?? '')
+	&& '' !== ($mediaPayloadChange['after_reference']['preview_url'] ?? ''),
+	'Review payloads should add current media availability and a thumbnail URL without persisting the URL in evidence.'
+);
+
+$restore->restoreMutation((int) $mediaMutation->id);
+$assert($siteIconBefore === (int) get_option('site_icon'), 'Local media undo should restore the earlier attachment ID after its normal conflict check.');
+
+$missingMediaSession = $captures->start('Deleted media reference', 0, '/wp-admin/options-general.php');
+update_option('site_icon', $siteIconAfter, false);
+$captures->stop();
+$missingMediaMutation = $mutations->forSession($missingMediaSession)[0];
+wp_delete_attachment($siteIconBefore, true);
+$missingMediaPayload = $mediaPayloadFactory->mutationPage($missingMediaSession);
+$missingMediaChange = $missingMediaPayload['groups'][0]['mutations'][0]['diff'][0] ?? array();
+$assert(
+	'missing' === ($missingMediaChange['before_reference']['current_status'] ?? '')
+	&& 'Original site icon' === ($missingMediaChange['before_reference']['title'] ?? ''),
+	'A deleted attachment should be marked missing while its captured identity remains reviewable.'
+);
+$missingReferenceRejected = false;
+try {
+	$restore->restoreMutation((int) $missingMediaMutation->id);
+} catch (RuntimeException $error) {
+	$missingReferenceRejected = str_starts_with($error->getMessage(), 'Reference missing:');
+}
+$assert($missingReferenceRejected && $siteIconAfter === (int) get_option('site_icon'), 'Undo must stop before writing a media reference whose earlier attachment was deleted.');
+$missingReferenceRuns = $restoreAudit->forSession($missingMediaSession);
+$assert('reference_missing' === (string) $missingReferenceRuns[0]->failure_code, 'A blocked media undo should leave a value-free reference-missing audit code.');
+delete_option('site_icon');
+wp_delete_attachment($siteIconAfter, true);
+
 $longCaptureName = str_repeat('Ü', 220);
 $longNameSession = $captures->start($longCaptureName, 0, '/wp-admin/options-general.php');
 $captures->stop();

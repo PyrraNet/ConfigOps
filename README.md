@@ -41,7 +41,7 @@ Every undo is checked against the current value first. If the website changed ag
 
 | Integration | Tested release | Capture | Explain | Secrets | Undo |
 |---|---:|:---:|:---:|:---:|:---:|
-| WordPress Options API | WordPress 7.0 | Supported | Nested diff | Redacted | Conflict-checked |
+| WordPress Options API | WordPress 7.0 | Supported | Nested diff + media identity | Redacted | Conflict-checked |
 | WP Mail SMTP Free | 4.9.0 | Supported | Supported | Removed | With limits |
 | Yoast SEO Free | 28.2 | Supported | With limits | Removed | With limits |
 | Unknown plugins | — | Options API only | Needs review | Conservative | Only when proven safe |
@@ -64,6 +64,7 @@ Requires WordPress 7.0 or newer and PHP 8.3 or newer.
 - probable credentials are redacted before mutation history is written;
 - capture evidence stays in the website database and is not sent to pyrra or another service;
 - direct custom-table writes produce value-free warnings, never stored SQL;
+- site icons, site logos, and supported Yoast image fields retain a bounded attachment identity and current thumbnail state; media files are never copied or deleted;
 - restore operations are serialized, audited, conflict-checked, and compensated when possible;
 - interrupted, incomplete, or version-uncertain evidence fails closed;
 - while ConfigOps is active, completed local history is retained for 30 days by default;

@@ -231,6 +231,9 @@ $yoastAdapter = new YoastSeoAdapter();
 $yoastNoIndex = $yoastAdapter->analyze('wpseo_titles', array(array('path' => '/noindex-author-wpseo')));
 $assert('environment' === $yoastNoIndex->classification, 'Yoast noindex rules should be checked per environment.');
 $assert('reference' === $yoastAdapter->field('wpseo_llmstxt', '/contact_page')?->kind, 'Yoast page IDs should be semantic-reference candidates.');
+$assert('media' === $yoastAdapter->field('wpseo_titles', '/company_logo_id')?->referenceType, 'Yoast organization logos should use the media reference resolver.');
+$assert('media' === $yoastAdapter->field('wpseo_titles', '/person_logo_id')?->referenceType, 'Yoast person logos should use the media reference resolver.');
+$assert('media' === $yoastAdapter->field('wpseo_social', '/og_default_image_id')?->referenceType, 'Yoast default social images should use the media reference resolver.');
 $assert('reference' === $yoastAdapter->field('wpseo_llmstxt', '/other_included_pages/0')?->kind, 'Yoast page-reference lists should retain their meaning at nested diff paths.');
 $assert('LLMs.txt page selection' === $yoastAdapter->field('wpseo_llmstxt', '/llms_txt_selection_mode')?->label, 'Yoast LLMs.txt fields should match the exact 28.2 option schema.');
 $assert($yoastAdapter->isSensitive('wpseo', array('myyoast-oauth', 'config', 'secret')), 'Yoast connected-service credentials should be redacted by full path.');
@@ -254,6 +257,20 @@ $assert('derived' === $commentMigrationLock['classification'], 'A WordPress comm
 $assert('derived' === $commentMigrationFinished['classification'], 'WordPress comment-type migration completion state must stay in the technical filter.');
 
 $registry = new AdapterRegistry(array($mailAdapter, $yoastAdapter), new NoiseClassifier(), new HeuristicSensitiveValueDetector());
+$coreMedia = $registry->analyze(
+	'site_icon',
+	array(array('op' => 'replace', 'path' => '/', 'before' => 0, 'after' => 99999999))
+);
+$assert('reference' === $coreMedia['classification'] && $coreMedia['allows_restore'], 'Core site icons should be recognized as conflict-checked local references.');
+$assert('Site icon' === ($coreMedia['changes'][0]['label'] ?? ''), 'Core site icons should have a useful review label without a plugin adapter.');
+$assert('media' === ($coreMedia['changes'][0]['reference_type'] ?? ''), 'Core site icons should select the media resolver.');
+$assert('unset' === ($coreMedia['changes'][0]['before_reference']['status'] ?? ''), 'An empty media reference should retain an explicit unset state.');
+$assert('missing' === ($coreMedia['changes'][0]['after_reference']['status'] ?? ''), 'An unresolved media ID should remain visible as missing evidence.');
+$themeLogo = $registry->analyze(
+	'theme_mods_fixture',
+	array(array('op' => 'replace', 'path' => '/custom_logo', 'before' => 0, 'after' => 99999999))
+);
+$assert('reference' === $themeLogo['classification'] && 'media' === ($themeLogo['changes'][0]['reference_type'] ?? ''), 'Theme custom logos should use the same media identity contract.');
 $assert(null !== $registry->field('wp-mail-smtp', 2, 'wp_mail_smtp', '/smtp/host'), 'The current adapter schema should enrich matching historical evidence.');
 $assert(null === $registry->field('wp-mail-smtp', 1, 'wp_mail_smtp', '/smtp/host'), 'Field-aware adapter changes must not reinterpret captures stored under the previous schema.');
 $assert(null === $registry->field('wp-mail-smtp', 99, 'wp_mail_smtp', '/smtp/host'), 'A newer adapter must not reinterpret evidence captured under another schema.');

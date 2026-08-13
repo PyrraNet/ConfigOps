@@ -116,9 +116,9 @@ final class YoastSeoAdapter extends AbstractOptionAdapter implements DatabaseWri
 		$this->define('wpseo', '/environment_type', 'Website environment', 'Site identity', 'environment', 'Tells Yoast whether the site is production, staging, or development.');
 		$this->define('wpseo_titles', '/company_name', 'Organization name', 'Site identity', 'environment', 'The organization represented by this website.');
 		$this->define('wpseo_titles', '/company_logo', 'Organization logo URL', 'Site identity', 'environment', 'The media URL that represents this organization on this website.');
-		$this->define('wpseo_titles', '/company_logo_id', 'Organization logo', 'Site identity', 'reference', 'A media item on this website; raw attachment IDs do not travel safely.');
+		$this->define('wpseo_titles', '/company_logo_id', 'Organization logo', 'Site identity', 'reference', 'A media item on this website; raw attachment IDs do not travel safely.', 'media');
 		$this->define('wpseo_titles', '/person_logo', 'Person logo URL', 'Site identity', 'environment', 'The media URL that represents this person on this website.');
-		$this->define('wpseo_titles', '/person_logo_id', 'Person logo', 'Site identity', 'reference', 'A media item on this website; raw attachment IDs do not travel safely.');
+		$this->define('wpseo_titles', '/person_logo_id', 'Person logo', 'Site identity', 'reference', 'A media item on this website; raw attachment IDs do not travel safely.', 'media');
 		$this->define('wpseo_titles', '/company_logo_meta', 'Organization logo cache', 'Plugin housekeeping', 'runtime', 'Yoast removed generated image metadata that is not editable on this settings screen.');
 		$this->define('wpseo_titles', '/person_logo_meta', 'Person logo cache', 'Plugin housekeeping', 'runtime', 'Yoast removed generated image metadata that is not editable on this settings screen.');
 		$this->define('wpseo_titles', '/website_name', 'Website name', 'Site identity', 'environment', 'The public name Yoast describes to search engines.');
@@ -135,7 +135,7 @@ final class YoastSeoAdapter extends AbstractOptionAdapter implements DatabaseWri
 		$this->define('wpseo_social', '/twitter', 'X / Twitter metadata', 'Social sharing', 'portable', 'Adds metadata used when pages are shared on X or Twitter.');
 		$this->define('wpseo_social', '/twitter_card_type', 'X / Twitter card type', 'Social sharing', 'portable', 'Controls the social preview layout.');
 		$this->define('wpseo_social', '/og_default_image', 'Default social image', 'Social sharing', 'environment', 'Fallback image URL used for social previews.');
-		$this->define('wpseo_social', '/og_default_image_id', 'Default social image', 'Social sharing', 'reference', 'A media item on this website; raw attachment IDs do not travel safely.');
+		$this->define('wpseo_social', '/og_default_image_id', 'Default social image', 'Social sharing', 'reference', 'A media item on this website; raw attachment IDs do not travel safely.', 'media');
 		$this->define('wpseo_social', '/facebook_site', 'Facebook page', 'Social profiles', 'environment', 'The Facebook profile associated with this website.');
 		$this->define('wpseo_social', '/instagram_url', 'Instagram profile', 'Social profiles', 'environment', 'The Instagram profile associated with this website.');
 		$this->define('wpseo_social', '/linkedin_url', 'LinkedIn profile', 'Social profiles', 'environment', 'The LinkedIn profile associated with this website.');
@@ -162,7 +162,7 @@ final class YoastSeoAdapter extends AbstractOptionAdapter implements DatabaseWri
 			2,
 			array(
 				array('id' => 'capture', 'label' => 'Find changes', 'level' => 'full', 'note' => 'Core Free settings options are captured; content metadata is explicitly excluded.'),
-				array('id' => 'explain', 'label' => 'Explain fields', 'level' => 'partial', 'note' => 'Core feature, search appearance, social, and LLMs.txt fields are named; dynamic content-type fields use clear generated labels.'),
+				array('id' => 'explain', 'label' => 'Explain fields', 'level' => 'partial', 'note' => 'Core feature, search appearance, social, and LLMs.txt fields are named; supported image references include local media identity.'),
 				array('id' => 'secrets', 'label' => 'Hide secrets', 'level' => 'full', 'note' => 'MyYoast, Semrush, Wincher, and OAuth credentials are removed before storage.'),
 				array('id' => 'noise', 'label' => 'Separate technical noise', 'level' => 'full', 'note' => 'Indexing progress, migrations, tracking, and maintenance state are separated.'),
 				array('id' => 'restore', 'label' => 'Undo safely', 'level' => 'partial', 'note' => 'Supported settings use field-level conflict checks while credentials, content metadata, and multisite data stay untouched.'),
@@ -171,7 +171,7 @@ final class YoastSeoAdapter extends AbstractOptionAdapter implements DatabaseWri
 			array(
 				'Features, crawl, and search appearance settings',
 				'Title templates, breadcrumbs, and indexing rules',
-				'Social profiles, Open Graph, X / Twitter, and LLMs.txt',
+				'Social profiles, Open Graph, image references, X / Twitter, and LLMs.txt',
 				'Plugin-generated indexing, migration, tracking, and maintenance data',
 			),
 			array(

@@ -22,6 +22,8 @@ Probable credentials are removed before mutation history is stored. Undo checks 
 
 Direct writes to custom plugin tables are recorded as value-free warnings. ConfigOps does not store raw SQL and does not claim it can reverse data it does not understand.
 
+Site icons, site logos, and supported Yoast logo and social-image settings show the referenced attachment name, file type, dimensions, thumbnail, and missing state. ConfigOps stores bounded identity evidence, not the media file, and never deletes media during undo.
+
 All evidence remains in the website database. ConfigOps does not send capture data to pyrra or another external service. Suggested disclosure text is added to WordPress's privacy-policy guide.
 
 = Tested plugin contracts =
@@ -59,6 +61,8 @@ Probable secret fields and options are replaced before persistence. Supported ad
 
 No. ConfigOps restores supported Options API values after a conflict check. Side effects in files, caches, remote services, or custom tables may remain. The interface states when undo is limited or unavailable.
 
+If an earlier referenced media item has since been deleted or moved to the trash, ConfigOps refuses to restore its attachment ID.
+
 = What happens when capture storage fails? =
 
 The host settings request is allowed to finish. ConfigOps marks the recording incomplete through a value-free emergency marker and disables whole-capture undo after storage recovers.
@@ -87,5 +91,6 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 * Typed nested diffs, conservative noise classification, and secret redaction before persistence.
 * Conflict-checked field and session undo with value-free audit records and compensating recovery.
 * Exact adapter contracts for WP Mail SMTP Free 4.9.0 and Yoast SEO Free 28.2.
+* Media identity and thumbnail review for WordPress site icons/logos and supported Yoast image fields, including missing-target undo protection.
 * Fail-closed capture finalization, schema recovery, bounded 30-day retention, and integrity warnings.
 * Performance-budgeted React review interface with responsive and keyboard-tested states.

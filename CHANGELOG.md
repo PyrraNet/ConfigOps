@@ -15,6 +15,7 @@ The first technical preview, created by pyrra.
 - Race-aware capture finalization, integrity recovery, verified schema upgrades, and bounded retention.
 - Local-only capture storage with suggested WordPress privacy-policy disclosure text.
 - A responsive, keyboard-accessible React review interface within a strict bundle budget.
+- Bounded media-reference evidence and thumbnails for WordPress site identity and supported Yoast image fields, with missing-target protection during undo.
 
 ### Deliberate boundaries
 

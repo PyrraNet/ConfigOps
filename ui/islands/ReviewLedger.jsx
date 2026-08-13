@@ -8,17 +8,82 @@ import {
 import Hint from '../components/Hint.jsx';
 import { formatValue } from '../format.js';
 
-const fieldKindLabel = (kind, __) => {
+const fieldKindLabel = (kind, referenceType, __) => {
 	switch (kind) {
 		case 'portable': return __('Reusable', 'configops');
 		case 'environment': return __('Check per website', 'configops');
 		case 'secret': return __('Secret', 'configops');
-		case 'reference': return __('Website link', 'configops');
+		case 'reference': return referenceType === 'media' ? __('Media', 'configops') : __('Website link', 'configops');
 		case 'runtime': return __('Technical', 'configops');
 		case 'unsupported': return __('Outside scope', 'configops');
 		default: return __('Needs review', 'configops');
 	}
 };
+
+const formatFileSize = (bytes) => {
+	if (!Number.isFinite(bytes) || bytes < 0) return '';
+	if (bytes < 1024) return `${bytes} B`;
+	if (bytes < 1024 * 1024) return `${Math.round(bytes / 102.4) / 10} KB`;
+
+	return `${Math.round(bytes / 1024 / 102.4) / 10} MB`;
+};
+
+const MediaReferenceValue = ({ dataLabel, snapshot }) => {
+	const { __, sprintf } = window.wp.i18n;
+	const id = Number(snapshot?.id || 0);
+	const status = snapshot?.current_status || snapshot?.status || (id > 0 ? 'missing' : 'unset');
+	if (id <= 0 || status === 'unset') {
+		return (
+			<div className="configops-reference-value is-unset" role="cell" data-label={dataLabel}>
+				<span>{__('Not set', 'configops')}</span>
+			</div>
+		);
+	}
+
+	const missing = status === 'missing';
+	const name = snapshot.title || snapshot.filename || sprintf(__('Attachment #%d', 'configops'), id);
+	const metadata = [
+		snapshot.mime,
+		Number.isFinite(snapshot.width) && Number.isFinite(snapshot.height)
+			? `${snapshot.width} × ${snapshot.height} px`
+			: '',
+		formatFileSize(snapshot.filesize),
+	].filter(Boolean);
+
+	return (
+		<div className={`configops-reference-value ${missing ? 'is-missing' : ''}`} role="cell" data-label={dataLabel}>
+			<div className="configops-media-preview" aria-hidden="true">
+				{snapshot.preview_url
+					? <img src={snapshot.preview_url} alt="" loading="lazy" decoding="async" />
+					: <span>{missing ? '×' : __('File', 'configops')}</span>}
+			</div>
+			<div className="configops-media-identity">
+				<strong>{name}</strong>
+				{snapshot.title && snapshot.filename && <span>{snapshot.filename}</span>}
+				{metadata.length > 0 && <span>{metadata.join(' · ')}</span>}
+				<span className="configops-media-id">
+					{sprintf(__('Attachment #%d', 'configops'), id)}
+					{missing && <em>{__('Missing', 'configops')}</em>}
+				</span>
+			</div>
+		</div>
+	);
+};
+
+const DiffValue = ({ change, side, label }) => {
+	const reference = change[`${side}_reference`];
+	if (change.reference_type === 'media' && reference) {
+		return <MediaReferenceValue dataLabel={label} snapshot={reference} />;
+	}
+
+	return <pre role="cell" data-label={label}>{Object.hasOwn(change, side) ? formatValue(change[side]) : '—'}</pre>;
+};
+
+const hasMissingRestoreReference = (changes) => changes.some((change) => (
+	['remove', 'replace'].includes(change.op)
+	&& Number(change.before_reference?.id || 0) > 0
+	&& change.before_reference?.current_status === 'missing'
+));
 
 const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canRestore, busy, filter }) {
 	const { __ } = window.wp.i18n;
@@ -43,6 +108,7 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 	const patchRestore = mutation.restoreMode === 'patch';
 	const undoSucceeded = mutation.lastRestore?.status === 'succeeded';
 	const undoUncertain = ['running', 'compensation_failed'].includes(mutation.lastRestore?.status);
+	const missingRestoreReference = hasMissingRestoreReference(mutation.diff);
 	const undoLabel = patchRestore
 		? (!mutation.redacted
 			? __('Undo this change', 'configops')
@@ -91,11 +157,11 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 										<Hint label={__('About this setting', 'configops')}>{change.explanation}</Hint>
 									)}
 								</div>
-								{change.group && <span>{change.group}{change.kind ? ` · ${fieldKindLabel(change.kind, __)}` : ''}</span>}
+								{change.group && <span>{change.group}{change.kind ? ` · ${fieldKindLabel(change.kind, change.reference_type, __)}` : ''}</span>}
 								{change.label && <code>{change.path || '/'}</code>}
 							</div>
-							<pre role="cell" data-label={__('Before', 'configops')}>{Object.hasOwn(change, 'before') ? formatValue(change.before) : '—'}</pre>
-							<pre role="cell" data-label={__('After', 'configops')}>{Object.hasOwn(change, 'after') ? formatValue(change.after) : '—'}</pre>
+							<DiffValue change={change} side="before" label={__('Before', 'configops')} />
+							<DiffValue change={change} side="after" label={__('After', 'configops')} />
 						</div>
 					))}
 				</div>
@@ -116,12 +182,17 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 							{__('A previous undo and its compensation did not both complete. Inspect the current plugin setting before attempting another change.', 'configops')}
 						</Hint>
 					)}
-					{!mutation.restorable && !mutation.redacted && filter !== 'noise' && (
+					{missingRestoreReference && filter !== 'noise' && (
+						<Hint label={__('Why can’t this be undone?', 'configops')} align="end" trigger={__('Undo unavailable', 'configops')}>
+							{__('The earlier media item no longer exists on this website. ConfigOps will not restore a broken attachment reference.', 'configops')}
+						</Hint>
+					)}
+					{!mutation.restorable && !mutation.redacted && !missingRestoreReference && filter !== 'noise' && (
 						<Hint label={__('Why can’t this be undone?', 'configops')} align="end" trigger={__('Undo unavailable', 'configops')}>
 							{__('The adapter marks this as technical, unsupported, or outside its tested version range. ConfigOps keeps the evidence but will not guess during rollback.', 'configops')}
 						</Hint>
 					)}
-					{canRestore && mutation.restorable && !undoSucceeded && !undoUncertain && filter !== 'noise' && (
+					{canRestore && mutation.restorable && !missingRestoreReference && !undoSucceeded && !undoUncertain && filter !== 'noise' && (
 						<span className="configops-action-hint">
 							<button
 								className="button button-small"
@@ -261,6 +332,9 @@ export default function ReviewLedger() {
 	const sessionUndoSucceeded = sessionUndo?.status === 'succeeded';
 	const sessionUndoUncertain = ['running', 'compensation_failed'].includes(sessionUndo?.status);
 	const canRestore = !state.active && state.capabilities.rollback && !sessionUndoSucceeded && !sessionUndoUncertain;
+	const visibleMissingRestoreReference = review.groups.some((group) => (
+		group.mutations.some((mutation) => hasMissingRestoreReference(mutation.diff))
+	));
 	const [filter, setFilter] = window.wp.element.useState('review');
 	const filteredGroups = window.wp.element.useMemo(() => {
 		const selectChanges = (mutation) => mutation.diff.filter((change) => {
@@ -351,7 +425,7 @@ export default function ReviewLedger() {
 						<span>{__('Check the current settings before continuing.', 'configops')}</span>
 					</span>
 				)}
-				{canRestore && review.summary.total > 0 && review.summary.allRestorable && !sessionUndoSucceeded && !sessionUndoUncertain && (
+				{canRestore && review.summary.total > 0 && review.summary.allRestorable && !visibleMissingRestoreReference && !sessionUndoSucceeded && !sessionUndoUncertain && (
 					<button
 						className="button"
 						type="button"
@@ -364,6 +438,11 @@ export default function ReviewLedger() {
 					>
 						{state.ui.pending === `restore-session-${selected.id}` ? __('Undoing…', 'configops') : __('Undo this capture', 'configops')}
 					</button>
+				)}
+				{canRestore && review.summary.allRestorable && visibleMissingRestoreReference && (
+					<Hint label={__('Why can’t this capture be undone?', 'configops')} align="end" trigger={__('Undo unavailable', 'configops')}>
+						{__('An earlier media item in this capture no longer exists. Other settings can still be reviewed and undone individually.', 'configops')}
+					</Hint>
 				)}
 			</header>
 

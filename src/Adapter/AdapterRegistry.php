@@ -12,6 +12,8 @@ namespace ConfigOps\Adapter;
 use ConfigOps\Capture\HeuristicSensitiveValueDetector;
 use ConfigOps\Capture\SensitiveValueDetector;
 use ConfigOps\Noise\MutationClassifier;
+use ConfigOps\Reference\ReferenceRegistry;
+use ConfigOps\Reference\WordPressReferenceFields;
 use Throwable;
 
 final class AdapterRegistry implements SensitiveValueDetector
@@ -27,6 +29,8 @@ final class AdapterRegistry implements SensitiveValueDetector
 
 	/** @var array<string, string> */
 	private array $versions = array();
+	private readonly ReferenceRegistry $references;
+	private readonly WordPressReferenceFields $wordpressReferences;
 
 	/**
 	 * @param list<mixed> $adapters Filterable adapter candidates.
@@ -34,8 +38,12 @@ final class AdapterRegistry implements SensitiveValueDetector
 	public function __construct(
 		array $adapters,
 		private readonly MutationClassifier $fallbackClassifier,
-		private readonly ?SensitiveValueDetector $fallbackSecrets = null
+		private readonly ?SensitiveValueDetector $fallbackSecrets = null,
+		?ReferenceRegistry $references = null,
+		?WordPressReferenceFields $wordpressReferences = null
 	) {
+		$this->references = $references ?? new ReferenceRegistry();
+		$this->wordpressReferences = $wordpressReferences ?? new WordPressReferenceFields();
 		foreach ($adapters as $adapter) {
 			if (count($this->adapters) >= self::MAX_ADAPTERS) {
 				$this->reportRejectedAdapter($adapter, 'registry_full');
@@ -98,6 +106,24 @@ final class AdapterRegistry implements SensitiveValueDetector
 		}
 		$adapter = $owners[0] ?? null;
 		if (null === $adapter) {
+			$changes = $this->describeWordPressChanges($optionName, $changes);
+			$changes = $this->references->capture($changes);
+			$referenceOnly = ! empty($changes) && array() === array_filter(
+				$changes,
+				static fn (array $change): bool => 'reference' !== ($change['kind'] ?? null)
+			);
+			if ($referenceOnly) {
+				return $this->analysisPayload(
+					$changes,
+					'reference',
+					'This WordPress setting points to media on this website. ConfigOps keeps its local identity for review and conflict-checked undo.',
+					true,
+					null,
+					null,
+					null,
+					0
+				);
+			}
 			$fallback = $this->fallbackClassifier->classify($optionName);
 
 			return $this->analysisPayload(
@@ -115,6 +141,7 @@ final class AdapterRegistry implements SensitiveValueDetector
 		try {
 			$manifest = $this->manifests[$this->adapterId($adapter)] ?? $adapter->manifest();
 			$changes  = $this->describeChanges($adapter, $optionName, $changes);
+			$changes  = $this->references->capture($changes);
 			$analysis = $adapter->analyze($optionName, $changes);
 		} catch (Throwable) {
 			return $this->analysisPayload(
@@ -247,6 +274,10 @@ final class AdapterRegistry implements SensitiveValueDetector
 
 	public function field(string $adapterId, int $schemaVersion, string $optionName, string $jsonPointer): ?FieldDefinition
 	{
+		if ('' === $adapterId) {
+			return $this->wordpressReferences->field($optionName, $jsonPointer);
+		}
+
 		$adapter = $this->adapters[$adapterId] ?? null;
 		if (null === $adapter) {
 			return null;
@@ -264,6 +295,25 @@ final class AdapterRegistry implements SensitiveValueDetector
 	}
 
 	/**
+	 * Add current preview availability without changing stored evidence.
+	 *
+	 * @param list<array<string, mixed>> $changes
+	 * @return list<array<string, mixed>>
+	 */
+	public function presentReferences(array $changes): array
+	{
+		return $this->references->present($changes);
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $changes
+	 */
+	public function assertRestorableReferences(array $changes): void
+	{
+		$this->references->assertRestoreTargetsAvailable($changes);
+	}
+
+	/**
 	 * @param list<array<string, mixed>> $changes Nested diff entries.
 	 * @return list<array<string, mixed>>
 	 */
@@ -277,6 +327,13 @@ final class AdapterRegistry implements SensitiveValueDetector
 				&& is_string($change['kind'] ?? null)
 				&& is_string($change['explanation'] ?? null)
 			) {
+				$path = is_string($change['path'] ?? null) ? $change['path'] : '/';
+				$field = $adapter instanceof ChangeAwareAdapter
+					? $adapter->fieldForChange($optionName, $path, $change, $changes)
+					: $adapter->field($optionName, $path);
+				if (! isset($change['reference_type']) && null !== $field?->referenceType) {
+					$change['reference_type'] = $field->referenceType;
+				}
 				$described[] = $change;
 				continue;
 			}
@@ -290,11 +347,37 @@ final class AdapterRegistry implements SensitiveValueDetector
 				$change['group']       = $field->group;
 				$change['kind']        = $field->kind;
 				$change['explanation'] = $field->explanation;
+				if (null !== $field->referenceType) {
+					$change['reference_type'] = $field->referenceType;
+				}
 			}
 			$described[] = $change;
 		}
 
 		return $described;
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $changes
+	 * @return list<array<string, mixed>>
+	 */
+	private function describeWordPressChanges(string $optionName, array $changes): array
+	{
+		foreach ($changes as &$change) {
+			$path = is_string($change['path'] ?? null) ? $change['path'] : '/';
+			$field = $this->wordpressReferences->field($optionName, $path);
+			if (null === $field) {
+				continue;
+			}
+			$change['label']       = $field->label;
+			$change['group']       = $field->group;
+			$change['kind']        = $field->kind;
+			$change['explanation'] = $field->explanation;
+			$change['reference_type'] = $field->referenceType;
+		}
+		unset($change);
+
+		return $changes;
 	}
 
 	/**

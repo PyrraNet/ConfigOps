@@ -58,6 +58,7 @@ final class RestoreService
 					if ('patch' === $this->restoreMode($mutation)) {
 						$this->restoreSafeFields($mutation);
 					} else {
+						$this->adapters->assertRestorableReferences($this->storedDiff($mutation));
 						$this->assertCurrentState(
 							(string) $mutation->option_name,
 							(string) $mutation->new_value,
@@ -162,6 +163,7 @@ final class RestoreService
 
 		// Validate the complete plan before changing the first option.
 		foreach ($states as $name => $state) {
+			$this->adapters->assertRestorableReferences($this->storedDiff($state['first']));
 			$this->assertCurrentState(
 				$name,
 				(string) $state['last']->new_value,
@@ -265,6 +267,8 @@ final class RestoreService
 			$code = 'unmanaged_writes';
 		} elseif (str_contains($error->getMessage(), 'active capture')) {
 			$code = 'capture_active';
+		} elseif (str_starts_with($error->getMessage(), 'Reference missing:')) {
+			$code = 'reference_missing';
 		}
 
 		try {
@@ -317,6 +321,7 @@ final class RestoreService
 		if (empty($changes)) {
 			throw new RuntimeException('No adapter-backed field in this setting can still be undone safely. Nothing was changed.');
 		}
+		$this->adapters->assertRestorableReferences($changes);
 
 		$optionName = (string) $mutation->option_name;
 		$sentinel   = new \stdClass();
@@ -390,6 +395,16 @@ final class RestoreService
 			);
 			// phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
 		}
+	}
+
+	/**
+	 * @return list<array<string, mixed>>
+	 */
+	private function storedDiff(object $mutation): array
+	{
+		$diff = json_decode((string) ($mutation->diff ?? ''), true);
+
+		return is_array($diff) ? array_values(array_filter($diff, 'is_array')) : array();
 	}
 
 	/**

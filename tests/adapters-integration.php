@@ -75,6 +75,21 @@ $yoastBefore['indexing_started'] = false;
 update_option('wpseo', $yoastBefore, false);
 delete_option('wpseo_tracking_only');
 
+$yoastLogoBefore = wp_insert_attachment(
+	array('post_mime_type' => 'image/png', 'post_title' => 'Original Yoast social image', 'post_status' => 'inherit')
+);
+$yoastLogoAfter = wp_insert_attachment(
+	array('post_mime_type' => 'image/png', 'post_title' => 'Updated Yoast social image', 'post_status' => 'inherit')
+);
+update_post_meta((int) $yoastLogoBefore, '_wp_attached_file', '2026/08/yoast-social-before.png');
+update_post_meta((int) $yoastLogoAfter, '_wp_attached_file', '2026/08/yoast-social-after.png');
+wp_update_attachment_metadata((int) $yoastLogoBefore, array('file' => '2026/08/yoast-social-before.png', 'width' => 1200, 'height' => 630));
+wp_update_attachment_metadata((int) $yoastLogoAfter, array('file' => '2026/08/yoast-social-after.png', 'width' => 1200, 'height' => 630));
+$yoastSocialBefore = get_option('wpseo_social', array());
+$yoastSocialBefore = is_array($yoastSocialBefore) ? $yoastSocialBefore : array();
+$yoastSocialBefore['og_default_image_id'] = (int) $yoastLogoBefore;
+update_option('wpseo_social', $yoastSocialBefore, false);
+
 $sessionId = $captures->start('Supported plugin contract', 1, '/wp-admin/admin.php?page=configops');
 \WPMailSMTP\Options::init()->set(
 	array(
@@ -97,6 +112,7 @@ $sessionId = $captures->start('Supported plugin contract', 1, '/wp-admin/admin.p
 	)
 );
 \WPSEO_Options::set('enable_admin_bar_menu', false, 'wpseo');
+\WPSEO_Options::set('og_default_image_id', (int) $yoastLogoAfter, 'wpseo_social');
 add_option('wpseo_tracking_only', array('last_updated' => time()), '', false);
 $captures->stop();
 
@@ -118,6 +134,15 @@ $assert('yoast-seo' === (string) $byName['wpseo']->adapter_id, 'Yoast mutations 
 $assert(2 === (int) $byName['wpseo']->adapter_schema_version, 'Yoast captures should pin the field-aware adapter schema.');
 $assert('28.2' === (string) $byName['wpseo']->component_version, 'Yoast captures should pin the observed plugin version.');
 $assert('portable' === (string) $byName['wpseo']->classification, 'A supported Yoast feature toggle should be reusable configuration.');
+$assert(isset($byName['wpseo_social']) && 'reference' === (string) $byName['wpseo_social']->classification, 'A real Yoast social-image selection should be classified as a local reference.');
+$yoastMediaDiff = json_decode((string) $byName['wpseo_social']->diff, true);
+$yoastMediaChange = is_array($yoastMediaDiff) ? ($yoastMediaDiff[0] ?? array()) : array();
+$assert(
+	'media' === ($yoastMediaChange['reference_type'] ?? '')
+	&& 'yoast-social-before.png' === ($yoastMediaChange['before_reference']['filename'] ?? '')
+	&& 1200 === ($yoastMediaChange['after_reference']['width'] ?? 0),
+	'The exact Yoast 28.2 option contract should resolve its default social-image attachments.'
+);
 $assert(isset($byName['wpseo_tracking_only']) && 'derived' === (string) $byName['wpseo_tracking_only']->classification, 'Yoast tracking state should be separated from settings.');
 $assert(0 === (int) $byName['wpseo_tracking_only']->restorable, 'Technical Yoast state should not enter rollback.');
 
@@ -134,10 +159,15 @@ $payload   = $payloads->mutationPage($sessionId, 0, 100);
 $payloadRows = array_merge(...array_map(static fn (array $group): array => $group['mutations'], $payload['groups']));
 $mailPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'wp_mail_smtp' === $row['optionName']));
 $yoastPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'wpseo' === $row['optionName']));
+$yoastMediaPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'wpseo_social' === $row['optionName']));
 $mailLabels = array_column($mailPayload['diff'], 'label');
 $yoastLabels = array_column($yoastPayload['diff'], 'label');
 $assert(in_array('Sender email', $mailLabels, true), 'The review payload should explain WP Mail SMTP fields without database vocabulary.');
 $assert(in_array('SEO menu in the toolbar', $yoastLabels, true), 'The review payload should explain Yoast fields without database vocabulary.');
+$assert(
+	'available' === ($yoastMediaPayload['diff'][0]['after_reference']['current_status'] ?? ''),
+	'The Yoast review payload should expose the current availability of a referenced social image.'
+);
 
 $support = $payloads->support();
 $supportById = array_column($support['adapters'], null, 'id');
@@ -210,5 +240,8 @@ $assert(
 	&& 'compensated' === (string) $patchRuns[1]->status,
 	'Field-level compensation and its successful retry should both remain auditable.'
 );
+
+wp_delete_attachment((int) $yoastLogoBefore, true);
+wp_delete_attachment((int) $yoastLogoAfter, true);
 
 fwrite(STDOUT, "ConfigOps real-plugin adapter checks passed ({$assertions} assertions).\n");

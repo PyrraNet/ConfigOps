@@ -9,6 +9,8 @@ The current `ConfigAdapter` contract owns four recorder concerns:
 - name and explain known JSON Pointer paths;
 - redact plugin-specific secrets before persistence.
 
+Fields with `kind: reference` may also name a bounded `referenceType`. The shipped `media` resolver snapshots attachment ID, title, filename, MIME type, dimensions, and file size when available. Review adds only the current thumbnail URL and availability; URLs are not persisted, files are not read into evidence, and media is never created or deleted. Site icon, Site Logo, theme custom logo, and the explicit Yoast organization/person/default-social image ID fields use this contract.
+
 Two optional, capability-sized interfaces keep exceptions out of the observer: `ChangeAwareAdapter` may classify a field using the complete save diff, while `DatabaseWriteAwareAdapter` may suppress exact-version plugin housekeeping writes that have been proven non-configurational. Unknown writes remain visible.
 
 Apply and verification will use separate capability interfaces when those engines ship. This keeps “we understand this setting” distinct from “we can safely change this plugin on another site.”
@@ -31,6 +33,8 @@ Capability levels are deliberately small:
 4. Append the adapter with the `configops_adapters` filter; do not patch the capture observer.
 5. Add pure schema checks, an exact-release WordPress Playground contract, and a browser flow through the plugin’s real settings screen.
 6. Bump the adapter schema version whenever an existing path changes meaning.
+
+Adding a reference resolver to an existing reference path does not change its field meaning, so it does not by itself require a schema bump. A resolver must fail in isolation and local undo must reject a previously captured target that no longer resolves.
 
 The in-product Plugin support view is generated from these manifests, so documentation and runtime claims cannot drift into separate marketing tables.
 

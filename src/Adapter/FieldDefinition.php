@@ -15,7 +15,8 @@ final readonly class FieldDefinition
 		public string $label,
 		public string $group,
 		public string $kind,
-		public string $explanation
+		public string $explanation,
+		public ?string $referenceType = null
 	) {
 	}
 }

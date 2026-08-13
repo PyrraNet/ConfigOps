@@ -123,16 +123,19 @@ final class ReviewPresenter
 	private function prepareDiff(array $diff, string $adapterId, int $schemaVersion, string $optionName): array
 	{
 		foreach ($diff as &$change) {
+			$path  = is_string($change['path'] ?? null) ? $change['path'] : '/';
+			$field = $this->adapters->field($adapterId, $schemaVersion, $optionName, $path);
 			if (
 				is_string($change['label'] ?? null)
 				&& is_string($change['group'] ?? null)
 				&& is_string($change['kind'] ?? null)
 				&& is_string($change['explanation'] ?? null)
 			) {
+				if (! isset($change['reference_type']) && null !== $field?->referenceType) {
+					$change['reference_type'] = $field->referenceType;
+				}
 				continue;
 			}
-			$path  = is_string($change['path'] ?? null) ? $change['path'] : '/';
-			$field = '' !== $adapterId ? $this->adapters->field($adapterId, $schemaVersion, $optionName, $path) : null;
 			if (null === $field && '/' === $path) {
 				$field = $this->genericRootField($optionName);
 			}
@@ -143,10 +146,13 @@ final class ReviewPresenter
 			$change['group']       = $field->group;
 			$change['kind']        = $field->kind;
 			$change['explanation'] = $field->explanation;
+			if (null !== $field->referenceType) {
+				$change['reference_type'] = $field->referenceType;
+			}
 		}
 		unset($change);
 
-		return $diff;
+		return $this->adapters->presentReferences($diff);
 	}
 
 	private function genericRootField(string $optionName): FieldDefinition
