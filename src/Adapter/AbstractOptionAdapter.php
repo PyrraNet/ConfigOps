@@ -27,6 +27,26 @@ abstract class AbstractOptionAdapter implements ConfigAdapter
 		$this->fields[$optionName][$path] = new FieldDefinition($label, $group, $kind, $explanation, $referenceType);
 	}
 
+	/**
+	 * Register a declarative group of exact option fields.
+	 *
+	 * @param array<string, array{0: string, 1: string, 2: string, 3: string, 4?: string}> $fields
+	 */
+	final protected function defineFields(string $optionName, array $fields): void
+	{
+		foreach ($fields as $path => $definition) {
+			$this->define(
+				$optionName,
+				$path,
+				$definition[0],
+				$definition[1],
+				$definition[2],
+				$definition[3],
+				$definition[4] ?? null
+			);
+		}
+	}
+
 	public function field(string $optionName, string $jsonPointer): ?FieldDefinition
 	{
 		if (isset($this->fields[$optionName][$jsonPointer])) {

@@ -26,7 +26,9 @@ final class ReferenceRegistry
 	 */
 	public function __construct(array $resolvers = array())
 	{
-		$resolvers = empty($resolvers) ? array(new MediaReferenceResolver()) : $resolvers;
+		$resolvers = empty($resolvers)
+			? array(new MediaReferenceResolver(), new ContentReferenceResolver(), new UserReferenceResolver())
+			: $resolvers;
 		foreach ($resolvers as $resolver) {
 			if (! $resolver instanceof ReferenceResolver) {
 				continue;
@@ -123,7 +125,7 @@ final class ReferenceRegistry
 				$available = false;
 			}
 			if (! $available) {
-				throw new RuntimeException('Reference missing: the media item this undo would restore no longer exists on this website. Nothing was changed.');
+				throw new RuntimeException('Reference missing: an item this undo would restore no longer exists on this website. Nothing was changed.');
 			}
 		}
 	}

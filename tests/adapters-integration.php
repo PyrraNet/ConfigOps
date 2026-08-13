@@ -24,6 +24,7 @@ $assertions = 0;
 $assert = static function (bool $condition, string $message) use (&$assertions): void {
 	++$assertions;
 	if (! $condition) {
+		fwrite(STDERR, "Adapter assertion failed: {$message}\n");
 		throw new RuntimeException($message);
 	}
 };
@@ -63,6 +64,17 @@ delete_option('wp_mail_smtp');
 			'auth'       => true,
 			'user'       => 'before-user',
 		),
+		'mailgun' => array(
+			'domain' => 'mg.before.example.test',
+			'region' => 'US',
+		),
+		'postmark' => array(
+			'message_stream' => 'broadcast-before',
+		),
+		'general' => array(
+			'do_not_send' => false,
+			'usage-tracking-enabled' => false,
+		),
 	)
 );
 
@@ -90,6 +102,23 @@ $yoastSocialBefore = is_array($yoastSocialBefore) ? $yoastSocialBefore : array()
 $yoastSocialBefore['og_default_image_id'] = (int) $yoastLogoBefore;
 update_option('wpseo_social', $yoastSocialBefore, false);
 
+$yoastPageBefore = wp_insert_post(
+	array('post_type' => 'page', 'post_title' => 'Original contact page', 'post_status' => 'publish')
+);
+$yoastPageAfter = wp_insert_post(
+	array('post_type' => 'page', 'post_title' => 'Updated contact page', 'post_status' => 'publish')
+);
+$assert(! is_wp_error($yoastPageBefore) && ! is_wp_error($yoastPageAfter), 'Yoast content-reference fixtures should be created.');
+$yoastLlmBefore = get_option('wpseo_llmstxt', array());
+$yoastLlmBefore = is_array($yoastLlmBefore) ? $yoastLlmBefore : array();
+$yoastLlmBefore['contact_page'] = (int) $yoastPageBefore;
+update_option('wpseo_llmstxt', $yoastLlmBefore, false);
+
+$yoastTitlesBefore = get_option('wpseo_titles', array());
+$yoastTitlesBefore = is_array($yoastTitlesBefore) ? $yoastTitlesBefore : array();
+$yoastTitlesBefore['social-image-id-post'] = (int) $yoastLogoBefore;
+update_option('wpseo_titles', $yoastTitlesBefore, false);
+
 $sessionId = $captures->start('Supported plugin contract', 1, '/wp-admin/admin.php?page=configops');
 \WPMailSMTP\Options::init()->set(
 	array(
@@ -109,10 +138,23 @@ $sessionId = $captures->start('Supported plugin contract', 1, '/wp-admin/admin.p
 			'auth'       => true,
 			'user'       => 'agency-user',
 		),
+		'mailgun' => array(
+			'domain' => 'mg.example.test',
+			'region' => 'EU',
+		),
+		'postmark' => array(
+			'message_stream' => 'broadcast-production',
+		),
+		'general' => array(
+			'do_not_send' => true,
+			'usage-tracking-enabled' => false,
+		),
 	)
 );
 \WPSEO_Options::set('enable_admin_bar_menu', false, 'wpseo');
 \WPSEO_Options::set('og_default_image_id', (int) $yoastLogoAfter, 'wpseo_social');
+\WPSEO_Options::set('contact_page', (int) $yoastPageAfter, 'wpseo_llmstxt');
+\WPSEO_Options::set('social-image-id-post', (int) $yoastLogoAfter, 'wpseo_titles');
 add_option('wpseo_tracking_only', array('last_updated' => time()), '', false);
 $captures->stop();
 
@@ -124,14 +166,14 @@ foreach ($rows as $row) {
 
 $assert(isset($byName['wp_mail_smtp']), 'The official WP Mail SMTP settings API should be captured.');
 $assert('wp-mail-smtp' === (string) $byName['wp_mail_smtp']->adapter_id, 'WP Mail SMTP mutations should persist adapter identity.');
-$assert(2 === (int) $byName['wp_mail_smtp']->adapter_schema_version, 'WP Mail SMTP captures should pin the field-aware adapter schema.');
+$assert(3 === (int) $byName['wp_mail_smtp']->adapter_schema_version, 'WP Mail SMTP captures should pin the deep field-aware adapter schema.');
 $assert('4.9.0' === (string) $byName['wp_mail_smtp']->component_version, 'WP Mail SMTP captures should pin the observed plugin version.');
 $assert('environment' === (string) $byName['wp_mail_smtp']->classification, 'Mixed WP Mail SMTP connection changes should require a per-website check.');
 $assert(1 === (int) $byName['wp_mail_smtp']->restorable, 'Secret-free WP Mail SMTP settings should retain conflict-checked rollback.');
 
 $assert(isset($byName['wpseo']), 'The official Yoast options API should be captured.');
 $assert('yoast-seo' === (string) $byName['wpseo']->adapter_id, 'Yoast mutations should persist adapter identity.');
-$assert(2 === (int) $byName['wpseo']->adapter_schema_version, 'Yoast captures should pin the field-aware adapter schema.');
+$assert(3 === (int) $byName['wpseo']->adapter_schema_version, 'Yoast captures should pin the deep field-aware adapter schema.');
 $assert('28.2' === (string) $byName['wpseo']->component_version, 'Yoast captures should pin the observed plugin version.');
 $assert('portable' === (string) $byName['wpseo']->classification, 'A supported Yoast feature toggle should be reusable configuration.');
 $assert(isset($byName['wpseo_social']) && 'reference' === (string) $byName['wpseo_social']->classification, 'A real Yoast social-image selection should be classified as a local reference.');
@@ -142,6 +184,24 @@ $assert(
 	&& 'yoast-social-before.png' === ($yoastMediaChange['before_reference']['filename'] ?? '')
 	&& 1200 === ($yoastMediaChange['after_reference']['width'] ?? 0),
 	'The exact Yoast 28.2 option contract should resolve its default social-image attachments.'
+);
+$assert(isset($byName['wpseo_llmstxt']) && 'reference' === (string) $byName['wpseo_llmstxt']->classification, 'A real Yoast LLMs.txt page selection should be classified as a local content reference.');
+$yoastContentDiff = json_decode((string) $byName['wpseo_llmstxt']->diff, true);
+$yoastContentChange = is_array($yoastContentDiff) ? ($yoastContentDiff[0] ?? array()) : array();
+$assert(
+	'content' === ($yoastContentChange['reference_type'] ?? '')
+	&& 'Original contact page' === ($yoastContentChange['before_reference']['title'] ?? '')
+	&& 'page' === ($yoastContentChange['after_reference']['post_type'] ?? ''),
+	'The exact Yoast 28.2 LLMs.txt contract should resolve selected page identities.'
+);
+$assert(isset($byName['wpseo_titles']) && 'reference' === (string) $byName['wpseo_titles']->classification, 'A dynamic Yoast post-type social image should be a local media reference.');
+$yoastTitleDiff = json_decode((string) $byName['wpseo_titles']->diff, true);
+$yoastDynamicImage = is_array($yoastTitleDiff) ? current(array_filter($yoastTitleDiff, static fn (array $change): bool => '/social-image-id-post' === ($change['path'] ?? ''))) : false;
+$assert(
+	is_array($yoastDynamicImage)
+	&& 'media' === ($yoastDynamicImage['reference_type'] ?? '')
+	&& 'Post social image' === ($yoastDynamicImage['label'] ?? ''),
+	'Dynamic Yoast content-type social images should receive media identity and a useful label.'
 );
 $assert(isset($byName['wpseo_tracking_only']) && 'derived' === (string) $byName['wpseo_tracking_only']->classification, 'Yoast tracking state should be separated from settings.');
 $assert(0 === (int) $byName['wpseo_tracking_only']->restorable, 'Technical Yoast state should not enter rollback.');
@@ -160,13 +220,21 @@ $payloadRows = array_merge(...array_map(static fn (array $group): array => $grou
 $mailPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'wp_mail_smtp' === $row['optionName']));
 $yoastPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'wpseo' === $row['optionName']));
 $yoastMediaPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'wpseo_social' === $row['optionName']));
+$yoastContentPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'wpseo_llmstxt' === $row['optionName']));
 $mailLabels = array_column($mailPayload['diff'], 'label');
 $yoastLabels = array_column($yoastPayload['diff'], 'label');
 $assert(in_array('Sender email', $mailLabels, true), 'The review payload should explain WP Mail SMTP fields without database vocabulary.');
-$assert(in_array('SEO menu in the toolbar', $yoastLabels, true), 'The review payload should explain Yoast fields without database vocabulary.');
+$assert(in_array('Sending domain', $mailLabels, true), 'The review payload should name provider-specific WP Mail SMTP fields.');
+$assert(in_array('Message stream', $mailLabels, true), 'The review payload should identify Postmark routing settings.');
+$assert(in_array('Stop all outgoing email', $mailLabels, true), 'The review payload should identify high-impact WP Mail SMTP delivery policy.');
+$assert(in_array('Admin bar menu', $yoastLabels, true), 'The review payload should use the label from Yoast SEO 28.2 instead of database vocabulary.');
 $assert(
 	'available' === ($yoastMediaPayload['diff'][0]['after_reference']['current_status'] ?? ''),
 	'The Yoast review payload should expose the current availability of a referenced social image.'
+);
+$assert(
+	'available' === ($yoastContentPayload['diff'][0]['after_reference']['current_status'] ?? ''),
+	'The Yoast review payload should expose the current availability of a referenced LLMs.txt page.'
 );
 
 $support = $payloads->support();
@@ -177,6 +245,21 @@ $assert(true === $supportById['yoast-seo']['active'] && true === $supportById['y
 $secretCodec = new \ConfigOps\Capture\ValueCodec($adapters);
 $secretValue = $secretCodec->encode(array('smtp' => array('pass' => 'must-never-be-stored')), 'wp_mail_smtp');
 $assert($secretValue->redacted && ! str_contains($secretValue->payload, 'must-never-be-stored'), 'The real WP Mail SMTP schema should redact its password before persistence.');
+$providerSecrets = $secretCodec->encode(
+	array(
+		'amazonses' => array('client_id' => 'AKIA-MUST-NEVER-PERSIST'),
+		'postmark' => array('server_api_token' => 'postmark-must-never-persist'),
+		'sendlayer' => array('free_upgrade_url' => 'https://sendlayer.example/upgrade/signed-account-token'),
+	),
+	'wp_mail_smtp'
+);
+$assert(
+	$providerSecrets->redacted
+	&& ! str_contains($providerSecrets->payload, 'AKIA-MUST-NEVER-PERSIST')
+	&& ! str_contains($providerSecrets->payload, 'postmark-must-never-persist')
+	&& ! str_contains($providerSecrets->payload, 'signed-account-token'),
+	'The exact WP Mail SMTP provider contract should redact less-obvious credentials and signed account URLs.'
+);
 
 $secretSession = $captures->start('WP Mail SMTP secret contract', 1, '/wp-admin/admin.php?page=wp-mail-smtp');
 $mailWithSecret = get_option('wp_mail_smtp', array());
@@ -211,6 +294,17 @@ $restore = new \ConfigOps\Restore\RestoreService(
 	$adapters,
 	new \ConfigOps\Database\RestoreAuditRepository($wpdb)
 );
+wp_delete_post((int) $yoastPageBefore, true);
+$missingContentRejected = false;
+try {
+	$restore->restoreMutation((int) $byName['wpseo_llmstxt']->id);
+} catch (RuntimeException $error) {
+	$missingContentRejected = str_contains($error->getMessage(), 'Reference missing');
+}
+$assert(
+	$missingContentRejected && (int) $yoastPageAfter === (int) get_option('wpseo_llmstxt', array())['contact_page'],
+	'Yoast page-reference undo should stop before writing an ID whose captured page was deleted.'
+);
 $blockProtectedPatch = static function (mixed $value, mixed $oldValue): mixed {
 	return 'Agency sender' === ($value['mail']['from_name'] ?? null) ? $oldValue : $value;
 };
@@ -243,5 +337,7 @@ $assert(
 
 wp_delete_attachment((int) $yoastLogoBefore, true);
 wp_delete_attachment((int) $yoastLogoAfter, true);
+wp_delete_post((int) $yoastPageBefore, true);
+wp_delete_post((int) $yoastPageAfter, true);
 
 fwrite(STDOUT, "ConfigOps real-plugin adapter checks passed ({$assertions} assertions).\n");

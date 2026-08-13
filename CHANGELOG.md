@@ -11,11 +11,11 @@ The first technical preview, created by pyrra.
 - Explicit local capture sessions with request grouping and source attribution.
 - Typed nested diffs, conservative noise separation, and redaction before persistence.
 - Conflict-checked field and session undo with compensation and value-free audit records.
-- Exact adapter contracts for WP Mail SMTP Free 4.9.0 and Yoast SEO Free 28.2.
+- Exact deep-field contracts for every bundled WP Mail SMTP Free 4.9.0 mailer and the Yoast SEO Free 28.2 feature, crawl, schema, search, social, and LLMs.txt families.
 - Race-aware capture finalization, integrity recovery, verified schema upgrades, and bounded retention.
 - Local-only capture storage with suggested WordPress privacy-policy disclosure text.
 - A responsive, keyboard-accessible React review interface within a strict bundle budget.
-- Bounded media-reference evidence and thumbnails for WordPress site identity and supported Yoast image fields, with missing-target protection during undo.
+- Bounded media and content-reference evidence for WordPress site identity plus supported Yoast image, policy, ignore-list, and LLMs.txt fields, with missing-target protection during undo.
 
 ### Deliberate boundaries
 

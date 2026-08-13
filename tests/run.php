@@ -219,7 +219,13 @@ $assert('environment' === $mailSender->classification, 'WP Mail SMTP sender addr
 $assert('Sender email' === $mailAdapter->field('wp_mail_smtp', '/mail/from_email')?->label, 'WP Mail SMTP should expose plain-language field names.');
 $assert($mailAdapter->isSensitive('wp_mail_smtp', array('smtp', 'pass')), 'WP Mail SMTP passwords should use adapter-owned secret semantics.');
 $assert($mailAdapter->isSensitive('wp_mail_smtp', array('sendgrid', 'api_key')), 'WP Mail SMTP provider keys should be redacted even without a one-off field map.');
+$assert($mailAdapter->isSensitive('wp_mail_smtp', array('amazonses', 'client_id')), 'Amazon SES access-key IDs should stay inside the protected credential boundary.');
+$assert($mailAdapter->isSensitive('wp_mail_smtp', array('sendlayer', 'free_upgrade_url')), 'Signed SendLayer account URLs should not enter capture evidence.');
 $assert($mailAdapter->isSensitive('wp_mail_smtp', array('license', 'key')), 'WP Mail SMTP license keys should be redacted despite their generic nested key name.');
+$assert('Message stream' === $mailAdapter->field('wp_mail_smtp', '/postmark/message_stream')?->label, 'WP Mail SMTP should name provider-specific delivery fields.');
+$assert('environment' === $mailAdapter->field('wp_mail_smtp', '/mailgun/domain')?->kind, 'Provider sending domains should be checked per website.');
+$assert('unknown' === $mailAdapter->field('wp_mail_smtp', '/sendgrid/future_field')?->kind, 'Unknown future provider fields should fail closed outside the exact 4.9.0 contract.');
+$assert('Stop all outgoing email' === $mailAdapter->field('wp_mail_smtp', '/general/do_not_send')?->label, 'WP Mail SMTP delivery-policy settings should have exact operational labels.');
 $assert($mailAdapter->isSensitive('wp_mail_smtp_connect', array()), 'WP Mail SMTP Connect handoff values should be treated as local secrets.');
 $mailRuntime = $mailAdapter->analyze('wp_mail_smtp_version', array(array('path' => '/')));
 $assert('derived' === $mailRuntime->classification && ! $mailRuntime->allowsGenericRestore, 'WP Mail SMTP version state should stay outside rollback.');
@@ -230,10 +236,14 @@ $assert(6 === count($mailAdapter->manifest()->capabilities), 'WP Mail SMTP suppo
 $yoastAdapter = new YoastSeoAdapter();
 $yoastNoIndex = $yoastAdapter->analyze('wpseo_titles', array(array('path' => '/noindex-author-wpseo')));
 $assert('environment' === $yoastNoIndex->classification, 'Yoast noindex rules should be checked per environment.');
-$assert('reference' === $yoastAdapter->field('wpseo_llmstxt', '/contact_page')?->kind, 'Yoast page IDs should be semantic-reference candidates.');
+$assert('content' === $yoastAdapter->field('wpseo_llmstxt', '/contact_page')?->referenceType, 'Yoast LLMs.txt page IDs should keep bounded content identity.');
 $assert('media' === $yoastAdapter->field('wpseo_titles', '/company_logo_id')?->referenceType, 'Yoast organization logos should use the media reference resolver.');
 $assert('media' === $yoastAdapter->field('wpseo_titles', '/person_logo_id')?->referenceType, 'Yoast person logos should use the media reference resolver.');
 $assert('media' === $yoastAdapter->field('wpseo_social', '/og_default_image_id')?->referenceType, 'Yoast default social images should use the media reference resolver.');
+$assert('media' === $yoastAdapter->field('wpseo_social', '/og_frontpage_image_id')?->referenceType, 'Yoast homepage social images should use the media reference resolver.');
+$assert('media' === $yoastAdapter->field('wpseo_titles', '/social-image-id-product')?->referenceType, 'Dynamic Yoast content-type images should use the media reference resolver.');
+$assert('content' === $yoastAdapter->field('wpseo_titles', '/publishing_principles_id')?->referenceType, 'Yoast publisher-policy pages should keep bounded content identity.');
+$assert('user' === $yoastAdapter->field('wpseo_titles', '/company_or_person_user_id')?->referenceType, 'Yoast person-schema users should keep bounded display identity.');
 $assert('reference' === $yoastAdapter->field('wpseo_llmstxt', '/other_included_pages/0')?->kind, 'Yoast page-reference lists should retain their meaning at nested diff paths.');
 $assert('LLMs.txt page selection' === $yoastAdapter->field('wpseo_llmstxt', '/llms_txt_selection_mode')?->label, 'Yoast LLMs.txt fields should match the exact 28.2 option schema.');
 $assert($yoastAdapter->isSensitive('wpseo', array('myyoast-oauth', 'config', 'secret')), 'Yoast connected-service credentials should be redacted by full path.');
@@ -243,7 +253,9 @@ $yoastDashboardRuntime = $yoastAdapter->analyze('wpseo', array(array('path' => '
 $assert('derived' === $yoastDashboardRuntime->classification, 'Yoast dashboard and indexing state should not masquerade as reusable settings.');
 $yoastVerification = $yoastAdapter->analyze('wpseo', array(array('path' => '/googleverify')));
 $assert('environment' === $yoastVerification->classification, 'Yoast site-verification values should be checked per website.');
-$assert('reference' === $yoastAdapter->field('wpseo', '/least_linked_ignore_list/0')?->kind, 'Yoast content ignore lists should retain their reference meaning at nested paths.');
+$assert('content' === $yoastAdapter->field('wpseo', '/least_linked_ignore_list/0')?->referenceType, 'Yoast content ignore lists should retain content identity at nested paths.');
+$assert('Block GPTBot' === $yoastAdapter->field('wpseo', '/deny_gptbot_crawling')?->label, 'Yoast crawl controls should use the wording of the pinned settings contract.');
+$assert('unknown' === $yoastAdapter->field('wpseo', '/future_setting')?->kind, 'Unknown future Yoast fields should remain visible without entering automatic undo.');
 $yoastContent = $yoastAdapter->analyze('wpseo_taxonomy_meta', array(array('path' => '/category/1')));
 $assert('unsupported' === $yoastContent->classification && ! $yoastContent->allowsGenericRestore, 'Yoast taxonomy content must not masquerade as portable configuration.');
 $yoastMultisite = $yoastAdapter->analyze('wpseo_ms', array(array('path' => '/access')));
@@ -292,8 +304,8 @@ $themeLogo = $registry->analyze(
 	array(array('op' => 'replace', 'path' => '/custom_logo', 'before' => 0, 'after' => 99999999))
 );
 $assert('reference' === $themeLogo['classification'] && 'media' === ($themeLogo['changes'][0]['reference_type'] ?? ''), 'Theme custom logos should use the same media identity contract.');
-$assert(null !== $registry->field('wp-mail-smtp', 2, 'wp_mail_smtp', '/smtp/host'), 'The current adapter schema should enrich matching historical evidence.');
-$assert(null === $registry->field('wp-mail-smtp', 1, 'wp_mail_smtp', '/smtp/host'), 'Field-aware adapter changes must not reinterpret captures stored under the previous schema.');
+$assert(null !== $registry->field('wp-mail-smtp', 3, 'wp_mail_smtp', '/smtp/host'), 'The current adapter schema should enrich matching historical evidence.');
+$assert(null === $registry->field('wp-mail-smtp', 2, 'wp_mail_smtp', '/smtp/host'), 'Field-aware adapter changes must not reinterpret captures stored under the previous schema.');
 $assert(null === $registry->field('wp-mail-smtp', 99, 'wp_mail_smtp', '/smtp/host'), 'A newer adapter must not reinterpret evidence captured under another schema.');
 $duplicateRegistry = new AdapterRegistry(array($mailAdapter, $mailAdapter), new NoiseClassifier(), new HeuristicSensitiveValueDetector());
 $assert(1 === count($duplicateRegistry->supportPayload()), 'Duplicate adapter IDs should not replace or duplicate the trusted registration.');

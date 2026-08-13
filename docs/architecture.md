@@ -21,7 +21,7 @@ PHP 8.3 is a deliberate product constraint, not an accidental use of new syntax
 | --- | --- | --- |
 | Persisted mutation | WordPress Options API hooks; value-free signal for unmanaged writes | Adapter-owned custom tables and APIs |
 | Human intent | Explicit session name and request context | Admin field and fetch/REST correlation |
-| Value semantics | Type-preserving codec, JSON Pointer diff, versioned field schemas, and bounded local media references | Cross-site semantic resolution and release transforms |
+| Value semantics | Type-preserving codec, JSON Pointer diff, versioned field schemas, and bounded local media/content references | Cross-site semantic resolution and release transforms |
 | Noise | Conservative built-in rules plus pinned WP Mail SMTP and Yoast contracts | Registry fixtures and adapter normalization |
 | Secrets | Redact before persistence; preserve during field-level undo | Secret references and target-local resolution |
 | Rollback | Conflict-checked full or adapter-backed field undo | Adapter-declared safety and verification |
@@ -41,7 +41,7 @@ PHP 8.3 is a deliberate product constraint, not an accidental use of new syntax
 8. An unmanaged write signal is not a `ConfigMutation`: it proves only bounded write intent and never fabricates values, semantic paths, or rollback support.
 9. Incomplete evidence is a durable product state: it disables whole-capture undo and cannot be presented as a clean recording.
 10. Every undo attempt creates a value-free audit record before its first configuration write.
-11. A local media reference stores identity evidence, never file contents; undo refuses an attachment that no longer exists.
+11. A local reference stores bounded identity evidence, never media contents or post bodies; undo refuses a referenced item that no longer exists.
 
 ## Hardening decisions
 
@@ -51,6 +51,8 @@ PHP 8.3 is a deliberate product constraint, not an accidental use of new syntax
 - **Absence is not memoized.** Positive active-session lookups are cached, but another integration may start or stop a capture later in the same request.
 - **Conflicts are semantic.** Associative key order is ignored; list order, typed array keys, scalar types, option existence, and autoload mode remain significant. Semantically empty writes are not persisted as noise.
 - **Media references stay local and bounded.** Site icon, site-logo, theme custom-logo, and explicit Yoast image-ID paths retain attachment identity alongside the raw local ID. Review resolves a current thumbnail on demand. Capture does not hash or copy the file, and undo never creates or deletes attachments.
+- **Content references stay local and bounded.** Pinned Yoast publisher-policy, analysis-ignore, and LLMs.txt page paths retain only ID, title, post type, and status. Post bodies, excerpts, URLs, authors, and user records are not added. Undo refuses deleted or trashed content instead of restoring a broken local ID.
+- **User references disclose display identity only.** Yoast’s represented-person selector retains user ID and display name so review does not show a bare ID. Email, login, roles, capabilities, and user metadata are never added; undo refuses a deleted account.
 - **Restore is serialized and compensating.** Token-owned, expiring locks prevent overlapping restore requests. Session restore preflights the entire plan, rechecks each value immediately before writing, then restores distinct options in reverse last-mutation order. If a later step fails, earlier steps are reapplied to their captured result where possible.
 - **Restore is auditable before it is mutable.** A dedicated append-first run records actor, target scope, outcome, restored option count, and bounded failure code. It deliberately contains no option name, value, SQL, stack trace, or raw error message. Successful, refused, compensated, and compensation-failed attempts remain distinct.
 - **Work is budgeted.** Value nodes, persisted payload size, diff operations, and backtraces have explicit upper bounds and disclose truncation or unsupported values.
@@ -84,7 +86,7 @@ The visual direction remains server-shell plus forensic instruments: a compact p
 
 ## Trust harness
 
-The deliberately hostile fixture plugin now exercises simple and nested options, typed WordPress IDs, secret redaction, transients, synchronous side effects, a versioned schema migration, AJAX metadata, direct SQL writes, and a neighboring plugin slug that shares the `configops` prefix. The integration contract also captures real attachment identities, renders their current availability, restores an existing reference, and refuses a deleted one before writing. Separate browser contracts install exact public releases of WP Mail SMTP and Yoast, operate their real settings screens, review the resulting capture at desktop and mobile widths, undo the safe fields, and verify the result back in each plugin.
+The deliberately hostile fixture plugin now exercises simple and nested options, typed WordPress IDs, secret redaction, transients, synchronous side effects, a versioned schema migration, AJAX metadata, direct SQL writes, and a neighboring plugin slug that shares the `configops` prefix. Integration contracts capture real attachment and content identities, render current availability, restore existing references, and refuse deleted targets before writing. Separate browser contracts install exact public releases of WP Mail SMTP and Yoast, operate their real settings screens, review the resulting capture at desktop and mobile widths, undo safe fields, and verify the result back in each plugin. The exact-release contract additionally covers provider routing, less-obvious credential paths, dynamic social images, and LLMs.txt page references.
 
 ## Next boundary
 

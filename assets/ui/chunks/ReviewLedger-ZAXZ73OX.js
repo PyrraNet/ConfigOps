@@ -41,7 +41,8 @@ var fieldKindLabel = /* @__PURE__ */ __name((kind, referenceType, __) => {
     case "secret":
       return __("Secret", "configops");
     case "reference":
-      return referenceType === "media" ? __("Media", "configops") : __("Website link", "configops");
+      return referenceType === "media" ? __("Media", "configops") : referenceType === "content" ? __("Content", "configo\
+ps") : referenceType === "user" ? __("User", "configops") : __("Website link", "configops");
     case "runtime":
       return __("Technical", "configops");
     case "unsupported":
@@ -75,18 +76,63 @@ l", "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("span", 
   ].filter(Boolean);
   return /* @__PURE__ */ wp.element.createElement("div", { className: `configops-reference-value ${missing ? "is-missing" :
   ""}`, role: "cell", "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("div", { className: "configops\
--media-preview", "aria-hidden": "true" }, snapshot.preview_url ? /* @__PURE__ */ wp.element.createElement("img", { src: snapshot.
+-reference-mark", "aria-hidden": "true" }, snapshot.preview_url ? /* @__PURE__ */ wp.element.createElement("img", { src: snapshot.
   preview_url, alt: "", loading: "lazy", decoding: "async" }) : /* @__PURE__ */ wp.element.createElement("span", null, missing ?
-  "\xD7" : __("File", "configops"))), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-media-iden\
-tity" }, /* @__PURE__ */ wp.element.createElement("strong", null, name), snapshot.title && snapshot.filename && /* @__PURE__ */ wp.
+  "\xD7" : __("File", "configops"))), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-\
+identity" }, /* @__PURE__ */ wp.element.createElement("strong", null, name), snapshot.title && snapshot.filename && /* @__PURE__ */ wp.
   element.createElement("span", null, snapshot.filename), metadata.length > 0 && /* @__PURE__ */ wp.element.createElement(
-  "span", null, metadata.join(" \xB7 ")), /* @__PURE__ */ wp.element.createElement("span", { className: "configops-media\
--id" }, attachmentLabel, missing && /* @__PURE__ */ wp.element.createElement("em", null, __("Missing", "configops")))));
+  "span", null, metadata.join(" \xB7 ")), /* @__PURE__ */ wp.element.createElement("span", { className: "configops-refer\
+ence-id" }, attachmentLabel, missing && /* @__PURE__ */ wp.element.createElement("em", null, __("Missing", "configops")))));
 }, "MediaReferenceValue");
+var ContentReferenceValue = /* @__PURE__ */ __name(({ dataLabel, snapshot }) => {
+  const { __, sprintf } = window.wp.i18n;
+  const id = Number(snapshot?.id || 0);
+  const status = snapshot?.current_status || snapshot?.status || (id > 0 ? "missing" : "unset");
+  if (id <= 0 || status === "unset") {
+    return /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-value is-unset", role: "cel\
+l", "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("span", null, __("Not set", "configops")));
+  }
+  const missing = status === "missing";
+  const contentLabel = sprintf(__("Content #%d", "configops"), id);
+  const name = snapshot.title || contentLabel;
+  const typeLabel = snapshot.type_label || snapshot.post_type || __("Content", "configops");
+  const metadata = [typeLabel, snapshot.post_status].filter(Boolean).join(" \xB7 ");
+  return /* @__PURE__ */ wp.element.createElement("div", { className: `configops-reference-value ${missing ? "is-missing" :
+  ""}`, role: "cell", "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("div", { className: "configops\
+-reference-mark configops-content-mark", "aria-hidden": "true" }, /* @__PURE__ */ wp.element.createElement("span", null,
+  missing ? "\xD7" : typeLabel)), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-iden\
+tity" }, /* @__PURE__ */ wp.element.createElement("strong", null, name), metadata && /* @__PURE__ */ wp.element.createElement(
+  "span", null, metadata), /* @__PURE__ */ wp.element.createElement("span", { className: "configops-reference-id" }, contentLabel,
+  missing && /* @__PURE__ */ wp.element.createElement("em", null, __("Missing", "configops")))));
+}, "ContentReferenceValue");
+var UserReferenceValue = /* @__PURE__ */ __name(({ dataLabel, snapshot }) => {
+  const { __, sprintf } = window.wp.i18n;
+  const id = Number(snapshot?.id || 0);
+  const status = snapshot?.current_status || snapshot?.status || (id > 0 ? "missing" : "unset");
+  if (id <= 0 || status === "unset") {
+    return /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-value is-unset", role: "cel\
+l", "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("span", null, __("Not set", "configops")));
+  }
+  const missing = status === "missing";
+  const userLabel = sprintf(__("User #%d", "configops"), id);
+  return /* @__PURE__ */ wp.element.createElement("div", { className: `configops-reference-value ${missing ? "is-missing" :
+  ""}`, role: "cell", "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("div", { className: "configops\
+-reference-mark", "aria-hidden": "true" }, /* @__PURE__ */ wp.element.createElement("span", null, missing ? "\xD7" : __(
+  "User", "configops"))), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-identity" },
+  /* @__PURE__ */ wp.element.createElement("strong", null, snapshot.display_name || userLabel), /* @__PURE__ */ wp.element.
+  createElement("span", { className: "configops-reference-id" }, userLabel, missing && /* @__PURE__ */ wp.element.createElement(
+  "em", null, __("Missing", "configops")))));
+}, "UserReferenceValue");
 var DiffValue = /* @__PURE__ */ __name(({ change, side, label }) => {
   const reference = change[`${side}_reference`];
   if (change.reference_type === "media" && reference) {
     return /* @__PURE__ */ wp.element.createElement(MediaReferenceValue, { dataLabel: label, snapshot: reference });
+  }
+  if (change.reference_type === "content" && reference) {
+    return /* @__PURE__ */ wp.element.createElement(ContentReferenceValue, { dataLabel: label, snapshot: reference });
+  }
+  if (change.reference_type === "user" && reference) {
+    return /* @__PURE__ */ wp.element.createElement(UserReferenceValue, { dataLabel: label, snapshot: reference });
   }
   return /* @__PURE__ */ wp.element.createElement("pre", { role: "cell", "data-label": label }, Object.hasOwn(change, side) ?
   formatValue(change[side]) : "\u2014");
@@ -116,8 +162,8 @@ ettings", "configops")}`;
   const undoUncertain = ["running", "compensation_failed"].includes(mutation.lastRestore?.status);
   const missingRestoreReference = hasMissingRestoreReference(mutation.diff);
   const showReviewActions = filter !== "noise";
-  const undoUnavailableExplanation = !showReviewActions ? "" : missingRestoreReference ? __("The earlier media item no l\
-onger exists on this website. ConfigOps will not restore a broken attachment reference.", "configops") : !mutation.restorable &&
+  const undoUnavailableExplanation = !showReviewActions ? "" : missingRestoreReference ? __("The earlier referenced item\
+ no longer exists on this website. ConfigOps will not restore a broken local reference.", "configops") : !mutation.restorable &&
   !mutation.redacted ? __("The adapter marks this as technical, unsupported, or outside its tested version range. Config\
 Ops keeps the evidence but will not guess during rollback.", "configops") : "";
   const canUndo = canRestore && mutation.restorable && !missingRestoreReference && !undoSucceeded && !undoUncertain && showReviewActions;
@@ -353,8 +399,8 @@ thing changed again.", "configops"))) {
 configops")
   ), canRestoreSession && visibleMissingRestoreReference && /* @__PURE__ */ wp.element.createElement(Hint, { label: __("\
 Why can\u2019t this capture be undone?", "configops"), align: "end", trigger: __("Undo unavailable", "configops") }, __(
-  "An earlier media item in this capture no longer exists. Other settings can still be reviewed and undone individually.",
-  "configops"))), review.summary.captureErrors > 0 && /* @__PURE__ */ wp.element.createElement("section", { className: "\
+  "An earlier referenced item in this capture no longer exists. Other settings can still be reviewed and undone individu\
+ally.", "configops"))), review.summary.captureErrors > 0 && /* @__PURE__ */ wp.element.createElement("section", { className: "\
 configops-integrity-warning", role: "alert", "aria-labelledby": "configops-integrity-title" }, /* @__PURE__ */ wp.element.
   createElement("span", { className: "configops-integrity-mark", "aria-hidden": "true" }, "!"), /* @__PURE__ */ wp.element.
   createElement("div", null, /* @__PURE__ */ wp.element.createElement("h3", { id: "configops-integrity-title" }, __("Cap\

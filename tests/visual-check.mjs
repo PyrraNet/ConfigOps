@@ -226,7 +226,7 @@ try {
 	if (await mediaRow.locator('.configops-reference-value').count() !== 2) {
 		throw new Error('A media diff did not replace both raw attachment IDs with reference evidence.');
 	}
-	if (await mediaRow.locator('.configops-media-preview img').count() !== 1 || !await mediaRow.getByText('Missing', { exact: true }).isVisible()) {
+	if (await mediaRow.locator('.configops-reference-mark img').count() !== 1 || !await mediaRow.getByText('Missing', { exact: true }).isVisible()) {
 		throw new Error('Media review does not expose both the thumbnail and missing-attachment state.');
 	}
 	if (await mediaRow.getByRole('button', { name: 'Undo this setting' }).count()) {
@@ -247,6 +247,74 @@ try {
 	}
 	await page.screenshot({ path: new URL('configops-media-review-mobile.png', artifacts).pathname, fullPage: true });
 	await page.unroute('**/*', injectMediaReference);
+
+	const injectContentReference = async (route) => {
+		const url = decodeURIComponent(route.request().url());
+		if (route.request().method() !== 'GET' || !url.includes('/configops/v1/captures/') || !url.includes('/mutations')) {
+			await route.continue();
+
+			return;
+		}
+
+		const response = await route.fetch();
+		const payload = await response.json();
+		const firstMutation = payload.groups?.flatMap((group) => group.mutations || [])[0];
+		const firstChange = firstMutation?.diff?.[0];
+		if (firstMutation && firstChange) {
+			firstMutation.classification = 'reference';
+			firstMutation.classificationLabel = 'Website-specific link';
+			firstMutation.displayName = 'Yoast SEO';
+			firstMutation.optionName = 'wpseo_llmstxt';
+			firstChange.label = 'Contact page';
+			firstChange.group = 'AI discovery';
+			firstChange.kind = 'reference';
+			firstChange.reference_type = 'content';
+			firstChange.before_reference = {
+				type: 'content',
+				id: 71,
+				status: 'available',
+				current_status: 'available',
+				title: 'Original contact page',
+				post_type: 'page',
+				type_label: 'Page',
+				post_status: 'publish',
+			};
+			firstChange.after_reference = {
+				type: 'content',
+				id: 72,
+				status: 'available',
+				current_status: 'available',
+				title: 'Current contact page',
+				post_type: 'page',
+				type_label: 'Page',
+				post_status: 'publish',
+			};
+		}
+		await route.fulfill({ response, json: payload });
+	};
+	await page.route('**/*', injectContentReference);
+	await page.setViewportSize({ width: 1440, height: 1100 });
+	await page.reload({ waitUntil: 'networkidle' });
+	const contentRow = page.locator('.configops-mutation').first();
+	await contentRow.getByText('Contact page', { exact: true }).first().waitFor();
+	if (await contentRow.locator('.configops-reference-value').count() !== 2) {
+		throw new Error('A content diff did not replace both raw post IDs with reference evidence.');
+	}
+	if (!await contentRow.getByText('Original contact page', { exact: true }).isVisible() || !await contentRow.getByText('Content #72', { exact: true }).isVisible()) {
+		throw new Error('Content reference review does not expose bounded page identity.');
+	}
+	await page.screenshot({ path: new URL('configops-content-review-desktop.png', artifacts).pathname, fullPage: true });
+
+	await page.setViewportSize({ width: 390, height: 844 });
+	const contentMobileViewport = await page.evaluate(() => ({
+		clientWidth: document.documentElement.clientWidth,
+		scrollWidth: document.documentElement.scrollWidth,
+	}));
+	if (contentMobileViewport.scrollWidth > contentMobileViewport.clientWidth) {
+		throw new Error(`Content reference review caused page-level mobile overflow: ${JSON.stringify(contentMobileViewport)}.`);
+	}
+	await page.screenshot({ path: new URL('configops-content-review-mobile.png', artifacts).pathname, fullPage: true });
+	await page.unroute('**/*', injectContentReference);
 
 	const injectIncompleteCapture = async (route) => {
 		const url = decodeURIComponent(route.request().url());
