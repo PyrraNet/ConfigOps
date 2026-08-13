@@ -53,12 +53,12 @@ var whenVisible = /* @__PURE__ */ __name((element, callback) => {
 }, "whenVisible");
 try {
   configureStore(JSON.parse(bootstrapNode?.textContent || "{}"));
-  mount("configops-support-island", () => import("./chunks/SupportMatrix-DFBWYBGP.js"));
-  mount("configops-capture-island", () => import("./chunks/CaptureControls-VWGYMYRF.js"));
-  onIdle(() => mount("configops-sessions-island", () => import("./chunks/Sessions-HWPD6MT6.js")));
+  mount("configops-support-island", () => import("./chunks/SupportMatrix-KFNJ3CYN.js"));
+  mount("configops-capture-island", () => import("./chunks/CaptureControls-ENFCM3S5.js"));
+  onIdle(() => mount("configops-sessions-island", () => import("./chunks/Sessions-5KFLDKAS.js")));
   whenVisible(
     document.getElementById("configops-review-island"),
-    () => mount("configops-review-island", () => import("./chunks/ReviewLedger-IZCSAHQ2.js"))
+    () => mount("configops-review-island", () => import("./chunks/ReviewLedger-2E3ZWCDU.js"))
   );
 } catch (error) {
   window.console.error("ConfigOps bootstrap could not be parsed.", error);

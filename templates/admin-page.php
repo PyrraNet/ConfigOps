@@ -32,11 +32,11 @@ $configopsBootstrapJson = wp_json_encode(
 				height="32"
 			>
 			<span class="configops-app-divider" aria-hidden="true"></span>
-			<h1><?php echo 'support' === $view ? esc_html__('Supported plugins', 'configops') : esc_html__('Change review', 'configops'); ?></h1>
+			<h1><?php echo 'support' === $view ? esc_html__('Plugin support', 'configops') : esc_html__('Review changes', 'configops'); ?></h1>
 		</div>
 		<nav class="configops-app-nav" aria-label="<?php esc_attr_e('ConfigOps sections', 'configops'); ?>">
 			<a class="<?php echo esc_attr('review' === $view ? 'is-current' : ''); ?>" <?php if ('review' === $view) : ?>aria-current="page"<?php endif; ?> href="<?php echo esc_url(admin_url('admin.php?page=configops')); ?>"><?php esc_html_e('Changes', 'configops'); ?></a>
-			<a class="<?php echo esc_attr('support' === $view ? 'is-current' : ''); ?>" <?php if ('support' === $view) : ?>aria-current="page"<?php endif; ?> href="<?php echo esc_url(admin_url('admin.php?page=configops&view=support')); ?>"><?php esc_html_e('Supported plugins', 'configops'); ?></a>
+			<a class="<?php echo esc_attr('support' === $view ? 'is-current' : ''); ?>" <?php if ('support' === $view) : ?>aria-current="page"<?php endif; ?> href="<?php echo esc_url(admin_url('admin.php?page=configops&view=support')); ?>"><?php esc_html_e('Plugin support', 'configops'); ?></a>
 		</nav>
 	</header>
 

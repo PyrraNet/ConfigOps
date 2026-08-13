@@ -14,8 +14,29 @@ const runtimeErrors = [];
 page.on('pageerror', (error) => runtimeErrors.push(error.message));
 
 try {
-	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops`, { waitUntil: 'networkidle' });
-	await page.getByRole('heading', { name: 'Change review', exact: true }).waitFor();
+	const loginUrl = `${baseUrl}/wp-login.php`;
+	await page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
+	const loginResponse = await page.request.post(loginUrl, {
+		form: {
+			log: 'admin',
+			pwd: 'password',
+			'wp-submit': 'Log In',
+			redirect_to: `${baseUrl}/wp-admin/`,
+			testcookie: '1',
+		},
+		maxRedirects: 0,
+	});
+	if (loginResponse.status() !== 302) {
+		throw new Error(`Could not authenticate the visual-flow user: ${loginResponse.status()}.`);
+	}
+	let reviewReady = false;
+	for (let attempt = 0; attempt < 6 && !reviewReady; attempt += 1) {
+		await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops`, { waitUntil: 'domcontentloaded' });
+		reviewReady = await page.getByRole('heading', { name: 'Review changes', exact: true }).isVisible().catch(() => false);
+	}
+	if (!reviewReady) {
+		throw new Error('The authenticated ConfigOps review did not become ready.');
+	}
 	for (const removedCopy of ['See what WordPress changed.', 'Capture / Technical spike', 'Configuration control', 'Packs', 'Policies', 'Drift']) {
 		if (await page.getByText(removedCopy, { exact: true }).count()) {
 			throw new Error(`Operational screen still contains removed marketing or future-product copy: ${removedCopy}.`);
@@ -44,8 +65,8 @@ try {
 	if ((await appNavigation.getByRole('link', { name: 'Changes' }).getAttribute('aria-current')) !== 'page') {
 		throw new Error('Server-routed navigation does not expose the current page to assistive technology.');
 	}
-	if (!await appNavigation.getByRole('link', { name: 'Supported plugins' }).isVisible()) {
-		throw new Error('Supported plugins is missing from the product navigation.');
+	if (!await appNavigation.getByRole('link', { name: 'Plugin support' }).isVisible()) {
+		throw new Error('Plugin support is missing from the product navigation.');
 	}
 	const bootstrap = await page.locator('#configops-bootstrap').evaluate((element) => ({
 		bytes: new TextEncoder().encode(element.textContent || '').byteLength,
@@ -62,22 +83,19 @@ try {
 		await page.getByRole('button', { name: 'Stop & review' }).click();
 		await page.waitForLoadState('networkidle');
 	}
+	if (await page.getByRole('button', { name: 'New capture' }).isVisible().catch(() => false)) {
+		await page.getByRole('button', { name: 'New capture' }).click();
+	}
 
 	await page.locator('#configops-capture-name').fill('Core reading settings');
-	const captureHintButton = page.getByRole('button', { name: 'Why name a capture?' });
-	await captureHintButton.focus();
-	const captureHintVisibility = await captureHintButton.locator('xpath=..').getByRole('tooltip').evaluate((element) => getComputedStyle(element).visibility);
-	if (captureHintVisibility !== 'visible') {
-		throw new Error('Capture naming explanation is not exposed on keyboard focus.');
-	}
-	const recordButton = page.getByRole('button', { name: 'Record changes' });
+	const recordButton = page.getByRole('button', { name: 'Start recording' });
 	const recordButtonBox = await recordButton.boundingBox();
 	if (!recordButtonBox || recordButtonBox.width > 220) {
 		throw new Error(`Desktop record command expanded into a banner: ${recordButtonBox?.width ?? 'missing'} px.`);
 	}
 	await recordButton.click();
 	await page.waitForLoadState('networkidle');
-	await page.locator('#configops-capture-island').getByText('Recording', { exact: true }).waitFor();
+	await page.locator('#configops-capture-island').getByText('Recording now', { exact: true }).waitFor();
 
 	await page.goto(`${baseUrl}/wp-admin/options-general.php`, { waitUntil: 'networkidle' });
 	const description = page.locator('#blogdescription');
@@ -108,7 +126,7 @@ try {
 		throw new Error(`Expected desktop workspace grid, received ${layout}.`);
 	}
 	const blogDescriptionRow = page.locator('.configops-mutation', { hasText: 'blogdescription' }).first();
-	const afterValueText = await blogDescriptionRow.locator('.configops-diff-row').nth(1).locator('pre').nth(1).innerText();
+	const afterValueText = await blogDescriptionRow.locator('.configops-diff-value.is-after pre').innerText();
 	if (!afterValueText.includes(JSON.stringify(verificationDescription))) {
 		throw new Error('The captured string value is not rendered with explicit type-preserving quotes.');
 	}
@@ -134,55 +152,51 @@ try {
 	await page.route('**/*', injectEmptyBeforeValue);
 	await page.reload({ waitUntil: 'networkidle' });
 	const emptyBeforeValue = page.locator('.configops-mutation', { hasText: 'blogdescription' }).first()
-		.locator('.configops-diff-row').nth(1).locator('pre').first();
+		.locator('.configops-diff-value.is-before pre');
 	if (await emptyBeforeValue.innerText() !== 'Empty' || !await emptyBeforeValue.evaluate((element) => element.classList.contains('is-empty'))) {
 		throw new Error('A semantically empty field is not rendered as the quiet Empty state.');
 	}
 	await page.screenshot({ path: new URL('configops-empty-value-desktop.png', artifacts).pathname, fullPage: true });
 	await page.unroute('**/*', injectEmptyBeforeValue);
 	await page.reload({ waitUntil: 'networkidle' });
-	if (await blogDescriptionRow.locator('.configops-classification-note').count()) {
-		throw new Error('Classification explanation is still rendered as persistent prose instead of contextual help.');
-	}
 	const unknownBadge = blogDescriptionRow.locator('.configops-badge').first();
-	const unknownTooltip = await unknownBadge.evaluate((element) => getComputedStyle(element, '::after').content);
-	if (!unknownTooltip || unknownTooltip === 'none') {
-		throw new Error('Classification badge is missing its contextual hover explanation.');
+	if (!await unknownBadge.isVisible()) {
+		throw new Error('The setting count is missing from the mutation summary.');
 	}
-	const reviewFilter = page.locator('.configops-review-filters button').nth(1);
-	await reviewFilter.focus();
-	const filterTooltip = await reviewFilter.evaluate((element) => getComputedStyle(element, '::after').content);
-	if (!filterTooltip || filterTooltip === 'none') {
-		throw new Error('Review filter is missing its contextual keyboard-focus explanation.');
+	const technicalEvidence = blogDescriptionRow.locator('.configops-technical-evidence');
+	await technicalEvidence.locator('summary').click();
+	if (!await technicalEvidence.getByText('Why it is here', { exact: true }).isVisible()) {
+		throw new Error('Classification evidence is not available through native disclosure.');
 	}
+	const reviewFilter = page.locator('.configops-review-filters button').first();
 	await reviewFilter.click();
 	if (await page.locator('#configops-change-list .configops-mutation.is-derived').count()) {
 		throw new Error('React review filter left likely-noise mutations in the review decision set.');
 	}
-	const noiseFilter = page.locator('.configops-review-filters button').nth(2);
+	const noiseFilter = page.locator('.configops-review-filters button').nth(1);
 	await noiseFilter.click();
 	if (await page.locator('#configops-change-list .configops-mutation:not(.is-derived)').count()) {
 		throw new Error('React noise filter left review mutations in the noise candidate set.');
 	}
-	await page.locator('.configops-review-filters button').first().click();
+	await page.locator('.configops-review-filters button').nth(2).click();
 	const restoreOption = blogDescriptionRow.getByRole('button', { name: 'Undo this setting' });
 	await restoreOption.focus();
-	if ((await restoreOption.locator('xpath=..').getByRole('tooltip').evaluate((element) => getComputedStyle(element).visibility)) !== 'visible') {
-		throw new Error('Restore safety explanation is not attached to the risky action on keyboard focus.');
+	if (!await restoreOption.locator('xpath=..').getByText('Current value is checked first.', { exact: true }).isVisible()) {
+		throw new Error('Restore safety explanation is not attached to the risky action.');
 	}
 	await page.locator('.configops-review-header h2').click();
-	await page.locator('.configops-review-filters button').nth(1).click();
+	await page.locator('.configops-review-filters button').first().click();
 	await page.locator('.configops-review-header h2').click();
 
 	await page.screenshot({ path: new URL('configops-review-desktop.png', artifacts).pathname, fullPage: true });
 
 	await page.setViewportSize({ width: 390, height: 844 });
-	const mobileSessionLayout = await page.locator('.configops-session-list').evaluate((element) => ({
-		display: getComputedStyle(element).display,
-		overflowX: getComputedStyle(element).overflowX,
-	}));
-	if (mobileSessionLayout.display !== 'flex' || mobileSessionLayout.overflowX !== 'auto') {
-		throw new Error(`Expected a horizontally scrollable mobile session rail, received ${JSON.stringify(mobileSessionLayout)}.`);
+	const mobileSessionPicker = page.locator('#configops-session-select');
+	if (!await mobileSessionPicker.isVisible()) {
+		throw new Error('The compact mobile capture chooser is not visible.');
+	}
+	if (await page.locator('.configops-session-list').isVisible()) {
+		throw new Error('The long capture history stayed visible beside the mobile chooser.');
 	}
 	const mobileViewport = await page.evaluate(() => ({
 		clientWidth: document.documentElement.clientWidth,
@@ -191,9 +205,14 @@ try {
 	if (mobileViewport.scrollWidth > mobileViewport.clientWidth) {
 		throw new Error(`ConfigOps caused page-level horizontal overflow on mobile: ${JSON.stringify(mobileViewport)}.`);
 	}
-	const mobileColumns = await blogDescriptionRow.locator('.configops-diff-row').nth(1).evaluate((element) => getComputedStyle(element).gridTemplateColumns);
-	if (mobileColumns.split(' ').length !== 2) {
-		throw new Error(`Expected a two-column mobile diff, received ${mobileColumns}.`);
+	const mobileTransition = await blogDescriptionRow.locator('.configops-diff-row').first().evaluate((element) => ({
+		display: getComputedStyle(element).display,
+		direction: getComputedStyle(element).flexDirection,
+		nowOrder: getComputedStyle(element.querySelector('.is-after')).order,
+		beforeOrder: getComputedStyle(element.querySelector('.is-before')).order,
+	}));
+	if (mobileTransition.display !== 'flex' || mobileTransition.direction !== 'column' || Number(mobileTransition.nowOrder) >= Number(mobileTransition.beforeOrder)) {
+		throw new Error(`Expected a stacked Now-before-Before mobile decision, received ${JSON.stringify(mobileTransition)}.`);
 	}
 	await page.screenshot({ path: new URL('configops-review-mobile.png', artifacts).pathname, fullPage: true });
 
@@ -207,7 +226,9 @@ try {
 
 		const response = await route.fetch();
 		const payload = await response.json();
-		const firstMutation = payload.groups?.flatMap((group) => group.mutations || [])[0];
+		const firstMutation = payload.groups
+			?.flatMap((group) => group.mutations || [])
+			.find((mutation) => mutation.classification !== 'derived');
 		const firstChange = firstMutation?.diff?.[0];
 		if (firstMutation && firstChange) {
 			firstMutation.classification = 'reference';
@@ -357,7 +378,9 @@ try {
 		const payload = await response.json();
 		payload.summary.captureErrors = 2;
 		payload.summary.allRestorable = false;
-		const firstMutation = payload.groups?.flatMap((group) => group.mutations || [])[0];
+		const firstMutation = payload.groups
+			?.flatMap((group) => group.mutations || [])
+			.find((mutation) => mutation.classification !== 'derived');
 		if (firstMutation) {
 			firstMutation.lastRestore = {
 				id: 1,
@@ -376,7 +399,7 @@ try {
 	await page.reload({ waitUntil: 'networkidle' });
 	const integrityWarning = page.getByRole('alert').filter({ hasText: 'Capture incomplete' });
 	await integrityWarning.waitFor();
-	if (await page.getByRole('button', { name: 'Undo this capture' }).count()) {
+	if (await page.getByRole('button', { name: 'Undo capture' }).count()) {
 		throw new Error('An incomplete capture still exposes whole-capture undo.');
 	}
 	if (!await integrityWarning.getByText('2', { exact: true }).isVisible()) {
@@ -402,7 +425,7 @@ try {
 
 	await page.setViewportSize({ width: 1440, height: 1100 });
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops&view=support`, { waitUntil: 'networkidle' });
-	await page.getByRole('heading', { name: 'Supported plugins', exact: true }).waitFor();
+	await page.getByRole('heading', { name: 'Plugin support', exact: true }).waitFor();
 	if (await page.locator('.configops-support-row').count() !== 2) {
 		throw new Error('The support contract should list exactly the two shipped real-plugin adapters.');
 	}

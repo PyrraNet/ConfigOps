@@ -60,21 +60,20 @@ var AdapterRow = /* @__PURE__ */ __name(({ adapter }) => {
   testedVersion) : sprintf(__("Tested %s", "configops"), adapter.testedVersion);
   return /* @__PURE__ */ wp.element.createElement("details", { className: "configops-support-row" }, /* @__PURE__ */ wp.
   element.createElement("summary", null, /* @__PURE__ */ wp.element.createElement("div", { className: "configops-support\
--plugin" }, /* @__PURE__ */ wp.element.createElement("span", { className: "configops-support-mark", "aria-hidden": "true" },
-  adapter.name.slice(0, 1)), /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.element.createElement(
-  "h3", null, adapter.name), /* @__PURE__ */ wp.element.createElement("p", null, versionLabel))), /* @__PURE__ */ wp.element.
-  createElement(PluginState, { adapter }), /* @__PURE__ */ wp.element.createElement(SupportSummary, { capabilities, versionUntested }),
-  /* @__PURE__ */ wp.element.createElement("span", { className: "configops-chevron", "aria-hidden": "true" })), /* @__PURE__ */ wp.
-  element.createElement("div", { className: "configops-support-detail" }, /* @__PURE__ */ wp.element.createElement("sect\
-ion", null, /* @__PURE__ */ wp.element.createElement("h4", null, __("Features", "configops")), /* @__PURE__ */ wp.element.
-  createElement("div", { className: "configops-support-capabilities" }, capabilities.map((capability) => /* @__PURE__ */ wp.
-  element.createElement(Capability, { capability, versionUntested, key: capability.id })))), /* @__PURE__ */ wp.element.
-  createElement("div", { className: "configops-support-notes" }, /* @__PURE__ */ wp.element.createElement("section", null,
-  /* @__PURE__ */ wp.element.createElement("h4", null, __("Covered", "configops")), /* @__PURE__ */ wp.element.createElement(
-  "ul", null, adapter.coverage.map((item) => /* @__PURE__ */ wp.element.createElement("li", { key: item }, item)))), /* @__PURE__ */ wp.
-  element.createElement("section", null, /* @__PURE__ */ wp.element.createElement("h4", null, __("Limits", "configops")),
-  /* @__PURE__ */ wp.element.createElement("ul", null, adapter.limitations.map((item) => /* @__PURE__ */ wp.element.createElement(
-  "li", { key: item }, item)))))));
+-plugin" }, /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.element.createElement("h3", null, adapter.
+  name), /* @__PURE__ */ wp.element.createElement("p", null, versionLabel))), /* @__PURE__ */ wp.element.createElement(PluginState,
+  { adapter }), /* @__PURE__ */ wp.element.createElement(SupportSummary, { capabilities, versionUntested }), /* @__PURE__ */ wp.
+  element.createElement("span", { className: "configops-chevron", "aria-hidden": "true" })), /* @__PURE__ */ wp.element.
+  createElement("div", { className: "configops-support-detail" }, /* @__PURE__ */ wp.element.createElement("section", null,
+  /* @__PURE__ */ wp.element.createElement("h4", null, __("Features", "configops")), /* @__PURE__ */ wp.element.createElement(
+  "div", { className: "configops-support-capabilities" }, capabilities.map((capability) => /* @__PURE__ */ wp.element.createElement(
+  Capability, { capability, versionUntested, key: capability.id })))), /* @__PURE__ */ wp.element.createElement("div", {
+  className: "configops-support-notes" }, /* @__PURE__ */ wp.element.createElement("section", null, /* @__PURE__ */ wp.element.
+  createElement("h4", null, __("Covered", "configops")), /* @__PURE__ */ wp.element.createElement("ul", null, adapter.coverage.
+  map((item) => /* @__PURE__ */ wp.element.createElement("li", { key: item }, item)))), /* @__PURE__ */ wp.element.createElement(
+  "section", null, /* @__PURE__ */ wp.element.createElement("h4", null, __("Limits", "configops")), /* @__PURE__ */ wp.element.
+  createElement("ul", null, adapter.limitations.map((item) => /* @__PURE__ */ wp.element.createElement("li", { key: item },
+  item)))))));
 }, "AdapterRow");
 function SupportMatrix() {
   const { __ } = window.wp.i18n;

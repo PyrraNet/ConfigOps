@@ -40,7 +40,7 @@ const MediaReferenceValue = ({ dataLabel, snapshot }) => {
 	const status = snapshot?.current_status || snapshot?.status || (id > 0 ? 'missing' : 'unset');
 	if (id <= 0 || status === 'unset') {
 		return (
-			<div className="configops-reference-value is-unset" role="cell" data-label={dataLabel}>
+			<div className="configops-reference-value is-unset" data-label={dataLabel}>
 				<span>{__('Not set', 'configops')}</span>
 			</div>
 		);
@@ -58,7 +58,7 @@ const MediaReferenceValue = ({ dataLabel, snapshot }) => {
 	].filter(Boolean);
 
 	return (
-		<div className={`configops-reference-value ${missing ? 'is-missing' : ''}`} role="cell" data-label={dataLabel}>
+		<div className={`configops-reference-value ${missing ? 'is-missing' : ''}`} data-label={dataLabel}>
 			<div className="configops-reference-mark" aria-hidden="true">
 				{snapshot.preview_url
 					? <img src={snapshot.preview_url} alt="" loading="lazy" decoding="async" />
@@ -83,7 +83,7 @@ const ContentReferenceValue = ({ dataLabel, snapshot }) => {
 	const status = snapshot?.current_status || snapshot?.status || (id > 0 ? 'missing' : 'unset');
 	if (id <= 0 || status === 'unset') {
 		return (
-			<div className="configops-reference-value is-unset" role="cell" data-label={dataLabel}>
+			<div className="configops-reference-value is-unset" data-label={dataLabel}>
 				<span>{__('Not set', 'configops')}</span>
 			</div>
 		);
@@ -96,7 +96,7 @@ const ContentReferenceValue = ({ dataLabel, snapshot }) => {
 	const metadata = [typeLabel, snapshot.post_status].filter(Boolean).join(' · ');
 
 	return (
-		<div className={`configops-reference-value ${missing ? 'is-missing' : ''}`} role="cell" data-label={dataLabel}>
+		<div className={`configops-reference-value ${missing ? 'is-missing' : ''}`} data-label={dataLabel}>
 			<div className="configops-reference-mark configops-content-mark" aria-hidden="true">
 				<span>{missing ? '×' : typeLabel}</span>
 			</div>
@@ -118,7 +118,7 @@ const UserReferenceValue = ({ dataLabel, snapshot }) => {
 	const status = snapshot?.current_status || snapshot?.status || (id > 0 ? 'missing' : 'unset');
 	if (id <= 0 || status === 'unset') {
 		return (
-			<div className="configops-reference-value is-unset" role="cell" data-label={dataLabel}>
+			<div className="configops-reference-value is-unset" data-label={dataLabel}>
 				<span>{__('Not set', 'configops')}</span>
 			</div>
 		);
@@ -128,7 +128,7 @@ const UserReferenceValue = ({ dataLabel, snapshot }) => {
 	const userLabel = sprintf(__('User #%d', 'configops'), id);
 
 	return (
-		<div className={`configops-reference-value ${missing ? 'is-missing' : ''}`} role="cell" data-label={dataLabel}>
+		<div className={`configops-reference-value ${missing ? 'is-missing' : ''}`} data-label={dataLabel}>
 			<div className="configops-reference-mark" aria-hidden="true"><span>{missing ? '×' : __('User', 'configops')}</span></div>
 			<div className="configops-reference-identity">
 				<strong>{snapshot.display_name || userLabel}</strong>
@@ -159,7 +159,7 @@ const DiffValue = ({ change, side, label }) => {
 	const empty = hasValue && (value === null || value === '');
 
 	return (
-		<pre className={empty ? 'is-empty' : ''} role="cell" data-label={label}>
+		<pre className={empty ? 'is-empty' : ''} data-label={label}>
 			{hasValue ? formatValue(value, __('Empty', 'configops')) : '—'}
 		</pre>
 	);
@@ -176,12 +176,11 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 	const sourceLabel = mutation.source.file || mutation.source.type;
 	const sourceOwner = mutation.adapter?.name || mutation.source.component || __('WordPress', 'configops');
 	const [open, setOpen] = window.wp.element.useState(filter !== 'noise');
-	const classificationDescriptionId = `configops-classification-${mutation.id}`;
 	const restoreDescriptionId = `configops-restore-${mutation.id}`;
 	const operationLabels = {
-		add: __('Added option', 'configops'),
-		update: __('Updated option', 'configops'),
-		delete: __('Deleted option', 'configops'),
+		add: __('Added', 'configops'),
+		update: __('Updated', 'configops'),
+		delete: __('Deleted', 'configops'),
 	};
 	const operationLabel = operationLabels[mutation.type] || mutation.type;
 	const visibleCount = mutation.diff.length;
@@ -220,15 +219,13 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 			open={open}
 			onToggle={(event) => setOpen(event.currentTarget.open)}
 		>
-			<summary aria-describedby={classificationDescriptionId}>
-				<span className={`configops-op configops-op--${mutation.type}`} title={operationLabel} aria-hidden="true">{mutation.type.slice(0, 1).toUpperCase()}</span>
-				<span className="screen-reader-text">{operationLabel}</span>
+			<summary>
+				<span className={`configops-mutation-kind configops-mutation-kind--${mutation.type}`}>{operationLabel}</span>
 				<span className="configops-option">
 					<strong>{mutation.adapter?.name || mutation.displayName || mutation.optionName}</strong>
-					<span><code>{mutation.optionName}</code>{mutation.adapter?.componentVersion ? ` · v${mutation.adapter.componentVersion}` : ''}</span>
+					<span>{sourceOwner}</span>
 				</span>
-				<span className={`configops-badge configops-badge--${filter === 'noise' ? 'derived' : mutation.classification}`} data-tooltip={mutation.classificationReason}>{visibleLabel}</span>
-				<span id={classificationDescriptionId} className="screen-reader-text">{mutation.classificationReason}</span>
+				<span className={`configops-badge configops-badge--${filter === 'noise' ? 'derived' : mutation.classification}`}>{visibleLabel}</span>
 				<span className="configops-chevron" aria-hidden="true"></span>
 			</summary>
 			<div className="configops-mutation-body">
@@ -239,35 +236,49 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 							: __('A secret changed and was removed before storage. ConfigOps cannot reconstruct it for undo.', 'configops')}
 					</p>
 				)}
-				<div className="configops-diff-table" role="table" aria-label={__('Nested value changes', 'configops')}>
-					<div className="configops-diff-row configops-diff-head" role="row">
-						<span role="columnheader">{__('Setting', 'configops')}</span>
-						<span role="columnheader">{__('Before', 'configops')}</span>
-						<span role="columnheader">{__('After', 'configops')}</span>
-					</div>
+				<div className="configops-diff-table" role="table" aria-label={__('Setting changes', 'configops')}>
 					{mutation.diff.map((change, index) => (
 						<div className="configops-diff-row" role="row" key={`${change.path || '/'}-${change.op || ''}-${index}`}>
-							<div className="configops-diff-field" role="cell">
+							<div className="configops-diff-field" role="rowheader">
+								<span className="configops-field-context">{change.group || __('Setting', 'configops')}</span>
 								<div>
 									<strong>{change.label || change.path || '/'}</strong>
-									{change.explanation && (
-										<Hint label={__('About this setting', 'configops')}>{change.explanation}</Hint>
-									)}
 								</div>
-								{change.group && <span>{change.group}{change.kind ? ` · ${fieldKindLabel(change.kind, change.reference_type, __)}` : ''}</span>}
-								{change.label && <code>{change.path || '/'}</code>}
+								{change.kind && <span className="configops-field-kind">{fieldKindLabel(change.kind, change.reference_type, __)}</span>}
 							</div>
-							<DiffValue change={change} side="before" label={__('Before', 'configops')} />
-							<DiffValue change={change} side="after" label={__('After', 'configops')} />
+							<div className="configops-diff-value is-before" role="cell">
+								<span className="configops-value-label">{__('Before', 'configops')}</span>
+								<DiffValue change={change} side="before" label={__('Before', 'configops')} />
+							</div>
+							<span className="configops-diff-direction" aria-hidden="true">→</span>
+							<div className="configops-diff-value is-after" role="cell">
+								<span className="configops-value-label">{__('Now', 'configops')}</span>
+								<DiffValue change={change} side="after" label={__('Now', 'configops')} />
+							</div>
+							{change.explanation && (
+								<details className="configops-field-evidence" role="cell">
+									<summary>{__('About this field', 'configops')}</summary>
+									<div>
+										<p>{change.explanation}</p>
+									</div>
+								</details>
+							)}
 						</div>
 					))}
 				</div>
-				<footer className="configops-provenance">
-					<div>
-						<span>{__('Changed through', 'configops')}</span>
-						<strong>{sourceOwner}</strong>
-						<code>{sourceLabel}{mutation.source.line > 0 ? `:${mutation.source.line}` : ''}</code>
-					</div>
+				<footer className="configops-mutation-footer">
+					<details className="configops-technical-evidence">
+						<summary>{__('Technical evidence', 'configops')}</summary>
+						<dl>
+							<div><dt>{__('Option', 'configops')}</dt><dd><code>{mutation.optionName}</code></dd></div>
+							<div><dt>{__('Changed through', 'configops')}</dt><dd>{sourceOwner}</dd></div>
+							<div><dt>{__('Source', 'configops')}</dt><dd><code>{sourceLabel}{mutation.source.line > 0 ? `:${mutation.source.line}` : ''}</code></dd></div>
+							{mutation.adapter?.componentVersion && <div><dt>{__('Version', 'configops')}</dt><dd><code>{mutation.adapter.componentVersion}</code></dd></div>}
+							<div><dt>{__('Fields', 'configops')}</dt><dd className="configops-evidence-paths">{mutation.diff.map((change, index) => <code key={`${change.path || '/'}-${index}`}>{change.path || '/'}</code>)}</dd></div>
+							<div><dt>{__('Why it is here', 'configops')}</dt><dd>{mutation.classificationReason}</dd></div>
+						</dl>
+					</details>
+					<div className="configops-mutation-action">
 					{undoSucceeded && (
 						<span className="configops-restore-state is-succeeded">
 							<strong>{__('Undone', 'configops')}</strong>
@@ -275,19 +286,19 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 						</span>
 					)}
 					{undoUncertain && (
-						<Hint label={__('Previous undo needs inspection', 'configops')} align="end" trigger={__('Inspect undo', 'configops')}>
-							{__('A previous undo and its compensation did not both complete. Inspect the current plugin setting before attempting another change.', 'configops')}
-						</Hint>
+						<span className="configops-undo-unavailable">
+							<strong>{__('Undo needs inspection', 'configops')}</strong>
+							<span>{__('Check the current plugin setting before continuing.', 'configops')}</span>
+						</span>
 					)}
 					{undoUnavailableExplanation && (
-						<Hint label={__('Why can’t this be undone?', 'configops')} align="end" trigger={__('Undo unavailable', 'configops')}>
-							{undoUnavailableExplanation}
-						</Hint>
+						<span className="configops-undo-unavailable"><strong>{__('Undo unavailable', 'configops')}</strong><span>{undoUnavailableExplanation}</span></span>
 					)}
 					{canUndo && (
-						<span className="configops-action-hint">
+						<span className="configops-undo-ready">
+							<span id={restoreDescriptionId}>{__('Current value is checked first.', 'configops')}</span>
 							<button
-								className="button button-small"
+								className="button button-small configops-undo-button"
 								type="button"
 								disabled={busy}
 								aria-describedby={restoreDescriptionId}
@@ -302,13 +313,9 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 							>
 								{busy ? __('Undoing…', 'configops') : undoLabel}
 							</button>
-							<span id={restoreDescriptionId} className="configops-action-tooltip" role="tooltip">
-								{patchRestore
-									? __('Only adapter-backed fields are reversed. Existing secrets, plugin housekeeping, files, and custom tables stay untouched.', 'configops')
-									: __('ConfigOps first checks that the setting still has the value shown here. Files and custom database tables are not part of this undo.', 'configops')}
-							</span>
 						</span>
 					)}
+					</div>
 				</footer>
 			</div>
 		</details>
@@ -323,22 +330,20 @@ const DatabaseWriteSignal = window.wp.element.memo(function DatabaseWriteSignal(
 	return (
 		<article className="configops-write-signal">
 			<header>
-				<span className="configops-sql-mark" aria-hidden="true">SQL</span>
+				<span className="configops-sql-mark" aria-hidden="true">!</span>
 				<div className="configops-write-identity">
+					<strong>{__('Database change outside standard settings', 'configops')}</strong>
 					<code>{operationLabel}</code>
-					<span>{signal.source.component || signal.source.type}</span>
 				</div>
 				{signal.occurrenceCount > 1 && (
 					<strong aria-label={sprintf(__('%d occurrences', 'configops'), signal.occurrenceCount)}>×{signal.occurrenceCount}</strong>
 				)}
-				<Hint label={__('Why is there no comparison or undo?', 'configops')} align="end" trigger={__('Outside standard settings', 'configops')}>
-					{__('This plugin wrote directly to the database. ConfigOps kept no query or value; understanding and undoing it safely requires a dedicated adapter.', 'configops')}
-				</Hint>
 			</header>
-			<footer>
-				<span>{__('Database write seen · No value stored · No automatic undo', 'configops')}</span>
-				<code>{sourceLabel}{signal.source.line > 0 ? `:${signal.source.line}` : ''}</code>
-			</footer>
+			<p>{__('No value was stored, so automatic undo is unavailable.', 'configops')}</p>
+			<details>
+				<summary>{__('Technical evidence', 'configops')}</summary>
+				<div><span>{signal.source.component || signal.source.type}</span><code>{sourceLabel}{signal.source.line > 0 ? `:${signal.source.line}` : ''}</code></div>
+			</details>
 		</article>
 	);
 });
@@ -358,23 +363,22 @@ const RequestGroup = window.wp.element.memo(function RequestGroup({ group, canRe
 		<section className="configops-request-group">
 			<header className="configops-request-header">
 				<div>
-					<span className="configops-request-index">{group.index}</span>
 					<div>
-						<div className="configops-request-title">
-							<h3>{title}</h3>
-							<Hint label={__('Why are these changes grouped?', 'configops')}>
-								{__('These changes happened after the same Save action, so ConfigOps keeps them together.', 'configops')}
-							</Hint>
-						</div>
+						<span className="configops-request-index">{sprintf(__('Save action %s', 'configops'), group.index)}</span>
+						<h3>{title}</h3>
 						<p>
-							<code>{group.head.method}</code> {group.head.requestUri} <span aria-hidden="true">·</span>{' '}{sprintf(__('%d visible changes', 'configops'), visibleChangeCount)}
+							{visibleChangeCount === 1 ? __('1 visible change', 'configops') : sprintf(__('%d visible changes', 'configops'), visibleChangeCount)}
 							{unmanagedWriteCount > 0 && (
-								<> <span aria-hidden="true">·</span>{' '}{sprintf(__('%d unmanaged DB writes', 'configops'), unmanagedWriteCount)}</>
+								<> <span aria-hidden="true">·</span>{' '}{sprintf(__('%d outside API', 'configops'), unmanagedWriteCount)}</>
 							)}
+							{' '}<span aria-hidden="true">·</span>{' '}<time dateTime={group.head.occurredAt}>{group.head.timeLabel}</time>
 						</p>
 					</div>
 				</div>
-				<time dateTime={group.head.occurredAt}>{group.head.timeLabel}</time>
+				<details className="configops-request-evidence">
+					<summary>{__('Request details', 'configops')}</summary>
+					<div><code>{group.head.method}</code><code>{group.head.requestUri}</code></div>
+				</details>
 			</header>
 			<div className="configops-mutation-list">
 				{writeSignals.map((signal) => (
@@ -400,7 +404,7 @@ const ReviewFilter = window.wp.element.memo(function ReviewFilter({ active, coun
 			className={active ? 'is-active' : ''}
 			type="button"
 			aria-pressed={active}
-			data-tooltip={description}
+			aria-controls="configops-change-list"
 			onClick={onSelect}
 		>
 			<span>{label}</span>
@@ -494,49 +498,50 @@ export default function ReviewLedger() {
 	return (
 		<>
 			<header className="configops-review-header">
-				<div>
+				<div className="configops-review-heading">
 					<div className="configops-capture-reference">
-						<span>{__('Capture', 'configops')} <code>#{selected.id}</code></span>
 						<span className={selectedStatus.className}>
 							{selectedStatus.label}
 						</span>
+						<span>{__('Capture', 'configops')} <code>#{selected.id}</code></span>
 					</div>
-					<div className="configops-review-title">
-						<h2>{selected.name}</h2>
-					</div>
+					<h2>{selected.name}</h2>
 					<p>{selected.actorName}<span aria-hidden="true"> · </span><time dateTime={selected.startedAt}>{selected.startedDisplay}</time></p>
 				</div>
-				{sessionUndoSucceeded && (
-					<span className="configops-restore-state configops-restore-state--session is-succeeded">
-						<strong>{__('Capture undone', 'configops')}</strong>
-						<span>{sessionUndo.actorName} · {sessionUndo.finishedAtLabel}</span>
-					</span>
-				)}
-				{sessionUndoUncertain && (
-					<span className="configops-restore-state configops-restore-state--session is-uncertain">
-						<strong>{__('Undo needs inspection', 'configops')}</strong>
-						<span>{__('Check the current settings before continuing.', 'configops')}</span>
-					</span>
-				)}
-				{canRestoreSession && !visibleMissingRestoreReference && (
-					<button
-						className="button"
-						type="button"
-						disabled={Boolean(state.ui.pending)}
-						onClick={() => {
-							if (window.confirm(__('Undo every safe setting in this capture? ConfigOps will stop before making changes if anything changed again.', 'configops'))) {
-								restoreSession(selected.id);
-							}
-						}}
-					>
-						{state.ui.pending === `restore-session-${selected.id}` ? __('Undoing…', 'configops') : __('Undo this capture', 'configops')}
-					</button>
-				)}
-				{canRestoreSession && visibleMissingRestoreReference && (
-					<Hint label={__('Why can’t this capture be undone?', 'configops')} align="end" trigger={__('Undo unavailable', 'configops')}>
-						{__('An earlier referenced item in this capture no longer exists. Other settings can still be reviewed and undone individually.', 'configops')}
-					</Hint>
-				)}
+				<div className="configops-capture-action">
+					{sessionUndoSucceeded && (
+						<span className="configops-restore-state configops-restore-state--session is-succeeded">
+							<strong>{__('Capture undone', 'configops')}</strong>
+							<span>{sessionUndo.actorName} · {sessionUndo.finishedAtLabel}</span>
+						</span>
+					)}
+					{sessionUndoUncertain && (
+						<span className="configops-restore-state configops-restore-state--session is-uncertain">
+							<strong>{__('Undo needs inspection', 'configops')}</strong>
+							<span>{__('Check the current settings before continuing.', 'configops')}</span>
+						</span>
+					)}
+					{canRestoreSession && !visibleMissingRestoreReference && (
+						<>
+							<span className="configops-capture-undo-ready"><strong>{__('Capture undo ready', 'configops')}</strong><span>{__('Current values are checked first.', 'configops')}</span></span>
+							<button
+								className="button"
+								type="button"
+								disabled={Boolean(state.ui.pending)}
+								onClick={() => {
+									if (window.confirm(__('Undo every safe setting in this capture? ConfigOps will stop before making changes if anything changed again.', 'configops'))) {
+										restoreSession(selected.id);
+									}
+								}}
+							>
+								{state.ui.pending === `restore-session-${selected.id}` ? __('Undoing…', 'configops') : __('Undo capture', 'configops')}
+							</button>
+						</>
+					)}
+					{canRestoreSession && visibleMissingRestoreReference && (
+						<span className="configops-undo-unavailable"><strong>{__('Capture undo unavailable', 'configops')}</strong><span>{__('A previous referenced item is missing. Review settings individually.', 'configops')}</span></span>
+					)}
+				</div>
 			</header>
 
 			{review.summary.captureErrors > 0 && (
@@ -556,19 +561,14 @@ export default function ReviewLedger() {
 			)}
 
 			<div className="configops-review-toolbar">
-				<div className="configops-review-filters" role="group" aria-label={__('Filter changes', 'configops')}>
-					<ReviewFilter
-						active={filter === 'all'}
-						count={review.summary.total + review.summary.unmanagedWrites}
-						description={__('Every recorded Options API mutation plus any unmanaged database write signal.', 'configops')}
-						label={__('All', 'configops')}
-						onSelect={() => setFilter('all')}
-					/>
+				<div className="configops-review-toolbar-main">
+					<span className="configops-toolbar-label">{__('Show', 'configops')}</span>
+					<div className="configops-review-filters" role="group" aria-label={__('Filter changes', 'configops')}>
 					<ReviewFilter
 						active={filter === 'review'}
 						count={review.summary.needsReview + review.summary.unmanagedWrites}
 						description={__('Settings worth reading. Technical cache and maintenance values are left out.', 'configops')}
-						label={__('Settings', 'configops')}
+						label={__('Review', 'configops')}
 						onSelect={() => setFilter('review')}
 					/>
 					<ReviewFilter
@@ -578,6 +578,14 @@ export default function ReviewLedger() {
 						label={__('Technical', 'configops')}
 						onSelect={() => setFilter('noise')}
 					/>
+					<ReviewFilter
+						active={filter === 'all'}
+						count={review.summary.total + review.summary.unmanagedWrites}
+						description={__('Every recorded Options API mutation plus any unmanaged database write signal.', 'configops')}
+						label={__('All', 'configops')}
+						onSelect={() => setFilter('all')}
+					/>
+					</div>
 				</div>
 				<div className="configops-review-safety">
 					{review.summary.individuallyUndone > 0 && (
@@ -600,13 +608,9 @@ export default function ReviewLedger() {
 							{__('Only secrets that actually changed are counted here. Their raw values were removed before ConfigOps stored the capture.', 'configops')}
 						</Hint>
 					)}
-					{review.summary.total > 0 && (
-						<Hint label={review.summary.allRestorable ? __('How safe is undo?', 'configops') : __('Why can’t I undo the whole capture?', 'configops')} align="end" trigger={review.summary.allRestorable ? __('Undo checked', 'configops') : __('Capture undo limited', 'configops')}>
-							{review.summary.allRestorable
-								? __('ConfigOps will undo only when the current value still matches this capture. Files and custom tables remain outside generic rollback.', 'configops')
-								: review.summary.captureErrors > 0
-									? __('The recording is incomplete, so ConfigOps cannot prove a whole-capture undo is safe. Supported visible changes can still be undone individually below.', 'configops')
-									: __('At least one recorded change cannot be reconstructed safely, so whole-capture undo stays off. Supported changes can still be undone individually below.', 'configops')}
+					{review.summary.total > 0 && !review.summary.allRestorable && review.summary.captureErrors === 0 && (
+						<Hint label={__('Why can’t I undo the whole capture?', 'configops')} align="end" trigger={__('Capture undo limited', 'configops')}>
+							{__('At least one recorded change cannot be reconstructed safely. Supported changes can still be undone individually.', 'configops')}
 						</Hint>
 					)}
 				</div>

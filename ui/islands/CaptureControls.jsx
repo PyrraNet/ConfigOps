@@ -1,11 +1,11 @@
 import Notice from '../components/Notice.jsx';
-import Hint from '../components/Hint.jsx';
 import { startCapture, stopCapture, useConfigOpsState } from '../data/store.js';
 
 export default function CaptureControls() {
 	const { __ } = window.wp.i18n;
 	const state = useConfigOpsState();
 	const [name, setName] = window.wp.element.useState('');
+	const [composerOpen, setComposerOpen] = window.wp.element.useState(state.sessions.length === 0);
 	const busy = Boolean(state.ui.pending);
 
 	window.wp.element.useEffect(() => {
@@ -55,51 +55,61 @@ export default function CaptureControls() {
 					<div className="configops-recording-state">
 						<span className="configops-pulse" aria-hidden="true"></span>
 						<div>
-							<p className="configops-state-label">{__('Recording', 'configops')}</p>
+							<p className="configops-state-label">{__('Recording now', 'configops')}</p>
 							<h2 id="configops-recording-title">{state.active.name}</h2>
 						</div>
 					</div>
 					<div className="configops-recording-tally">
-						<strong>{state.active.reviewChangeCount}</strong>
-						<span>{state.active.reviewChangeCount === 1 ? __('setting found', 'configops') : __('settings found', 'configops')}</span>
-						{state.active.technicalChangeCount > 0 && (
-							<span className="configops-recording-writes">{`+ ${state.active.technicalChangeCount} ${__('technical', 'configops')}`}</span>
+						<span className="configops-recording-primary-count">
+							<strong>{state.active.reviewChangeCount}</strong>
+							<span>{state.active.reviewChangeCount === 1 ? __('setting', 'configops') : __('settings', 'configops')}</span>
+						</span>
+						{(state.active.technicalChangeCount > 0 || state.active.writeSignalCount > 0) && (
+							<span className="configops-recording-secondary-count">
+								{state.active.technicalChangeCount > 0 && `${state.active.technicalChangeCount} ${__('technical', 'configops')}`}
+								{state.active.technicalChangeCount > 0 && state.active.writeSignalCount > 0 && ' · '}
+								{state.active.writeSignalCount > 0 && `${state.active.writeSignalCount} ${__('outside API', 'configops')}`}
+							</span>
 						)}
-						{state.active.writeSignalCount > 0 && (
-							<span className="configops-recording-writes">{`+ ${state.active.writeSignalCount} ${__('outside the settings API', 'configops')}`}</span>
-						)}
-						<Hint label={__('What counts as a change?', 'configops')} align="end">
-							{__('The main number counts individual settings worth reviewing. Plugin defaults, caches, and maintenance values stay available under Technical.', 'configops')}
-						</Hint>
 					</div>
 					<button className="button button-primary button-large" type="button" disabled={busy} onClick={stopCapture}>
 						{state.ui.pending === 'stop-capture' ? __('Stopping…', 'configops') : __('Stop & review', 'configops')}
 					</button>
 				</section>
+			) : !composerOpen && state.sessions.length > 0 ? (
+				<section className="configops-capture-command is-compact" aria-labelledby="configops-new-capture-title">
+					<div>
+						<p className="configops-state-label">{__('Capture', 'configops')}</p>
+						<h2 id="configops-new-capture-title">{__('Record another settings task', 'configops')}</h2>
+					</div>
+					<button className="button" type="button" onClick={() => setComposerOpen(true)}>{__('New capture', 'configops')}</button>
+				</section>
 			) : (
 				<section className="configops-capture-command" aria-labelledby="configops-start-title">
-					<h2 id="configops-start-title" className="screen-reader-text">{__('Start a capture', 'configops')}</h2>
 					<form className="configops-capture-form" onSubmit={submit}>
+						<div className="configops-capture-intro">
+							<p className="configops-state-label">{__('New capture', 'configops')}</p>
+							<h2 id="configops-start-title">{__('Record a settings task', 'configops')}</h2>
+							<p>{__('Name it, start recording, then make the change in WordPress.', 'configops')}</p>
+						</div>
 						<div className="configops-capture-field">
-							<div className="configops-field-label">
-								<label htmlFor="configops-capture-name">{__('Capture name', 'configops')}</label>
-								<Hint label={__('Why name a capture?', 'configops')}>
-									{__('Name the task you are about to do. ConfigOps will keep everything until Stop together in one review.', 'configops')}
-								</Hint>
-							</div>
+							<label className="screen-reader-text" htmlFor="configops-capture-name">{__('Capture name', 'configops')}</label>
 							<input
 								id="configops-capture-name"
 								name="capture_name"
 								type="text"
 								maxLength="191"
-								placeholder={__('SMTP production baseline', 'configops')}
+								placeholder={__('What are you changing?', 'configops')}
 								value={name}
 								onChange={(event) => setName(event.target.value)}
 							/>
 						</div>
-						<button className="button button-primary button-large" type="submit" disabled={busy}>
-							{state.ui.pending === 'start-capture' ? __('Starting…', 'configops') : __('Record changes', 'configops')}
-						</button>
+						<div className="configops-capture-compose-actions">
+							{state.sessions.length > 0 && <button className="button" type="button" disabled={busy} onClick={() => setComposerOpen(false)}>{__('Cancel', 'configops')}</button>}
+							<button className="button button-primary button-large" type="submit" disabled={busy}>
+								{state.ui.pending === 'start-capture' ? __('Starting…', 'configops') : __('Start recording', 'configops')}
+							</button>
+						</div>
 					</form>
 				</section>
 			)}

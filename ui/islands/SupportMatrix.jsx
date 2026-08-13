@@ -65,7 +65,6 @@ const AdapterRow = ({ adapter }) => {
 		<details className="configops-support-row">
 			<summary>
 				<div className="configops-support-plugin">
-					<span className="configops-support-mark" aria-hidden="true">{adapter.name.slice(0, 1)}</span>
 					<div>
 						<h3>{adapter.name}</h3>
 						<p>{versionLabel}</p>

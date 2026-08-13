@@ -1,7 +1,4 @@
 import {
-  Hint
-} from "./chunk-BDP2GEKT.js";
-import {
   __name,
   hydrateReview,
   loadMoreMutations,
@@ -9,6 +6,24 @@ import {
   restoreSession,
   useConfigOpsState
 } from "./chunk-QIY7J6RF.js";
+
+// ui/components/Hint.jsx
+function Hint({ label, children, align = "start", trigger = null }) {
+  const id = window.wp.element.useId();
+  const hasTextTrigger = typeof trigger === "string" && trigger.length > 0;
+  return /* @__PURE__ */ wp.element.createElement("span", { className: `configops-hint configops-hint--${align}` }, /* @__PURE__ */ wp.
+  element.createElement(
+    "button",
+    {
+      className: `configops-hint-trigger ${hasTextTrigger ? "is-text" : "is-icon"}`,
+      type: "button",
+      "aria-label": label,
+      "aria-describedby": id
+    },
+    hasTextTrigger ? trigger : /* @__PURE__ */ wp.element.createElement("span", { "aria-hidden": "true" }, "i")
+  ), /* @__PURE__ */ wp.element.createElement("span", { id, className: "configops-tooltip", role: "tooltip" }, children));
+}
+__name(Hint, "Hint");
 
 // ui/format.js
 var formatValue = /* @__PURE__ */ __name((value, emptyLabel = "Empty") => {
@@ -62,8 +77,8 @@ var MediaReferenceValue = /* @__PURE__ */ __name(({ dataLabel, snapshot }) => {
   const id = Number(snapshot?.id || 0);
   const status = snapshot?.current_status || snapshot?.status || (id > 0 ? "missing" : "unset");
   if (id <= 0 || status === "unset") {
-    return /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-value is-unset", role: "cel\
-l", "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("span", null, __("Not set", "configops")));
+    return /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-value is-unset", "data-labe\
+l": dataLabel }, /* @__PURE__ */ wp.element.createElement("span", null, __("Not set", "configops")));
   }
   const missing = status === "missing";
   const attachmentLabel = sprintf(__("Attachment #%d", "configops"), id);
@@ -75,11 +90,11 @@ l", "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("span", 
     formatFileSize(snapshot.filesize)
   ].filter(Boolean);
   return /* @__PURE__ */ wp.element.createElement("div", { className: `configops-reference-value ${missing ? "is-missing" :
-  ""}`, role: "cell", "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("div", { className: "configops\
--reference-mark", "aria-hidden": "true" }, snapshot.preview_url ? /* @__PURE__ */ wp.element.createElement("img", { src: snapshot.
-  preview_url, alt: "", loading: "lazy", decoding: "async" }) : /* @__PURE__ */ wp.element.createElement("span", null, missing ?
-  "\xD7" : __("File", "configops"))), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-\
-identity" }, /* @__PURE__ */ wp.element.createElement("strong", null, name), snapshot.title && snapshot.filename && /* @__PURE__ */ wp.
+  ""}`, "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-mar\
+k", "aria-hidden": "true" }, snapshot.preview_url ? /* @__PURE__ */ wp.element.createElement("img", { src: snapshot.preview_url,
+  alt: "", loading: "lazy", decoding: "async" }) : /* @__PURE__ */ wp.element.createElement("span", null, missing ? "\xD7" :
+  __("File", "configops"))), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-identity" },
+  /* @__PURE__ */ wp.element.createElement("strong", null, name), snapshot.title && snapshot.filename && /* @__PURE__ */ wp.
   element.createElement("span", null, snapshot.filename), metadata.length > 0 && /* @__PURE__ */ wp.element.createElement(
   "span", null, metadata.join(" \xB7 ")), /* @__PURE__ */ wp.element.createElement("span", { className: "configops-refer\
 ence-id" }, attachmentLabel, missing && /* @__PURE__ */ wp.element.createElement("em", null, __("Missing", "configops")))));
@@ -89,8 +104,8 @@ var ContentReferenceValue = /* @__PURE__ */ __name(({ dataLabel, snapshot }) => 
   const id = Number(snapshot?.id || 0);
   const status = snapshot?.current_status || snapshot?.status || (id > 0 ? "missing" : "unset");
   if (id <= 0 || status === "unset") {
-    return /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-value is-unset", role: "cel\
-l", "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("span", null, __("Not set", "configops")));
+    return /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-value is-unset", "data-labe\
+l": dataLabel }, /* @__PURE__ */ wp.element.createElement("span", null, __("Not set", "configops")));
   }
   const missing = status === "missing";
   const contentLabel = sprintf(__("Content #%d", "configops"), id);
@@ -98,30 +113,30 @@ l", "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("span", 
   const typeLabel = snapshot.type_label || snapshot.post_type || __("Content", "configops");
   const metadata = [typeLabel, snapshot.post_status].filter(Boolean).join(" \xB7 ");
   return /* @__PURE__ */ wp.element.createElement("div", { className: `configops-reference-value ${missing ? "is-missing" :
-  ""}`, role: "cell", "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("div", { className: "configops\
--reference-mark configops-content-mark", "aria-hidden": "true" }, /* @__PURE__ */ wp.element.createElement("span", null,
-  missing ? "\xD7" : typeLabel)), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-iden\
-tity" }, /* @__PURE__ */ wp.element.createElement("strong", null, name), metadata && /* @__PURE__ */ wp.element.createElement(
-  "span", null, metadata), /* @__PURE__ */ wp.element.createElement("span", { className: "configops-reference-id" }, contentLabel,
-  missing && /* @__PURE__ */ wp.element.createElement("em", null, __("Missing", "configops")))));
+  ""}`, "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-mar\
+k configops-content-mark", "aria-hidden": "true" }, /* @__PURE__ */ wp.element.createElement("span", null, missing ? "\xD7" :
+  typeLabel)), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-identity" }, /* @__PURE__ */ wp.
+  element.createElement("strong", null, name), metadata && /* @__PURE__ */ wp.element.createElement("span", null, metadata),
+  /* @__PURE__ */ wp.element.createElement("span", { className: "configops-reference-id" }, contentLabel, missing && /* @__PURE__ */ wp.
+  element.createElement("em", null, __("Missing", "configops")))));
 }, "ContentReferenceValue");
 var UserReferenceValue = /* @__PURE__ */ __name(({ dataLabel, snapshot }) => {
   const { __, sprintf } = window.wp.i18n;
   const id = Number(snapshot?.id || 0);
   const status = snapshot?.current_status || snapshot?.status || (id > 0 ? "missing" : "unset");
   if (id <= 0 || status === "unset") {
-    return /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-value is-unset", role: "cel\
-l", "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("span", null, __("Not set", "configops")));
+    return /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-value is-unset", "data-labe\
+l": dataLabel }, /* @__PURE__ */ wp.element.createElement("span", null, __("Not set", "configops")));
   }
   const missing = status === "missing";
   const userLabel = sprintf(__("User #%d", "configops"), id);
   return /* @__PURE__ */ wp.element.createElement("div", { className: `configops-reference-value ${missing ? "is-missing" :
-  ""}`, role: "cell", "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("div", { className: "configops\
--reference-mark", "aria-hidden": "true" }, /* @__PURE__ */ wp.element.createElement("span", null, missing ? "\xD7" : __(
-  "User", "configops"))), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-identity" },
-  /* @__PURE__ */ wp.element.createElement("strong", null, snapshot.display_name || userLabel), /* @__PURE__ */ wp.element.
-  createElement("span", { className: "configops-reference-id" }, userLabel, missing && /* @__PURE__ */ wp.element.createElement(
-  "em", null, __("Missing", "configops")))));
+  ""}`, "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-mar\
+k", "aria-hidden": "true" }, /* @__PURE__ */ wp.element.createElement("span", null, missing ? "\xD7" : __("User", "confi\
+gops"))), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-reference-identity" }, /* @__PURE__ */ wp.
+  element.createElement("strong", null, snapshot.display_name || userLabel), /* @__PURE__ */ wp.element.createElement("s\
+pan", { className: "configops-reference-id" }, userLabel, missing && /* @__PURE__ */ wp.element.createElement("em", null,
+  __("Missing", "configops")))));
 }, "UserReferenceValue");
 var DiffValue = /* @__PURE__ */ __name(({ change, side, label }) => {
   const { __ } = window.wp.i18n;
@@ -138,8 +153,8 @@ var DiffValue = /* @__PURE__ */ __name(({ change, side, label }) => {
   const hasValue = Object.hasOwn(change, side);
   const value = hasValue ? change[side] : void 0;
   const empty = hasValue && (value === null || value === "");
-  return /* @__PURE__ */ wp.element.createElement("pre", { className: empty ? "is-empty" : "", role: "cell", "data-label": label },
-  hasValue ? formatValue(value, __("Empty", "configops")) : "\u2014");
+  return /* @__PURE__ */ wp.element.createElement("pre", { className: empty ? "is-empty" : "", "data-label": label }, hasValue ?
+  formatValue(value, __("Empty", "configops")) : "\u2014");
 }, "DiffValue");
 var hasMissingRestoreReference = /* @__PURE__ */ __name((changes) => changes.some((change) => ["remove", "replace"].includes(
 change.op) && Number(change.before_reference?.id || 0) > 0 && change.before_reference?.current_status === "missing"), "h\
@@ -149,12 +164,11 @@ var MutationRow = window.wp.element.memo(/* @__PURE__ */ __name(function Mutatio
   const sourceLabel = mutation.source.file || mutation.source.type;
   const sourceOwner = mutation.adapter?.name || mutation.source.component || __("WordPress", "configops");
   const [open, setOpen] = window.wp.element.useState(filter !== "noise");
-  const classificationDescriptionId = `configops-classification-${mutation.id}`;
   const restoreDescriptionId = `configops-restore-${mutation.id}`;
   const operationLabels = {
-    add: __("Added option", "configops"),
-    update: __("Updated option", "configops"),
-    delete: __("Deleted option", "configops")
+    add: __("Added", "configops"),
+    update: __("Updated", "configops"),
+    delete: __("Deleted", "configops")
   };
   const operationLabel = operationLabels[mutation.type] || mutation.type;
   const visibleCount = mutation.diff.length;
@@ -181,51 +195,66 @@ settings", "configops")}` : __("Undo this setting", "configops");
       open,
       onToggle: (event) => setOpen(event.currentTarget.open)
     },
-    /* @__PURE__ */ wp.element.createElement("summary", { "aria-describedby": classificationDescriptionId }, /* @__PURE__ */ wp.
-    element.createElement("span", { className: `configops-op configops-op--${mutation.type}`, title: operationLabel, "ar\
-ia-hidden": "true" }, mutation.type.slice(0, 1).toUpperCase()), /* @__PURE__ */ wp.element.createElement("span", { className: "\
-screen-reader-text" }, operationLabel), /* @__PURE__ */ wp.element.createElement("span", { className: "configops-option" },
-    /* @__PURE__ */ wp.element.createElement("strong", null, mutation.adapter?.name || mutation.displayName || mutation.
-    optionName), /* @__PURE__ */ wp.element.createElement("span", null, /* @__PURE__ */ wp.element.createElement("code",
-    null, mutation.optionName), mutation.adapter?.componentVersion ? ` \xB7 v${mutation.adapter.componentVersion}` : "")),
+    /* @__PURE__ */ wp.element.createElement("summary", null, /* @__PURE__ */ wp.element.createElement("span", { className: `\
+configops-mutation-kind configops-mutation-kind--${mutation.type}` }, operationLabel), /* @__PURE__ */ wp.element.createElement(
+    "span", { className: "configops-option" }, /* @__PURE__ */ wp.element.createElement("strong", null, mutation.adapter?.
+    name || mutation.displayName || mutation.optionName), /* @__PURE__ */ wp.element.createElement("span", null, sourceOwner)),
     /* @__PURE__ */ wp.element.createElement("span", { className: `configops-badge configops-badge--${filter === "noise" ?
-    "derived" : mutation.classification}`, "data-tooltip": mutation.classificationReason }, visibleLabel), /* @__PURE__ */ wp.
-    element.createElement("span", { id: classificationDescriptionId, className: "screen-reader-text" }, mutation.classificationReason),
-    /* @__PURE__ */ wp.element.createElement("span", { className: "configops-chevron", "aria-hidden": "true" })),
+    "derived" : mutation.classification}` }, visibleLabel), /* @__PURE__ */ wp.element.createElement("span", { className: "\
+configops-chevron", "aria-hidden": "true" })),
     /* @__PURE__ */ wp.element.createElement("div", { className: "configops-mutation-body" }, mutation.redacted && /* @__PURE__ */ wp.
     element.createElement("p", { className: "configops-secret-note" }, /* @__PURE__ */ wp.element.createElement("span", {
     "aria-hidden": "true" }, "\u25CF"), " ", patchRestore ? __("A secret changed and was removed before storage. ConfigO\
 ps can undo the other supported settings without reading or replacing that secret.", "configops") : __("A secret changed\
  and was removed before storage. ConfigOps cannot reconstruct it for undo.", "configops")), /* @__PURE__ */ wp.element.createElement(
-    "div", { className: "configops-diff-table", role: "table", "aria-label": __("Nested value changes", "configops") }, /* @__PURE__ */ wp.
-    element.createElement("div", { className: "configops-diff-row configops-diff-head", role: "row" }, /* @__PURE__ */ wp.
-    element.createElement("span", { role: "columnheader" }, __("Setting", "configops")), /* @__PURE__ */ wp.element.createElement(
-    "span", { role: "columnheader" }, __("Before", "configops")), /* @__PURE__ */ wp.element.createElement("span", { role: "\
-columnheader" }, __("After", "configops"))), mutation.diff.map((change, index) => /* @__PURE__ */ wp.element.createElement(
-    "div", { className: "configops-diff-row", role: "row", key: `${change.path || "/"}-${change.op || ""}-${index}` }, /* @__PURE__ */ wp.
-    element.createElement("div", { className: "configops-diff-field", role: "cell" }, /* @__PURE__ */ wp.element.createElement(
-    "div", null, /* @__PURE__ */ wp.element.createElement("strong", null, change.label || change.path || "/"), change.explanation &&
-    /* @__PURE__ */ wp.element.createElement(Hint, { label: __("About this setting", "configops") }, change.explanation)),
-    change.group && /* @__PURE__ */ wp.element.createElement("span", null, change.group, change.kind ? ` \xB7 ${fieldKindLabel(
-    change.kind, change.reference_type, __)}` : ""), change.label && /* @__PURE__ */ wp.element.createElement("code", null,
-    change.path || "/")), /* @__PURE__ */ wp.element.createElement(DiffValue, { change, side: "before", label: __("Befor\
-e", "configops") }), /* @__PURE__ */ wp.element.createElement(DiffValue, { change, side: "after", label: __("After", "co\
-nfigops") })))), /* @__PURE__ */ wp.element.createElement("footer", { className: "configops-provenance" }, /* @__PURE__ */ wp.
-    element.createElement("div", null, /* @__PURE__ */ wp.element.createElement("span", null, __("Changed through", "con\
-figops")), /* @__PURE__ */ wp.element.createElement("strong", null, sourceOwner), /* @__PURE__ */ wp.element.createElement(
-    "code", null, sourceLabel, mutation.source.line > 0 ? `:${mutation.source.line}` : "")), undoSucceeded && /* @__PURE__ */ wp.
-    element.createElement("span", { className: "configops-restore-state is-succeeded" }, /* @__PURE__ */ wp.element.createElement(
-    "strong", null, __("Undone", "configops")), /* @__PURE__ */ wp.element.createElement("span", null, mutation.lastRestore.
-    actorName, " \xB7 ", mutation.lastRestore.finishedAtLabel)), undoUncertain && /* @__PURE__ */ wp.element.createElement(
-    Hint, { label: __("Previous undo needs inspection", "configops"), align: "end", trigger: __("Inspect undo", "configo\
-ps") }, __("A previous undo and its compensation did not both complete. Inspect the current plugin setting before attemp\
-ting another change.", "configops")), undoUnavailableExplanation && /* @__PURE__ */ wp.element.createElement(Hint, { label: __(
-    "Why can\u2019t this be undone?", "configops"), align: "end", trigger: __("Undo unavailable", "configops") }, undoUnavailableExplanation),
-    canUndo && /* @__PURE__ */ wp.element.createElement("span", { className: "configops-action-hint" }, /* @__PURE__ */ wp.
-    element.createElement(
+    "div", { className: "configops-diff-table", role: "table", "aria-label": __("Setting changes", "configops") }, mutation.
+    diff.map((change, index) => /* @__PURE__ */ wp.element.createElement("div", { className: "configops-diff-row", role: "\
+row", key: `${change.path || "/"}-${change.op || ""}-${index}` }, /* @__PURE__ */ wp.element.createElement("div", { className: "\
+configops-diff-field", role: "rowheader" }, /* @__PURE__ */ wp.element.createElement("span", { className: "configops-fie\
+ld-context" }, change.group || __("Setting", "configops")), /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.
+    element.createElement("strong", null, change.label || change.path || "/")), change.kind && /* @__PURE__ */ wp.element.
+    createElement("span", { className: "configops-field-kind" }, fieldKindLabel(change.kind, change.reference_type, __))),
+    /* @__PURE__ */ wp.element.createElement("div", { className: "configops-diff-value is-before", role: "cell" }, /* @__PURE__ */ wp.
+    element.createElement("span", { className: "configops-value-label" }, __("Before", "configops")), /* @__PURE__ */ wp.
+    element.createElement(DiffValue, { change, side: "before", label: __("Before", "configops") })), /* @__PURE__ */ wp.
+    element.createElement("span", { className: "configops-diff-direction", "aria-hidden": "true" }, "\u2192"), /* @__PURE__ */ wp.
+    element.createElement("div", { className: "configops-diff-value is-after", role: "cell" }, /* @__PURE__ */ wp.element.
+    createElement("span", { className: "configops-value-label" }, __("Now", "configops")), /* @__PURE__ */ wp.element.createElement(
+    DiffValue, { change, side: "after", label: __("Now", "configops") })), change.explanation && /* @__PURE__ */ wp.element.
+    createElement("details", { className: "configops-field-evidence", role: "cell" }, /* @__PURE__ */ wp.element.createElement(
+    "summary", null, __("About this field", "configops")), /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.
+    element.createElement("p", null, change.explanation)))))), /* @__PURE__ */ wp.element.createElement("footer", { className: "\
+configops-mutation-footer" }, /* @__PURE__ */ wp.element.createElement("details", { className: "configops-technical-evid\
+ence" }, /* @__PURE__ */ wp.element.createElement("summary", null, __("Technical evidence", "configops")), /* @__PURE__ */ wp.
+    element.createElement("dl", null, /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.element.createElement(
+    "dt", null, __("Option", "configops")), /* @__PURE__ */ wp.element.createElement("dd", null, /* @__PURE__ */ wp.element.
+    createElement("code", null, mutation.optionName))), /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.
+    element.createElement("dt", null, __("Changed through", "configops")), /* @__PURE__ */ wp.element.createElement("dd",
+    null, sourceOwner)), /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.element.createElement(
+    "dt", null, __("Source", "configops")), /* @__PURE__ */ wp.element.createElement("dd", null, /* @__PURE__ */ wp.element.
+    createElement("code", null, sourceLabel, mutation.source.line > 0 ? `:${mutation.source.line}` : ""))), mutation.adapter?.
+    componentVersion && /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.element.createElement("\
+dt", null, __("Version", "configops")), /* @__PURE__ */ wp.element.createElement("dd", null, /* @__PURE__ */ wp.element.
+    createElement("code", null, mutation.adapter.componentVersion))), /* @__PURE__ */ wp.element.createElement("div", null,
+    /* @__PURE__ */ wp.element.createElement("dt", null, __("Fields", "configops")), /* @__PURE__ */ wp.element.createElement(
+    "dd", { className: "configops-evidence-paths" }, mutation.diff.map((change, index) => /* @__PURE__ */ wp.element.createElement(
+    "code", { key: `${change.path || "/"}-${index}` }, change.path || "/")))), /* @__PURE__ */ wp.element.createElement(
+    "div", null, /* @__PURE__ */ wp.element.createElement("dt", null, __("Why it is here", "configops")), /* @__PURE__ */ wp.
+    element.createElement("dd", null, mutation.classificationReason)))), /* @__PURE__ */ wp.element.createElement("div",
+    { className: "configops-mutation-action" }, undoSucceeded && /* @__PURE__ */ wp.element.createElement("span", { className: "\
+configops-restore-state is-succeeded" }, /* @__PURE__ */ wp.element.createElement("strong", null, __("Undone", "configop\
+s")), /* @__PURE__ */ wp.element.createElement("span", null, mutation.lastRestore.actorName, " \xB7 ", mutation.lastRestore.
+    finishedAtLabel)), undoUncertain && /* @__PURE__ */ wp.element.createElement("span", { className: "configops-undo-un\
+available" }, /* @__PURE__ */ wp.element.createElement("strong", null, __("Undo needs inspection", "configops")), /* @__PURE__ */ wp.
+    element.createElement("span", null, __("Check the current plugin setting before continuing.", "configops"))), undoUnavailableExplanation &&
+    /* @__PURE__ */ wp.element.createElement("span", { className: "configops-undo-unavailable" }, /* @__PURE__ */ wp.element.
+    createElement("strong", null, __("Undo unavailable", "configops")), /* @__PURE__ */ wp.element.createElement("span",
+    null, undoUnavailableExplanation)), canUndo && /* @__PURE__ */ wp.element.createElement("span", { className: "config\
+ops-undo-ready" }, /* @__PURE__ */ wp.element.createElement("span", { id: restoreDescriptionId }, __("Current value is c\
+hecked first.", "configops")), /* @__PURE__ */ wp.element.createElement(
       "button",
       {
-        className: "button button-small",
+        className: "button button-small configops-undo-button",
         type: "button",
         disabled: busy,
         "aria-describedby": restoreDescriptionId,
@@ -239,10 +268,7 @@ g? ConfigOps will stop if it has changed again since the capture.", "configops")
         }
       },
       busy ? __("Undoing\u2026", "configops") : undoLabel
-    ), /* @__PURE__ */ wp.element.createElement("span", { id: restoreDescriptionId, className: "configops-action-tooltip",
-    role: "tooltip" }, patchRestore ? __("Only adapter-backed fields are reversed. Existing secrets, plugin housekeeping\
-, files, and custom tables stay untouched.", "configops") : __("ConfigOps first checks that the setting still has the va\
-lue shown here. Files and custom database tables are not part of this undo.", "configops")))))
+    )))))
   );
 }, "MutationRow"));
 var DatabaseWriteSignal = window.wp.element.memo(/* @__PURE__ */ __name(function DatabaseWriteSignal2({ signal }) {
@@ -251,16 +277,15 @@ var DatabaseWriteSignal = window.wp.element.memo(/* @__PURE__ */ __name(function
   const operationLabel = `${signal.operation} ${signal.table}`;
   return /* @__PURE__ */ wp.element.createElement("article", { className: "configops-write-signal" }, /* @__PURE__ */ wp.
   element.createElement("header", null, /* @__PURE__ */ wp.element.createElement("span", { className: "configops-sql-mar\
-k", "aria-hidden": "true" }, "SQL"), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-write-ident\
-ity" }, /* @__PURE__ */ wp.element.createElement("code", null, operationLabel), /* @__PURE__ */ wp.element.createElement(
-  "span", null, signal.source.component || signal.source.type)), signal.occurrenceCount > 1 && /* @__PURE__ */ wp.element.
-  createElement("strong", { "aria-label": sprintf(__("%d occurrences", "configops"), signal.occurrenceCount) }, "\xD7", signal.
-  occurrenceCount), /* @__PURE__ */ wp.element.createElement(Hint, { label: __("Why is there no comparison or undo?", "c\
-onfigops"), align: "end", trigger: __("Outside standard settings", "configops") }, __("This plugin wrote directly to the\
- database. ConfigOps kept no query or value; understanding and undoing it safely requires a dedicated adapter.", "config\
-ops"))), /* @__PURE__ */ wp.element.createElement("footer", null, /* @__PURE__ */ wp.element.createElement("span", null,
-  __("Database write seen \xB7 No value stored \xB7 No automatic undo", "configops")), /* @__PURE__ */ wp.element.createElement(
-  "code", null, sourceLabel, signal.source.line > 0 ? `:${signal.source.line}` : "")));
+k", "aria-hidden": "true" }, "!"), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-write-identit\
+y" }, /* @__PURE__ */ wp.element.createElement("strong", null, __("Database change outside standard settings", "configop\
+s")), /* @__PURE__ */ wp.element.createElement("code", null, operationLabel)), signal.occurrenceCount > 1 && /* @__PURE__ */ wp.
+  element.createElement("strong", { "aria-label": sprintf(__("%d occurrences", "configops"), signal.occurrenceCount) }, "\
+\xD7", signal.occurrenceCount)), /* @__PURE__ */ wp.element.createElement("p", null, __("No value was stored, so automat\
+ic undo is unavailable.", "configops")), /* @__PURE__ */ wp.element.createElement("details", null, /* @__PURE__ */ wp.element.
+  createElement("summary", null, __("Technical evidence", "configops")), /* @__PURE__ */ wp.element.createElement("div",
+  null, /* @__PURE__ */ wp.element.createElement("span", null, signal.source.component || signal.source.type), /* @__PURE__ */ wp.
+  element.createElement("code", null, sourceLabel, signal.source.line > 0 ? `:${signal.source.line}` : ""))));
 }, "DatabaseWriteSignal"));
 var RequestGroup = window.wp.element.memo(/* @__PURE__ */ __name(function RequestGroup2({ group, canRestore, pending, filter }) {
   const { __, sprintf } = window.wp.i18n;
@@ -275,19 +300,19 @@ var RequestGroup = window.wp.element.memo(/* @__PURE__ */ __name(function Reques
   const visibleChangeCount = group.mutations.reduce((total, mutation) => total + mutation.diff.length, 0);
   return /* @__PURE__ */ wp.element.createElement("section", { className: "configops-request-group" }, /* @__PURE__ */ wp.
   element.createElement("header", { className: "configops-request-header" }, /* @__PURE__ */ wp.element.createElement("d\
-iv", null, /* @__PURE__ */ wp.element.createElement("span", { className: "configops-request-index" }, group.index), /* @__PURE__ */ wp.
-  element.createElement("div", null, /* @__PURE__ */ wp.element.createElement("div", { className: "configops-request-tit\
-le" }, /* @__PURE__ */ wp.element.createElement("h3", null, title), /* @__PURE__ */ wp.element.createElement(Hint, { label: __(
-  "Why are these changes grouped?", "configops") }, __("These changes happened after the same Save action, so ConfigOps \
-keeps them together.", "configops"))), /* @__PURE__ */ wp.element.createElement("p", null, /* @__PURE__ */ wp.element.createElement(
-  "code", null, group.head.method), " ", group.head.requestUri, " ", /* @__PURE__ */ wp.element.createElement("span", { "\
-aria-hidden": "true" }, "\xB7"), " ", sprintf(__("%d visible changes", "configops"), visibleChangeCount), unmanagedWriteCount >
-  0 && /* @__PURE__ */ wp.element.createElement(wp.element.Fragment, null, " ", /* @__PURE__ */ wp.element.createElement(
-  "span", { "aria-hidden": "true" }, "\xB7"), " ", sprintf(__("%d unmanaged DB writes", "configops"), unmanagedWriteCount))))),
-  /* @__PURE__ */ wp.element.createElement("time", { dateTime: group.head.occurredAt }, group.head.timeLabel)), /* @__PURE__ */ wp.
-  element.createElement("div", { className: "configops-mutation-list" }, writeSignals.map((signal) => /* @__PURE__ */ wp.
-  element.createElement(DatabaseWriteSignal, { key: signal.id, signal })), group.mutations.map((mutation) => /* @__PURE__ */ wp.
-  element.createElement(
+iv", null, /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.element.createElement("span", { className: "\
+configops-request-index" }, sprintf(__("Save action %s", "configops"), group.index)), /* @__PURE__ */ wp.element.createElement(
+  "h3", null, title), /* @__PURE__ */ wp.element.createElement("p", null, visibleChangeCount === 1 ? __("1 visible chang\
+e", "configops") : sprintf(__("%d visible changes", "configops"), visibleChangeCount), unmanagedWriteCount > 0 && /* @__PURE__ */ wp.
+  element.createElement(wp.element.Fragment, null, " ", /* @__PURE__ */ wp.element.createElement("span", { "aria-hidden": "\
+true" }, "\xB7"), " ", sprintf(__("%d outside API", "configops"), unmanagedWriteCount)), " ", /* @__PURE__ */ wp.element.
+  createElement("span", { "aria-hidden": "true" }, "\xB7"), " ", /* @__PURE__ */ wp.element.createElement("time", { dateTime: group.
+  head.occurredAt }, group.head.timeLabel)))), /* @__PURE__ */ wp.element.createElement("details", { className: "configo\
+ps-request-evidence" }, /* @__PURE__ */ wp.element.createElement("summary", null, __("Request details", "configops")), /* @__PURE__ */ wp.
+  element.createElement("div", null, /* @__PURE__ */ wp.element.createElement("code", null, group.head.method), /* @__PURE__ */ wp.
+  element.createElement("code", null, group.head.requestUri)))), /* @__PURE__ */ wp.element.createElement("div", { className: "\
+configops-mutation-list" }, writeSignals.map((signal) => /* @__PURE__ */ wp.element.createElement(DatabaseWriteSignal, {
+  key: signal.id, signal })), group.mutations.map((mutation) => /* @__PURE__ */ wp.element.createElement(
     MutationRow,
     {
       key: mutation.id,
@@ -306,7 +331,7 @@ onSelect }) {
       className: active ? "is-active" : "",
       type: "button",
       "aria-pressed": active,
-      "data-tooltip": description,
+      "aria-controls": "configops-change-list",
       onClick: onSelect
     },
     /* @__PURE__ */ wp.element.createElement("span", null, label),
@@ -372,21 +397,24 @@ n", null));
     "p", null, __("Record changes or choose an existing capture.", "configops")));
   }
   return /* @__PURE__ */ wp.element.createElement(wp.element.Fragment, null, /* @__PURE__ */ wp.element.createElement("h\
-eader", { className: "configops-review-header" }, /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.
-  element.createElement("div", { className: "configops-capture-reference" }, /* @__PURE__ */ wp.element.createElement("s\
-pan", null, __("Capture", "configops"), " ", /* @__PURE__ */ wp.element.createElement("code", null, "#", selected.id)), /* @__PURE__ */ wp.
-  element.createElement("span", { className: selectedStatus.className }, selectedStatus.label)), /* @__PURE__ */ wp.element.
-  createElement("div", { className: "configops-review-title" }, /* @__PURE__ */ wp.element.createElement("h2", null, selected.
-  name)), /* @__PURE__ */ wp.element.createElement("p", null, selected.actorName, /* @__PURE__ */ wp.element.createElement(
-  "span", { "aria-hidden": "true" }, " \xB7 "), /* @__PURE__ */ wp.element.createElement("time", { dateTime: selected.startedAt },
-  selected.startedDisplay))), sessionUndoSucceeded && /* @__PURE__ */ wp.element.createElement("span", { className: "con\
-figops-restore-state configops-restore-state--session is-succeeded" }, /* @__PURE__ */ wp.element.createElement("strong",
-  null, __("Capture undone", "configops")), /* @__PURE__ */ wp.element.createElement("span", null, sessionUndo.actorName,
-  " \xB7 ", sessionUndo.finishedAtLabel)), sessionUndoUncertain && /* @__PURE__ */ wp.element.createElement("span", { className: "\
-configops-restore-state configops-restore-state--session is-uncertain" }, /* @__PURE__ */ wp.element.createElement("stro\
-ng", null, __("Undo needs inspection", "configops")), /* @__PURE__ */ wp.element.createElement("span", null, __("Check t\
-he current settings before continuing.", "configops"))), canRestoreSession && !visibleMissingRestoreReference && /* @__PURE__ */ wp.
-  element.createElement(
+eader", { className: "configops-review-header" }, /* @__PURE__ */ wp.element.createElement("div", { className: "configop\
+s-review-heading" }, /* @__PURE__ */ wp.element.createElement("div", { className: "configops-capture-reference" }, /* @__PURE__ */ wp.
+  element.createElement("span", { className: selectedStatus.className }, selectedStatus.label), /* @__PURE__ */ wp.element.
+  createElement("span", null, __("Capture", "configops"), " ", /* @__PURE__ */ wp.element.createElement("code", null, "#",
+  selected.id))), /* @__PURE__ */ wp.element.createElement("h2", null, selected.name), /* @__PURE__ */ wp.element.createElement(
+  "p", null, selected.actorName, /* @__PURE__ */ wp.element.createElement("span", { "aria-hidden": "true" }, " \xB7 "), /* @__PURE__ */ wp.
+  element.createElement("time", { dateTime: selected.startedAt }, selected.startedDisplay))), /* @__PURE__ */ wp.element.
+  createElement("div", { className: "configops-capture-action" }, sessionUndoSucceeded && /* @__PURE__ */ wp.element.createElement(
+  "span", { className: "configops-restore-state configops-restore-state--session is-succeeded" }, /* @__PURE__ */ wp.element.
+  createElement("strong", null, __("Capture undone", "configops")), /* @__PURE__ */ wp.element.createElement("span", null,
+  sessionUndo.actorName, " \xB7 ", sessionUndo.finishedAtLabel)), sessionUndoUncertain && /* @__PURE__ */ wp.element.createElement(
+  "span", { className: "configops-restore-state configops-restore-state--session is-uncertain" }, /* @__PURE__ */ wp.element.
+  createElement("strong", null, __("Undo needs inspection", "configops")), /* @__PURE__ */ wp.element.createElement("spa\
+n", null, __("Check the current settings before continuing.", "configops"))), canRestoreSession && !visibleMissingRestoreReference &&
+  /* @__PURE__ */ wp.element.createElement(wp.element.Fragment, null, /* @__PURE__ */ wp.element.createElement("span", {
+  className: "configops-capture-undo-ready" }, /* @__PURE__ */ wp.element.createElement("strong", null, __("Capture undo\
+ ready", "configops")), /* @__PURE__ */ wp.element.createElement("span", null, __("Current values are checked first.", "\
+configops"))), /* @__PURE__ */ wp.element.createElement(
     "button",
     {
       className: "button",
@@ -399,38 +427,31 @@ thing changed again.", "configops"))) {
         }
       }
     },
-    state.ui.pending === `restore-session-${selected.id}` ? __("Undoing\u2026", "configops") : __("Undo this capture", "\
-configops")
-  ), canRestoreSession && visibleMissingRestoreReference && /* @__PURE__ */ wp.element.createElement(Hint, { label: __("\
-Why can\u2019t this capture be undone?", "configops"), align: "end", trigger: __("Undo unavailable", "configops") }, __(
-  "An earlier referenced item in this capture no longer exists. Other settings can still be reviewed and undone individu\
-ally.", "configops"))), review.summary.captureErrors > 0 && /* @__PURE__ */ wp.element.createElement("section", { className: "\
-configops-integrity-warning", role: "alert", "aria-labelledby": "configops-integrity-title" }, /* @__PURE__ */ wp.element.
-  createElement("span", { className: "configops-integrity-mark", "aria-hidden": "true" }, "!"), /* @__PURE__ */ wp.element.
-  createElement("div", null, /* @__PURE__ */ wp.element.createElement("h3", { id: "configops-integrity-title" }, __("Cap\
-ture incomplete", "configops")), /* @__PURE__ */ wp.element.createElement("p", null, __("WordPress saved the setting, bu\
-t ConfigOps could not record every piece of evidence. Review the visible changes carefully; whole-capture undo is disabl\
-ed.", "configops"))), /* @__PURE__ */ wp.element.createElement("strong", null, review.summary.captureErrors), /* @__PURE__ */ wp.
+    state.ui.pending === `restore-session-${selected.id}` ? __("Undoing\u2026", "configops") : __("Undo capture", "confi\
+gops")
+  )), canRestoreSession && visibleMissingRestoreReference && /* @__PURE__ */ wp.element.createElement("span", { className: "\
+configops-undo-unavailable" }, /* @__PURE__ */ wp.element.createElement("strong", null, __("Capture undo unavailable", "\
+configops")), /* @__PURE__ */ wp.element.createElement("span", null, __("A previous referenced item is missing. Review s\
+ettings individually.", "configops"))))), review.summary.captureErrors > 0 && /* @__PURE__ */ wp.element.createElement("\
+section", { className: "configops-integrity-warning", role: "alert", "aria-labelledby": "configops-integrity-title" }, /* @__PURE__ */ wp.
+  element.createElement("span", { className: "configops-integrity-mark", "aria-hidden": "true" }, "!"), /* @__PURE__ */ wp.
+  element.createElement("div", null, /* @__PURE__ */ wp.element.createElement("h3", { id: "configops-integrity-title" },
+  __("Capture incomplete", "configops")), /* @__PURE__ */ wp.element.createElement("p", null, __("WordPress saved the se\
+tting, but ConfigOps could not record every piece of evidence. Review the visible changes carefully; whole-capture undo \
+is disabled.", "configops"))), /* @__PURE__ */ wp.element.createElement("strong", null, review.summary.captureErrors), /* @__PURE__ */ wp.
   element.createElement(Hint, { label: __("What can I do?", "configops"), align: "end" }, __("You can still inspect the \
 evidence and undo supported settings individually. Start a new capture and repeat the save before turning these changes \
 into a release.", "configops"))), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-review-toolbar" },
-  /* @__PURE__ */ wp.element.createElement("div", { className: "configops-review-filters", role: "group", "aria-label": __(
-  "Filter changes", "configops") }, /* @__PURE__ */ wp.element.createElement(
-    ReviewFilter,
-    {
-      active: filter === "all",
-      count: review.summary.total + review.summary.unmanagedWrites,
-      description: __("Every recorded Options API mutation plus any unmanaged database write signal.", "configops"),
-      label: __("All", "configops"),
-      onSelect: () => setFilter("all")
-    }
-  ), /* @__PURE__ */ wp.element.createElement(
+  /* @__PURE__ */ wp.element.createElement("div", { className: "configops-review-toolbar-main" }, /* @__PURE__ */ wp.element.
+  createElement("span", { className: "configops-toolbar-label" }, __("Show", "configops")), /* @__PURE__ */ wp.element.createElement(
+  "div", { className: "configops-review-filters", role: "group", "aria-label": __("Filter changes", "configops") }, /* @__PURE__ */ wp.
+  element.createElement(
     ReviewFilter,
     {
       active: filter === "review",
       count: review.summary.needsReview + review.summary.unmanagedWrites,
       description: __("Settings worth reading. Technical cache and maintenance values are left out.", "configops"),
-      label: __("Settings", "configops"),
+      label: __("Review", "configops"),
       onSelect: () => setFilter("review")
     }
   ), /* @__PURE__ */ wp.element.createElement(
@@ -443,7 +464,16 @@ ops"),
       label: __("Technical", "configops"),
       onSelect: () => setFilter("noise")
     }
-  )), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-review-safety" }, review.summary.individuallyUndone >
+  ), /* @__PURE__ */ wp.element.createElement(
+    ReviewFilter,
+    {
+      active: filter === "all",
+      count: review.summary.total + review.summary.unmanagedWrites,
+      description: __("Every recorded Options API mutation plus any unmanaged database write signal.", "configops"),
+      label: __("All", "configops"),
+      onSelect: () => setFilter("all")
+    }
+  ))), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-review-safety" }, review.summary.individuallyUndone >
   0 && /* @__PURE__ */ wp.element.createElement(Hint, { label: __("Why is capture undo unavailable?", "configops"), align: "\
 end", trigger: `${review.summary.individuallyUndone} ${__("already undone", "configops")}` }, __("At least one setting w\
 as already undone individually. The original whole-capture target no longer exists as one safe operation.", "configops")),
@@ -456,16 +486,12 @@ t least one observation failed after WordPress processed a settings change. Conf
 ps kept no query or values, so undoing the whole capture is disabled.", "configops")), review.summary.redacted > 0 && /* @__PURE__ */ wp.
   element.createElement(Hint, { label: __("What was redacted?", "configops"), align: "end", trigger: `${review.summary.redacted}\
  ${__("redacted", "configops")}` }, __("Only secrets that actually changed are counted here. Their raw values were remov\
-ed before ConfigOps stored the capture.", "configops")), review.summary.total > 0 && /* @__PURE__ */ wp.element.createElement(
-  Hint, { label: review.summary.allRestorable ? __("How safe is undo?", "configops") : __("Why can\u2019t I undo the whole ca\
-pture?", "configops"), align: "end", trigger: review.summary.allRestorable ? __("Undo checked", "configops") : __("Captu\
-re undo limited", "configops") }, review.summary.allRestorable ? __("ConfigOps will undo only when the current value sti\
-ll matches this capture. Files and custom tables remain outside generic rollback.", "configops") : review.summary.captureErrors >
-  0 ? __("The recording is incomplete, so ConfigOps cannot prove a whole-capture undo is safe. Supported visible changes\
- can still be undone individually below.", "configops") : __("At least one recorded change cannot be reconstructed safel\
-y, so whole-capture undo stays off. Supported changes can still be undone individually below.", "configops")))), review.
-  groups.length === 0 && /* @__PURE__ */ wp.element.createElement("section", { className: "configops-empty-state configo\
-ps-empty-state--compact" }, /* @__PURE__ */ wp.element.createElement("h3", null, __("No changes", "configops")), /* @__PURE__ */ wp.
+ed before ConfigOps stored the capture.", "configops")), review.summary.total > 0 && !review.summary.allRestorable && review.
+  summary.captureErrors === 0 && /* @__PURE__ */ wp.element.createElement(Hint, { label: __("Why can\u2019t I undo the whole \
+capture?", "configops"), align: "end", trigger: __("Capture undo limited", "configops") }, __("At least one recorded cha\
+nge cannot be reconstructed safely. Supported changes can still be undone individually.", "configops")))), review.groups.
+  length === 0 && /* @__PURE__ */ wp.element.createElement("section", { className: "configops-empty-state configops-empt\
+y-state--compact" }, /* @__PURE__ */ wp.element.createElement("h3", null, __("No changes", "configops")), /* @__PURE__ */ wp.
   element.createElement("p", null, selected.status === "active" ? __("Change a setting while recording.", "configops") :
   __("This capture contains no supported mutation or unmanaged database write signal.", "configops"))), review.groups.length >
   0 && filteredGroups.length === 0 && /* @__PURE__ */ wp.element.createElement("section", { className: "configops-empty-\
