@@ -142,6 +142,7 @@ const UserReferenceValue = ({ dataLabel, snapshot }) => {
 };
 
 const DiffValue = ({ change, side, label }) => {
+	const { __ } = window.wp.i18n;
 	const reference = change[`${side}_reference`];
 	if (change.reference_type === 'media' && reference) {
 		return <MediaReferenceValue dataLabel={label} snapshot={reference} />;
@@ -153,7 +154,15 @@ const DiffValue = ({ change, side, label }) => {
 		return <UserReferenceValue dataLabel={label} snapshot={reference} />;
 	}
 
-	return <pre role="cell" data-label={label}>{Object.hasOwn(change, side) ? formatValue(change[side]) : '—'}</pre>;
+	const hasValue = Object.hasOwn(change, side);
+	const value = hasValue ? change[side] : undefined;
+	const empty = hasValue && (value === null || value === '');
+
+	return (
+		<pre className={empty ? 'is-empty' : ''} role="cell" data-label={label}>
+			{hasValue ? formatValue(value, __('Empty', 'configops')) : '—'}
+		</pre>
+	);
 };
 
 const hasMissingRestoreReference = (changes) => changes.some((change) => (

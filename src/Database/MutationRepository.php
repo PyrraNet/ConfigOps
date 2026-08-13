@@ -35,6 +35,27 @@ final class MutationRepository
 		return (int) $this->database->insert_id;
 	}
 
+	/**
+	 * Replace one request-local aggregate with its newer final state.
+	 *
+	 * @param array<string, int|string|null> $mutation Mutation data.
+	 */
+	public function update(int $id, array $mutation): void
+	{
+		$updated = $this->database->update($this->table, $mutation, array('id' => $id));
+		if (false === $updated || (0 === $updated && null === $this->find($id))) {
+			throw new RuntimeException('The aggregated configuration mutation could not be updated.');
+		}
+	}
+
+	public function delete(int $id): void
+	{
+		$deleted = $this->database->delete($this->table, array('id' => $id), array('%d'));
+		if (1 !== $deleted) {
+			throw new RuntimeException('The reverted configuration mutation could not be removed.');
+		}
+	}
+
 	public function find(int $id): ?object
 	{
 		$row = $this->database->get_row(

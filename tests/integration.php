@@ -196,6 +196,94 @@ $assert('reference_missing' === (string) $missingReferenceRuns[0]->failure_code,
 delete_option('site_icon');
 wp_delete_attachment($siteIconAfter, true);
 
+$coalesceOption = 'fixture_request_coalescing';
+delete_option($coalesceOption);
+add_option($coalesceOption, array('primary' => 'baseline', 'secondary' => 0), '', false);
+$coalesceSession = $captures->start('Request-local option coalescing', 0, '/wp-admin/options-general.php');
+update_option($coalesceOption, array('primary' => 'intermediate', 'secondary' => 0), false);
+update_option($coalesceOption, array('primary' => 'final', 'secondary' => 1), false);
+$captures->stop();
+$coalescedRows = $mutations->forSession($coalesceSession);
+$assert(1 === count($coalescedRows), 'Consecutive writes to one option by the same owner should become one logical mutation.');
+$coalescedDiff = json_decode((string) $coalescedRows[0]->diff, true, 64, JSON_THROW_ON_ERROR);
+$coalescedByPath = array_column($coalescedDiff, null, 'path');
+$assert(
+	'baseline' === ($coalescedByPath['/primary']['before'] ?? null)
+	&& 'final' === ($coalescedByPath['/primary']['after'] ?? null)
+	&& 0 === ($coalescedByPath['/secondary']['before'] ?? null)
+	&& 1 === ($coalescedByPath['/secondary']['after'] ?? null),
+	'The logical mutation should compare the request baseline directly with its final state.'
+);
+$coalescedCapture = $captures->find($coalesceSession);
+$assert(
+	1 === (int) $coalescedCapture->mutation_count
+	&& 2 === (int) $coalescedCapture->review_change_count,
+	'Capture counters should replace the intermediate field count with the final logical diff count.'
+);
+$restore->restoreMutation((int) $coalescedRows[0]->id);
+$assert(
+	array('primary' => 'baseline', 'secondary' => 0) === get_option($coalesceOption),
+	'Undo should restore the original baseline of a coalesced request mutation.'
+);
+
+$revertSession = $captures->start('Request-local full revert', 0, '/wp-admin/options-general.php');
+update_option($coalesceOption, array('primary' => 'temporary', 'secondary' => 0), false);
+update_option($coalesceOption, array('primary' => 'baseline', 'secondary' => 0), false);
+$captures->stop();
+$revertCapture = $captures->find($revertSession);
+$assert(
+	array() === $mutations->forSession($revertSession)
+	&& 0 === (int) $revertCapture->mutation_count
+	&& 0 === (int) $revertCapture->review_change_count,
+	'A same-request change that returns to its baseline should leave no review mutation or count.'
+);
+
+$ephemeralOption = 'fixture_request_ephemeral';
+delete_option($ephemeralOption);
+$ephemeralSession = $captures->start('Request-local add delete', 0, '/wp-admin/options-general.php');
+add_option($ephemeralOption, 'temporary', '', false);
+delete_option($ephemeralOption);
+$captures->stop();
+$assert(
+	array() === $mutations->forSession($ephemeralSession)
+	&& false === get_option($ephemeralOption, false),
+	'An option added and removed by one owner in the same request should leave no logical mutation.'
+);
+
+add_option($ephemeralOption, 'baseline', '', false);
+$replaceSession = $captures->start('Request-local delete add', 0, '/wp-admin/options-general.php');
+delete_option($ephemeralOption);
+add_option($ephemeralOption, 'final', '', false);
+$captures->stop();
+$replaceRows = $mutations->forSession($replaceSession);
+$replaceDiff = json_decode((string) ($replaceRows[0]->diff ?? ''), true, 64, JSON_THROW_ON_ERROR);
+$assert(
+	1 === count($replaceRows)
+	&& 'update' === (string) $replaceRows[0]->mutation_type
+	&& 'baseline' === ($replaceDiff[0]['before'] ?? null)
+	&& 'final' === ($replaceDiff[0]['after'] ?? null),
+	'Delete followed by add should become one baseline-to-final update instead of two operations.'
+);
+
+$fixtureClass = \ConfigOpsHostileFixture\SettingsFixture::class;
+$ownerBoundaryOption = $fixtureClass::COALESCE_OPTION;
+delete_option($ownerBoundaryOption);
+add_option($ownerBoundaryOption, 'baseline', '', false);
+$ownerBoundarySession = $captures->start('Request owner boundary', 0, '/wp-admin/options-general.php');
+$fixtureClass::writeCoalesceState('plugin-state');
+update_option($ownerBoundaryOption, 'core-state', false);
+$captures->stop();
+$ownerBoundaryRows = $mutations->forSession($ownerBoundarySession);
+$assert(2 === count($ownerBoundaryRows), 'Writes by different causal owners must not be merged even inside one request.');
+$assert(
+	'configops-hostile-fixture' === (string) $ownerBoundaryRows[0]->source_component
+	&& 'wordpress' === (string) $ownerBoundaryRows[1]->source_component,
+	'The owner boundary should preserve both plugin and WordPress provenance.'
+);
+delete_option($coalesceOption);
+delete_option($ephemeralOption);
+delete_option($ownerBoundaryOption);
+
 $longCaptureName = str_repeat('Ü', 220);
 $longNameSession = $captures->start($longCaptureName, 0, '/wp-admin/options-general.php');
 $captures->stop();
@@ -505,14 +593,17 @@ delete_option('fixture_credentials');
 delete_option('fixture_opaque_credentials');
 delete_option('_transient_fixture_cache');
 delete_option('fixture_semantic_reorder');
+delete_option('fixture_scalar_normalization');
 
 add_option('fixture_nested', array('mail' => array('enabled' => false, 'retry' => 3)), '', false);
 add_option('fixture_deleted', 'baseline', '', false);
 add_option('fixture_semantic_reorder', array('first' => 1, 'second' => 2), '', false);
+add_option('fixture_scalar_normalization', array('nullable' => null, 'count' => '7', 'stable' => 'value'), '', false);
 
 $sessionId = $captures->start('Integration capture', 0, '/wp-admin/options-general.php');
 update_option('fixture_nested', array('mail' => array('retry' => 4, 'enabled' => true)));
 update_option('fixture_semantic_reorder', array('second' => 2, 'first' => 1));
+update_option('fixture_scalar_normalization', array('nullable' => '', 'count' => 7, 'stable' => 'value'));
 update_option('_transient_fixture_cache', array('checked' => time()));
 add_option('fixture_credentials', array('username' => 'mailer', 'password' => 'never-store-me'), '', false);
 add_option('fixture_opaque_credentials', '{"smtp":{"password":"opaque-never-store-me"}}', '', false);
@@ -589,6 +680,7 @@ $assert(
 $assert($observerCallbackSurvived, 'A codec and error-listener failure must not escape the observer callback.');
 $assert(! isset($byName['configops_flash_integration']), 'ConfigOps-owned transients must never observe themselves.');
 $assert(! isset($byName['fixture_semantic_reorder']), 'Semantically unchanged associative key order must not create capture noise.');
+$assert(! isset($byName['fixture_scalar_normalization']), 'Empty and canonical-integer storage normalization must not create capture noise.');
 
 $nestedLockRejected = false;
 $operationLock->run(
@@ -846,6 +938,7 @@ delete_option('fixture_credentials');
 delete_option('fixture_opaque_credentials');
 delete_option('_transient_fixture_cache');
 delete_option('fixture_semantic_reorder');
+delete_option('fixture_scalar_normalization');
 delete_option('fixture_compensation_failure');
 delete_option('fixture_restore_meaningful');
 delete_option('_transient_fixture_restore_runtime');

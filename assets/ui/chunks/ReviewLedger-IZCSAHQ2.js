@@ -11,12 +11,12 @@ import {
 } from "./chunk-QIY7J6RF.js";
 
 // ui/format.js
-var formatValue = /* @__PURE__ */ __name((value) => {
+var formatValue = /* @__PURE__ */ __name((value, emptyLabel = "Empty") => {
   if (typeof value === "boolean") {
     return value ? "On (true)" : "Off (false)";
   }
-  if (value === null) {
-    return "null";
+  if (value === null || value === "") {
+    return emptyLabel;
   }
   if (typeof value === "string") {
     if (value === "[not set]" || value === "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" || value.startsWith("[unsu\
@@ -124,6 +124,7 @@ l", "data-label": dataLabel }, /* @__PURE__ */ wp.element.createElement("span", 
   "em", null, __("Missing", "configops")))));
 }, "UserReferenceValue");
 var DiffValue = /* @__PURE__ */ __name(({ change, side, label }) => {
+  const { __ } = window.wp.i18n;
   const reference = change[`${side}_reference`];
   if (change.reference_type === "media" && reference) {
     return /* @__PURE__ */ wp.element.createElement(MediaReferenceValue, { dataLabel: label, snapshot: reference });
@@ -134,8 +135,11 @@ var DiffValue = /* @__PURE__ */ __name(({ change, side, label }) => {
   if (change.reference_type === "user" && reference) {
     return /* @__PURE__ */ wp.element.createElement(UserReferenceValue, { dataLabel: label, snapshot: reference });
   }
-  return /* @__PURE__ */ wp.element.createElement("pre", { role: "cell", "data-label": label }, Object.hasOwn(change, side) ?
-  formatValue(change[side]) : "\u2014");
+  const hasValue = Object.hasOwn(change, side);
+  const value = hasValue ? change[side] : void 0;
+  const empty = hasValue && (value === null || value === "");
+  return /* @__PURE__ */ wp.element.createElement("pre", { className: empty ? "is-empty" : "", role: "cell", "data-label": label },
+  hasValue ? formatValue(value, __("Empty", "configops")) : "\u2014");
 }, "DiffValue");
 var hasMissingRestoreReference = /* @__PURE__ */ __name((changes) => changes.some((change) => ["remove", "replace"].includes(
 change.op) && Number(change.before_reference?.id || 0) > 0 && change.before_reference?.current_status === "missing"), "h\

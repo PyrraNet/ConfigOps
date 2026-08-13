@@ -301,20 +301,28 @@ final class CaptureRepository
 
 	public function incrementMutationCount(int $sessionId, int $reviewChanges = 1, int $technicalChanges = 0): void
 	{
-		$reviewChanges    = max(0, $reviewChanges);
-		$technicalChanges = max(0, $technicalChanges);
+		$this->adjustMutationCounts($sessionId, 1, max(0, $reviewChanges), max(0, $technicalChanges));
+	}
+
+	public function adjustMutationCounts(
+		int $sessionId,
+		int $mutationDelta,
+		int $reviewChangeDelta,
+		int $technicalChangeDelta
+	): void {
 		$updated = $this->database->query(
 			$this->database->prepare(
 				"UPDATE {$this->table}
-				SET mutation_count = mutation_count + 1,
+				SET mutation_count = mutation_count + %d,
 					review_change_count = review_change_count + %d,
 					technical_change_count = technical_change_count + %d,
 					capture_error_count = capture_error_count + CASE WHEN status IN ('stopping', 'completed') THEN 1 ELSE 0 END,
 					last_error_code = CASE WHEN status IN ('stopping', 'completed') THEN 'late_mutation' ELSE last_error_code END,
 					last_error_at = CASE WHEN status IN ('stopping', 'completed') THEN %s ELSE last_error_at END
 				WHERE id = %d",
-				$reviewChanges,
-				$technicalChanges,
+				$mutationDelta,
+				$reviewChangeDelta,
+				$technicalChangeDelta,
 				current_time('mysql', true),
 				$sessionId
 			)
@@ -325,9 +333,9 @@ final class CaptureRepository
 		}
 
 		if ($this->activeSession && (int) $this->activeSession->id === $sessionId) {
-			++$this->activeSession->mutation_count;
-			$this->activeSession->review_change_count += $reviewChanges;
-			$this->activeSession->technical_change_count += $technicalChanges;
+			$this->activeSession->mutation_count = max(0, (int) $this->activeSession->mutation_count + $mutationDelta);
+			$this->activeSession->review_change_count = max(0, (int) $this->activeSession->review_change_count + $reviewChangeDelta);
+			$this->activeSession->technical_change_count = max(0, (int) $this->activeSession->technical_change_count + $technicalChangeDelta);
 		}
 	}
 

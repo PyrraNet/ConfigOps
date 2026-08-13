@@ -14,7 +14,7 @@ Record WordPress configuration changes, inspect precise nested diffs, and restor
 
 ConfigOps shows what WordPress actually changed when a setting was saved.
 
-Start a named capture, use the WordPress admin normally, then stop. ConfigOps groups writes by request, renders nested changes with plain-language labels, separates likely plugin housekeeping, and attributes the code path that caused the change where possible.
+Start a named capture, use the WordPress admin normally, then stop. ConfigOps groups writes by request, collapses consecutive writes by the same component to one option into the original-to-final decision, renders nested changes with plain-language labels, separates likely plugin housekeeping, and attributes the code path that caused the change where possible.
 
 = Honest by default =
 
@@ -88,6 +88,7 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 
 * First technical preview by pyrra.
 * Explicit local captures with request grouping and source attribution.
+* Same-request option-write chains collapse to their original and final state; complete same-owner reverts disappear from review.
 * Typed nested diffs, conservative noise classification, and secret redaction before persistence.
 * Conflict-checked field and session undo with value-free audit records and compensating recovery.
 * Exact deep-field contracts for every bundled WP Mail SMTP Free 4.9.0 mailer and the Yoast SEO Free 28.2 feature, crawl, schema, search, social, and LLMs.txt families.

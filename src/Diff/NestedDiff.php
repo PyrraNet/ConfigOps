@@ -43,7 +43,7 @@ final class NestedDiff
 			return;
 		}
 
-		if ($before === $after) {
+		if ($this->isReviewEquivalent($before, $after)) {
 			return;
 		}
 
@@ -92,6 +92,23 @@ final class NestedDiff
 
 			$this->walk($before[$key], $after[$key], $childPath, $changes, $truncated);
 		}
+	}
+
+	/**
+	 * Ignore storage-only scalar coercions at the same existing path.
+	 *
+	 * Plugins frequently normalize an unset nullable field to an empty string
+	 * or pass an unchanged integer back in its canonical string form while
+	 * saving an otherwise unrelated setting. Option and key existence is handled
+	 * by the parent walk and therefore remains significant.
+	 */
+	private function isReviewEquivalent(mixed $before, mixed $after): bool
+	{
+		return $before === $after
+			|| (null === $before && '' === $after)
+			|| ('' === $before && null === $after)
+			|| (is_int($before) && is_string($after) && (string) $before === $after)
+			|| (is_string($before) && is_int($after) && $before === (string) $after);
 	}
 
 	private function canonicalize(mixed $value): mixed

@@ -23,7 +23,7 @@
 
 ## One settings save, explained
 
-Start a named capture, use WordPress normally, then stop. ConfigOps groups the writes caused by each request and separates the settings you chose from plugin housekeeping, secrets, and changes it cannot safely interpret.
+Start a named capture, use WordPress normally, then stop. ConfigOps groups the writes caused by each request, collapses consecutive same-owner writes to one option into its baseline-to-final decision, and separates the settings you chose from plugin housekeeping, secrets, and changes it cannot safely interpret.
 
 ```diff
 WP Mail SMTP → Sender email

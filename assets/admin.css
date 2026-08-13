@@ -1300,6 +1300,12 @@ body.toplevel_page_configops #wpbody-content {
 	font-size: 10px;
 }
 
+.configops-diff-row pre.is-empty {
+	color: var(--co-text-muted);
+	font-family: var(--co-font-sans);
+	font-weight: 600;
+}
+
 .configops-diff-field {
 	display: flex;
 	min-width: 0;

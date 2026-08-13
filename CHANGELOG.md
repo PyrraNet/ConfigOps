@@ -9,7 +9,9 @@ The first technical preview, created by pyrra.
 ### Shipped
 
 - Explicit local capture sessions with request grouping and source attribution.
+- Same-request, same-owner option-write coalescing from the original baseline to the final state, including removal of complete reverts.
 - Typed nested diffs, conservative noise separation, and redaction before persistence.
+- Scalar normalization that suppresses storage-only `null` ↔ empty-string and canonical integer ↔ string churn while preserving structural and meaningful typed value changes.
 - Conflict-checked field and session undo with compensation and value-free audit records.
 - Exact deep-field contracts for every bundled WP Mail SMTP Free 4.9.0 mailer and the Yoast SEO Free 28.2 feature, crawl, schema, search, social, and LLMs.txt families.
 - Race-aware capture finalization, integrity recovery, verified schema upgrades, and bounded retention.

@@ -112,6 +112,35 @@ try {
 	if (!afterValueText.includes(JSON.stringify(verificationDescription))) {
 		throw new Error('The captured string value is not rendered with explicit type-preserving quotes.');
 	}
+
+	const injectEmptyBeforeValue = async (route) => {
+		const url = decodeURIComponent(route.request().url());
+		if (route.request().method() !== 'GET' || !url.includes('/configops/v1/captures/') || !url.includes('/mutations')) {
+			await route.continue();
+
+			return;
+		}
+
+		const response = await route.fetch();
+		const payload = await response.json();
+		const taglineMutation = payload.groups
+			?.flatMap((group) => group.mutations || [])
+			.find((mutation) => mutation.optionName === 'blogdescription');
+		if (taglineMutation?.diff?.[0]) {
+			taglineMutation.diff[0].before = null;
+		}
+		await route.fulfill({ response, json: payload });
+	};
+	await page.route('**/*', injectEmptyBeforeValue);
+	await page.reload({ waitUntil: 'networkidle' });
+	const emptyBeforeValue = page.locator('.configops-mutation', { hasText: 'blogdescription' }).first()
+		.locator('.configops-diff-row').nth(1).locator('pre').first();
+	if (await emptyBeforeValue.innerText() !== 'Empty' || !await emptyBeforeValue.evaluate((element) => element.classList.contains('is-empty'))) {
+		throw new Error('A semantically empty field is not rendered as the quiet Empty state.');
+	}
+	await page.screenshot({ path: new URL('configops-empty-value-desktop.png', artifacts).pathname, fullPage: true });
+	await page.unroute('**/*', injectEmptyBeforeValue);
+	await page.reload({ waitUntil: 'networkidle' });
 	if (await blogDescriptionRow.locator('.configops-classification-note').count()) {
 		throw new Error('Classification explanation is still rendered as persistent prose instead of contextual help.');
 	}

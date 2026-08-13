@@ -44,6 +44,23 @@ $assert(2 === count($changes), 'Nested diff should emit only the two changed pat
 $assert('/mail/retry' === $changes[0]['path'], 'Associative paths should be stable and sorted.');
 $assert('/mail/return_path' === $changes[1]['path'], 'Nested additions should use JSON Pointer paths.');
 $assert(array() === $diff->compare(array('b' => 2, 'a' => 1), array('a' => 1, 'b' => 2)), 'Associative key order must not create noise.');
+$assert(array() === $diff->compare(null, ''), 'A nullable field normalized to an empty string should not create review noise.');
+$assert(array() === $diff->compare('', null), 'An empty string normalized back to null should not create review noise.');
+
+$emptyNormalizationChanges = $diff->compare(
+	array('nullable' => null, 'meaningful' => 'before'),
+	array('nullable' => '', 'meaningful' => 'after')
+);
+$assert(1 === count($emptyNormalizationChanges), 'Empty-state normalization should not hide a meaningful sibling change.');
+$assert('/meaningful' === $emptyNormalizationChanges[0]['path'], 'Only the meaningful sibling path should remain in review.');
+$assert(1 === count($diff->compare(array('anchor' => true), array('anchor' => true, 'nullable' => ''))), 'Adding an empty key must remain visible because structure changed.');
+$assert(array() === $diff->compare('17', 17), 'A canonical integer string should not create review noise when WordPress returns it as an integer.');
+$assert(array() === $diff->compare(-17, '-17'), 'Canonical integer normalization should work in both directions and preserve the sign.');
+$assert(1 === count($diff->compare(null, false)), 'Null and false must remain distinct setting states.');
+$assert(1 === count($diff->compare('', '0')), 'An empty string and a zero string must remain distinct setting states.');
+$assert(1 === count($diff->compare('', ' ')), 'Whitespace must not be collapsed into an empty setting state.');
+$assert(1 === count($diff->compare('017', 17)), 'Formatted numeric strings must remain visible because their representation carries information.');
+$assert(1 === count($diff->compare('1', 1.0)), 'Float normalization must remain visible because integer and float states are distinct.');
 
 $typedKeyChanges = $diff->compare(array(1 => 'integer key'), array('01' => 'string key'));
 $assert(2 === count($typedKeyChanges), 'Distinct integer and numeric-looking string keys must not collapse into one diff path.');

@@ -22,6 +22,7 @@ final class SettingsFixture
 	public const SCHEMA_OPTION = 'cofx_schema';
 	public const DIRECT_OPTION = 'cofx_direct_write';
 	public const AJAX_OPTION = 'cofx_ajax_state';
+	public const COALESCE_OPTION = 'cofx_coalesce_state';
 	public const TRANSIENT = 'cofx_connection_cache';
 	public const SECRET = 'fixture-secret-must-never-persist';
 
@@ -52,6 +53,7 @@ final class SettingsFixture
 		);
 		update_option(self::DIRECT_OPTION, 'before', false);
 		update_option(self::AJAX_OPTION, 'idle', false);
+		update_option(self::COALESCE_OPTION, 'baseline', false);
 		delete_option(self::LAST_CHECKED_OPTION);
 		delete_transient(self::TRANSIENT);
 	}
@@ -114,6 +116,11 @@ final class SettingsFixture
 		update_option(self::AJAX_OPTION, 'saved-via-ajax', false);
 	}
 
+	public static function writeCoalesceState(string $value): void
+	{
+		update_option(self::COALESCE_OPTION, $value, false);
+	}
+
 	public static function cleanup(): void
 	{
 		foreach (
@@ -126,6 +133,7 @@ final class SettingsFixture
 				self::SCHEMA_OPTION,
 				self::DIRECT_OPTION,
 				self::AJAX_OPTION,
+				self::COALESCE_OPTION,
 			) as $option
 		) {
 			delete_option($option);
