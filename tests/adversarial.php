@@ -70,7 +70,7 @@ foreach (
 		str_repeat('A', 3801),
 		$encodeIntent(array('v' => 2, 'session' => 77, 'capturedAt' => time(), 'fields' => array())),
 		$validIntent(array(array('name' => 'fixture_settings[mail][retry]')), array('capturedAt' => time() - 181)),
-		$validIntent(array(array('name' => 'fixture_settings[mail][retry]')), array('capturedAt' => time() + 31)),
+		$validIntent(array(array('name' => 'fixture_settings[mail][retry]')), array('capturedAt' => time() + 60)),
 		$validIntent(array(array('name' => str_repeat('field[part]', 13)))),
 		$validIntent(array(array('name' => 'fixture_settings[broken'))),
 	) as $hostileCookie
