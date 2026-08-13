@@ -11,6 +11,7 @@ namespace ConfigOps;
 
 use ConfigOps\Access\CapabilityManager;
 use ConfigOps\Adapter\AdapterRegistry;
+use ConfigOps\Adapter\WordPressCoreAdapter;
 use ConfigOps\Adapter\WpMailSmtpAdapter;
 use ConfigOps\Adapter\YoastSeoAdapter;
 use ConfigOps\Admin\AdminPayloadFactory;
@@ -57,7 +58,7 @@ final class Plugin
 		$mutations = new MutationRepository($wpdb);
 		$signals   = new DatabaseWriteSignalRepository($wpdb);
 		$metadata  = new OptionMetadataRepository($wpdb);
-		$builtInAdapters = array(new WpMailSmtpAdapter(), new YoastSeoAdapter());
+		$builtInAdapters = array(new WordPressCoreAdapter(), new WpMailSmtpAdapter(), new YoastSeoAdapter());
 		try {
 			$adapterList = apply_filters('configops_adapters', $builtInAdapters);
 		} catch (\Throwable $error) {

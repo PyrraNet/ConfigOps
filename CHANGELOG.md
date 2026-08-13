@@ -13,6 +13,7 @@ The first technical preview, created by pyrra.
 - Typed nested diffs, conservative noise separation, and redaction before persistence.
 - Scalar normalization that suppresses storage-only `null` ↔ empty-string and canonical integer ↔ string churn while preserving structural and meaningful typed value changes.
 - Conflict-checked field and session undo with compensation and value-free audit records.
+- A WordPress Core 7.0 contract for common single-site settings, stable scalar normalization, and local page/media references.
 - Exact deep-field contracts for every bundled WP Mail SMTP Free 4.9.0 mailer and the Yoast SEO Free 28.2 feature, crawl, schema, search, social, and LLMs.txt families.
 - Race-aware capture finalization, integrity recovery, verified schema upgrades, and bounded retention.
 - Local-only capture storage with suggested WordPress privacy-policy disclosure text.

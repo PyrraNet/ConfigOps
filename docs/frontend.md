@@ -10,7 +10,7 @@ ConfigOps uses route-specific React roots inside a minimal PHP shell:
 1. **Capture controls** hydrate immediately because starting and stopping are the primary actions.
 2. **Sessions** hydrate when the browser is idle.
 3. **Review ledger** imports only near the viewport, then requests its first mutation connection.
-4. **Plugin support** loads only on its server-routed view and renders the live adapter compatibility contract.
+4. **Plugin support** loads only on its server-routed view and renders the live WordPress and plugin adapter compatibility contracts.
 
 The shell includes real headings, product orientation, bounded placeholders, an initial capture/session snapshot, and a minimal no-script stop action. It does not serialize diff history. This keeps first paint independent from capture size and still avoids a request waterfall for the primary control.
 

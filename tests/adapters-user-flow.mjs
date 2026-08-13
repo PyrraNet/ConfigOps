@@ -71,7 +71,7 @@ try {
 	await page.getByRole('heading', { name: 'Plugin support', exact: true }).waitFor();
 	const readyPlugins = page.getByText('Active', { exact: true });
 	await readyPlugins.first().waitFor();
-	assert.equal(await readyPlugins.count(), 2, 'Both exact plugin releases should be ready before user-flow testing.');
+	assert.equal(await readyPlugins.count(), 3, 'WordPress Core and both exact plugin releases should be active before user-flow testing.');
 
 	await startCapture('Configure SMTP delivery');
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wp-mail-smtp`, { waitUntil: 'domcontentloaded' });

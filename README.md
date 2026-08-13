@@ -41,7 +41,7 @@ Every undo is checked against the current value first. If the website changed ag
 
 | Integration | Tested release | Capture | Explain | Secrets | Undo |
 |---|---:|:---:|:---:|:---:|:---:|
-| WordPress Options API | WordPress 7.0 | Supported | Nested diff + media identity | Redacted | Conflict-checked |
+| WordPress Core | WordPress 7.0 | Supported | Field map + local references | Redacted | With limits |
 | WP Mail SMTP Free | 4.9.0 | Supported | Supported | Removed | With limits |
 | Yoast SEO Free | 28.2 | Supported | Supported | Removed | With limits |
 | Unknown plugins | — | Options API only | Needs review | Conservative | Only when proven safe |

@@ -90,11 +90,12 @@ $administrator->remove_cap('configops_view');
 (new \ConfigOps\Access\CapabilityManager())->maybeInstall();
 $assert($administrator->has_cap('configops_view'), 'ConfigOps should repair a missing administrator capability even when its install version is current.');
 
+
 $captures  = new \ConfigOps\Database\CaptureRepository($wpdb);
 $mutations = new \ConfigOps\Database\MutationRepository($wpdb);
 $writeSignals = new \ConfigOps\Database\DatabaseWriteSignalRepository($wpdb);
 $adapters = new \ConfigOps\Adapter\AdapterRegistry(
-	array(new \ConfigOps\Adapter\WpMailSmtpAdapter(), new \ConfigOps\Adapter\YoastSeoAdapter()),
+	array(new \ConfigOps\Adapter\WordPressCoreAdapter(), new \ConfigOps\Adapter\WpMailSmtpAdapter(), new \ConfigOps\Adapter\YoastSeoAdapter()),
 	new \ConfigOps\Noise\NoiseClassifier(),
 	new \ConfigOps\Capture\HeuristicSensitiveValueDetector()
 );
@@ -145,6 +146,12 @@ $mediaMutation = $mediaRows[0];
 $mediaDiff = json_decode((string) $mediaMutation->diff, true);
 $mediaChange = is_array($mediaDiff) ? ($mediaDiff[0] ?? array()) : array();
 $assert('reference' === (string) $mediaMutation->classification && 1 === (int) $mediaMutation->restorable, 'Site icons should remain locally undoable media references.');
+$assert(
+	'wordpress-core' === (string) $mediaMutation->adapter_id
+	&& 1 === (int) $mediaMutation->adapter_schema_version
+	&& '' !== (string) $mediaMutation->component_version,
+	'Site icons should pin the tested WordPress Core adapter contract.'
+);
 $assert('media' === ($mediaChange['reference_type'] ?? '') && 'Site icon' === ($mediaChange['label'] ?? ''), 'Site-icon evidence should carry the media type and a plain-language label.');
 $assert(
 	'configops-icon-before.png' === ($mediaChange['before_reference']['filename'] ?? '')
@@ -195,6 +202,48 @@ $missingReferenceRuns = $restoreAudit->forSession($missingMediaSession);
 $assert('reference_missing' === (string) $missingReferenceRuns[0]->failure_code, 'A blocked media undo should leave a value-free reference-missing audit code.');
 delete_option('site_icon');
 wp_delete_attachment($siteIconAfter, true);
+
+$postsPerPageBefore = (int) get_option('posts_per_page', 10);
+$coreSettingsSession = $captures->start('WordPress Core settings', 0, '/wp-admin/options-reading.php');
+update_option('posts_per_page', $postsPerPageBefore + 3, false);
+$captures->stop();
+$coreSettingsRows = $mutations->forSession($coreSettingsSession);
+$assert(1 === count($coreSettingsRows), 'A standard Reading setting should be captured as one Core mutation.');
+$coreSettingsMutation = $coreSettingsRows[0];
+$coreSettingsDiff = json_decode((string) $coreSettingsMutation->diff, true);
+$assert(
+	'wordpress-core' === (string) $coreSettingsMutation->adapter_id
+	&& 'portable' === (string) $coreSettingsMutation->classification
+	&& 1 === (int) $coreSettingsMutation->restorable,
+	'A supported WordPress Core scalar should be reusable and conflict-checkable.'
+);
+$assert('Posts per page' === ($coreSettingsDiff[0]['label'] ?? ''), 'Core evidence should persist a stable human label at capture time.');
+$restore->restoreMutation((int) $coreSettingsMutation->id);
+$assert($postsPerPageBefore === (int) get_option('posts_per_page'), 'Core scalar undo should restore the previous Reading value.');
+
+$frontPageBefore = wp_insert_post(array('post_type' => 'page', 'post_title' => 'Original homepage', 'post_status' => 'publish'));
+$frontPageAfter = wp_insert_post(array('post_type' => 'page', 'post_title' => 'Updated homepage', 'post_status' => 'publish'));
+$assert(! is_wp_error($frontPageBefore) && ! is_wp_error($frontPageAfter), 'Core content-reference fixtures should be created.');
+update_option('page_on_front', (int) $frontPageBefore, false);
+$coreReferenceSession = $captures->start('WordPress homepage reference', 0, '/wp-admin/options-reading.php');
+update_option('page_on_front', (int) $frontPageAfter, false);
+$captures->stop();
+$coreReferenceRows = $mutations->forSession($coreReferenceSession);
+$coreReferenceMutation = current(array_filter($coreReferenceRows, static fn (object $row): bool => 'page_on_front' === (string) $row->option_name));
+$assert(false !== $coreReferenceMutation, 'The Core homepage option should remain visible beside generated rewrite state.');
+$coreReferenceDiff = json_decode((string) $coreReferenceMutation->diff, true);
+$coreReferenceChange = is_array($coreReferenceDiff) ? ($coreReferenceDiff[0] ?? array()) : array();
+$assert(
+	'reference' === (string) $coreReferenceMutation->classification,
+	'Core homepage selections should be classified as local references; received ' . (string) $coreReferenceMutation->classification . ' from ' . (string) $coreReferenceMutation->adapter_id . '.'
+);
+$assert('content' === ($coreReferenceChange['reference_type'] ?? ''), 'Core homepage evidence should select the content resolver.');
+$assert('Original homepage' === ($coreReferenceChange['before_reference']['title'] ?? ''), 'Core homepage evidence should preserve bounded local page identity.');
+$restore->restoreMutation((int) $coreReferenceMutation->id);
+$assert((int) $frontPageBefore === (int) get_option('page_on_front'), 'Core page-reference undo should restore an existing local page.');
+delete_option('page_on_front');
+wp_delete_post((int) $frontPageBefore, true);
+wp_delete_post((int) $frontPageAfter, true);
 
 $coalesceOption = 'fixture_request_coalescing';
 delete_option($coalesceOption);

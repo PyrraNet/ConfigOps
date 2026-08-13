@@ -40,7 +40,7 @@ $captures  = new \ConfigOps\Database\CaptureRepository($wpdb);
 $mutations = new \ConfigOps\Database\MutationRepository($wpdb);
 $signals   = new \ConfigOps\Database\DatabaseWriteSignalRepository($wpdb);
 $adapters  = new \ConfigOps\Adapter\AdapterRegistry(
-	array(new \ConfigOps\Adapter\WpMailSmtpAdapter(), new \ConfigOps\Adapter\YoastSeoAdapter()),
+	array(new \ConfigOps\Adapter\WordPressCoreAdapter(), new \ConfigOps\Adapter\WpMailSmtpAdapter(), new \ConfigOps\Adapter\YoastSeoAdapter()),
 	new \ConfigOps\Noise\NoiseClassifier(),
 	new \ConfigOps\Capture\HeuristicSensitiveValueDetector()
 );
@@ -86,6 +86,7 @@ $yoastBefore['enable_admin_bar_menu'] = true;
 $yoastBefore['indexing_started'] = false;
 update_option('wpseo', $yoastBefore, false);
 delete_option('wpseo_tracking_only');
+$postsPerPageBefore = (int) get_option('posts_per_page', 10);
 
 $yoastLogoBefore = wp_insert_attachment(
 	array('post_mime_type' => 'image/png', 'post_title' => 'Original Yoast social image', 'post_status' => 'inherit')
@@ -156,6 +157,7 @@ $sessionId = $captures->start('Supported plugin contract', 1, '/wp-admin/admin.p
 \WPSEO_Options::set('contact_page', (int) $yoastPageAfter, 'wpseo_llmstxt');
 \WPSEO_Options::set('social-image-id-post', (int) $yoastLogoAfter, 'wpseo_titles');
 add_option('wpseo_tracking_only', array('last_updated' => time()), '', false);
+update_option('posts_per_page', $postsPerPageBefore + 2, false);
 $captures->stop();
 
 $rows = $mutations->forSession($sessionId, 100);
@@ -205,6 +207,13 @@ $assert(
 );
 $assert(isset($byName['wpseo_tracking_only']) && 'derived' === (string) $byName['wpseo_tracking_only']->classification, 'Yoast tracking state should be separated from settings.');
 $assert(0 === (int) $byName['wpseo_tracking_only']->restorable, 'Technical Yoast state should not enter rollback.');
+$assert(isset($byName['posts_per_page']), 'A standard WordPress Reading setting should be captured by the Core adapter.');
+$assert(
+	'wordpress-core' === (string) $byName['posts_per_page']->adapter_id
+	&& 1 === (int) $byName['posts_per_page']->adapter_schema_version
+	&& 'portable' === (string) $byName['posts_per_page']->classification,
+	'The real WordPress runtime should pin and classify the Core settings contract.'
+);
 
 $presenter = new \ConfigOps\Admin\ReviewPresenter($adapters);
 $payloads  = new \ConfigOps\Admin\AdminPayloadFactory(
@@ -221,6 +230,7 @@ $mailPayload = current(array_filter($payloadRows, static fn (array $row): bool =
 $yoastPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'wpseo' === $row['optionName']));
 $yoastMediaPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'wpseo_social' === $row['optionName']));
 $yoastContentPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'wpseo_llmstxt' === $row['optionName']));
+$corePayload = current(array_filter($payloadRows, static fn (array $row): bool => 'posts_per_page' === $row['optionName']));
 $mailLabels = array_column($mailPayload['diff'], 'label');
 $yoastLabels = array_column($yoastPayload['diff'], 'label');
 $assert(in_array('Sender email', $mailLabels, true), 'The review payload should explain WP Mail SMTP fields without database vocabulary.');
@@ -228,6 +238,7 @@ $assert(in_array('Sending domain', $mailLabels, true), 'The review payload shoul
 $assert(in_array('Message stream', $mailLabels, true), 'The review payload should identify Postmark routing settings.');
 $assert(in_array('Stop all outgoing email', $mailLabels, true), 'The review payload should identify high-impact WP Mail SMTP delivery policy.');
 $assert(in_array('Admin bar menu', $yoastLabels, true), 'The review payload should use the label from Yoast SEO 28.2 instead of database vocabulary.');
+$assert('Posts per page' === ($corePayload['diff'][0]['label'] ?? ''), 'The review payload should explain standard WordPress Core settings.');
 $assert(
 	'available' === ($yoastMediaPayload['diff'][0]['after_reference']['current_status'] ?? ''),
 	'The Yoast review payload should expose the current availability of a referenced social image.'
@@ -239,6 +250,7 @@ $assert(
 
 $support = $payloads->support();
 $supportById = array_column($support['adapters'], null, 'id');
+$assert(true === $supportById['wordpress-core']['active'] && true === $supportById['wordpress-core']['compatible'], 'The support list should reflect the running, tested WordPress Core version.');
 $assert(true === $supportById['wp-mail-smtp']['active'] && true === $supportById['wp-mail-smtp']['compatible'], 'The support list should reflect the active, tested WP Mail SMTP installation.');
 $assert(true === $supportById['yoast-seo']['active'] && true === $supportById['yoast-seo']['compatible'], 'The support list should reflect the active, tested Yoast installation.');
 
@@ -339,5 +351,6 @@ wp_delete_attachment((int) $yoastLogoBefore, true);
 wp_delete_attachment((int) $yoastLogoAfter, true);
 wp_delete_post((int) $yoastPageBefore, true);
 wp_delete_post((int) $yoastPageAfter, true);
+update_option('posts_per_page', $postsPerPageBefore, false);
 
 fwrite(STDOUT, "ConfigOps real-plugin adapter checks passed ({$assertions} assertions).\n");

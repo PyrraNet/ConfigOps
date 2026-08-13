@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ConfigOps\Capture;
 
+use ConfigOps\Adapter\OptionValueNormalizer;
 use RuntimeException;
 
 final class ValueCodec
@@ -18,16 +19,23 @@ final class ValueCodec
 	private const MAX_STRING_BYTES = 262144;
 	private const MAX_PAYLOAD_BYTES = 1048576;
 	private SensitiveValueDetector $sensitiveValues;
+	private ?OptionValueNormalizer $valueNormalizer;
 
 	public function __construct(?SensitiveValueDetector $sensitiveValues = null)
 	{
 		$this->sensitiveValues = $sensitiveValues ?? new HeuristicSensitiveValueDetector();
+		$this->valueNormalizer = $this->sensitiveValues instanceof OptionValueNormalizer
+			? $this->sensitiveValues
+			: null;
 	}
 
 	public function encode(mixed $value, string $optionName = ''): EncodedValue
 	{
 		if ($this->isEntireOptionSensitive($optionName)) {
 			return $this->redacted();
+		}
+		if (null !== $this->valueNormalizer && is_scalar($value)) {
+			$value = $this->valueNormalizer->normalizeOptionValue($optionName, $value);
 		}
 
 		$state = array(

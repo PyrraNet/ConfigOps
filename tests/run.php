@@ -15,6 +15,7 @@ use ConfigOps\Capture\ValueCodec;
 use ConfigOps\Capture\SensitiveValueDetector;
 use ConfigOps\Diff\NestedDiff;
 use ConfigOps\Adapter\WpMailSmtpAdapter;
+use ConfigOps\Adapter\WordPressCoreAdapter;
 use ConfigOps\Adapter\YoastSeoAdapter;
 use ConfigOps\Adapter\AdapterRegistry;
 use ConfigOps\Adapter\AdapterAnalysis;
@@ -230,6 +231,20 @@ $oversizedTree = $codec->encode(range(1, 20001), 'fixture_large_tree');
 $assert(! $oversizedTree->restorable, 'Structurally excessive values must stop at a bounded node count.');
 $assert(str_contains($oversizedTree->payload, '20,000-node'), 'Node-limit failures should remain explicit in storage.');
 
+$coreAdapter = new WordPressCoreAdapter();
+$corePosts = $coreAdapter->analyze('posts_per_page', array(array('path' => '/')));
+$assert('portable' === $corePosts->classification, 'WordPress posts-per-page should be reusable configuration.');
+$assert('Posts per page' === $coreAdapter->field('posts_per_page', '/')?->label, 'WordPress Core fields should use plain-language labels.');
+$assert('environment' === $coreAdapter->field('blog_public', '/')?->kind, 'Search visibility should be checked per website.');
+$assert('content' === $coreAdapter->field('page_on_front', '/')?->referenceType, 'The WordPress homepage should retain bounded content identity.');
+$assert('media' === $coreAdapter->field('site_icon', '/')?->referenceType, 'The WordPress site icon should retain bounded media identity.');
+$assert('17' === $coreAdapter->normalizeOptionValue('posts_per_page', 17), 'Core numeric values should use their stable cross-request option representation.');
+$assert('' === $coreAdapter->normalizeOptionValue('users_can_register', false), 'Core false values should match their stable option-table representation.');
+$coreAddress = $coreAdapter->analyze('siteurl', array(array('path' => '/')));
+$assert('environment' === $coreAddress->classification && ! $coreAddress->allowsGenericRestore, 'WordPress addresses should remain review-only high-risk settings.');
+$assert('wordpress' === $coreAdapter->manifest()->componentType, 'The Core adapter should declare WordPress itself instead of pretending to be a plugin.');
+$assert(6 === count($coreAdapter->manifest()->capabilities), 'WordPress Core support should disclose every current product capability.');
+
 $mailAdapter = new WpMailSmtpAdapter();
 $mailSender = $mailAdapter->analyze('wp_mail_smtp', array(array('path' => '/mail/from_email')));
 $assert('environment' === $mailSender->classification, 'WP Mail SMTP sender addresses should be marked per-website.');
@@ -306,12 +321,13 @@ $commentMigrationFinished = $noise->classify('finished_updating_comment_type');
 $assert('derived' === $commentMigrationLock['classification'], 'A WordPress comment-type migration lock must not appear as a user setting.');
 $assert('derived' === $commentMigrationFinished['classification'], 'WordPress comment-type migration completion state must stay in the technical filter.');
 
-$registry = new AdapterRegistry(array($mailAdapter, $yoastAdapter), new NoiseClassifier(), new HeuristicSensitiveValueDetector());
+$registry = new AdapterRegistry(array($coreAdapter, $mailAdapter, $yoastAdapter), new NoiseClassifier(), new HeuristicSensitiveValueDetector());
 $coreMedia = $registry->analyze(
 	'site_icon',
 	array(array('op' => 'replace', 'path' => '/', 'before' => 0, 'after' => 99999999))
 );
 $assert('reference' === $coreMedia['classification'] && $coreMedia['allows_restore'], 'Core site icons should be recognized as conflict-checked local references.');
+$assert('wordpress-core' === $coreMedia['adapter_id'] && 1 === $coreMedia['adapter_schema_version'], 'Core settings should pin their adapter identity and schema.');
 $assert('Site icon' === ($coreMedia['changes'][0]['label'] ?? ''), 'Core site icons should have a useful review label without a plugin adapter.');
 $assert('media' === ($coreMedia['changes'][0]['reference_type'] ?? ''), 'Core site icons should select the media resolver.');
 $assert('unset' === ($coreMedia['changes'][0]['before_reference']['status'] ?? ''), 'An empty media reference should retain an explicit unset state.');

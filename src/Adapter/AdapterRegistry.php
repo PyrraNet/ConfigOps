@@ -16,7 +16,7 @@ use ConfigOps\Reference\ReferenceRegistry;
 use ConfigOps\Reference\WordPressReferenceFields;
 use Throwable;
 
-final class AdapterRegistry implements SensitiveValueDetector
+final class AdapterRegistry implements SensitiveValueDetector, OptionValueNormalizer
 {
 	private const MAX_ADAPTERS = 100;
 
@@ -238,6 +238,30 @@ final class AdapterRegistry implements SensitiveValueDetector
 		$fallback = $this->fallbackSecrets ?? new HeuristicSensitiveValueDetector();
 
 		return $fallback->isSensitive($optionName, $path);
+	}
+
+	public function normalizeOptionValue(string $optionName, mixed $value): mixed
+	{
+		$owners = $this->forOption($optionName);
+		if (1 !== count($owners) || ! $owners[0] instanceof OptionValueNormalizer) {
+			return $value;
+		}
+
+		$adapter = $owners[0];
+		$manifest = $this->manifests[$this->adapterId($adapter)] ?? null;
+		if (null === $manifest) {
+			return $value;
+		}
+		$version = $this->installedVersion($manifest);
+		if (null === $version || ! $this->versionMatches($version, $manifest->testedVersion)) {
+			return $value;
+		}
+
+		try {
+			return $adapter->normalizeOptionValue($optionName, $value);
+		} catch (Throwable) {
+			return $value;
+		}
 	}
 
 	/**
@@ -474,7 +498,7 @@ final class AdapterRegistry implements SensitiveValueDetector
 		$result = array();
 		foreach ($this->manifests as $adapterId => $manifest) {
 			$version    = $this->installedVersion($manifest);
-			$active     = $this->isActive($manifest->pluginFile);
+			$active     = $this->isActive($manifest);
 			$compatible = null !== $version && $this->versionMatches($version, $manifest->testedVersion);
 
 			$result[] = array(
@@ -486,6 +510,7 @@ final class AdapterRegistry implements SensitiveValueDetector
 				'testedVersion' => $manifest->testedVersion,
 				'compatible'    => $compatible,
 				'schemaVersion' => $manifest->schemaVersion,
+				'componentType' => $manifest->componentType,
 				'capabilities'  => $manifest->capabilities,
 				'coverage'      => $manifest->coverage,
 				'limitations'   => $manifest->limitations,
@@ -540,6 +565,7 @@ final class AdapterRegistry implements SensitiveValueDetector
 			&& strlen($manifest->pluginFile) <= 191
 			&& ! str_contains($manifest->pluginFile, '..')
 			&& ! str_starts_with($manifest->pluginFile, '/')
+			&& in_array($manifest->componentType, array('plugin', 'wordpress'), true)
 			&& '' !== trim($manifest->testedVersion)
 			&& strlen($manifest->testedVersion) <= 80
 			&& $manifest->schemaVersion > 0
@@ -596,6 +622,18 @@ final class AdapterRegistry implements SensitiveValueDetector
 			return '' === $this->versions[$manifest->id] ? null : $this->versions[$manifest->id];
 		}
 
+		if ('wordpress' === $manifest->componentType) {
+			global $wp_version;
+
+			$version = is_string($wp_version ?? null) ? trim($wp_version) : '';
+			if ('' === $version && function_exists('get_bloginfo')) {
+				$version = trim((string) get_bloginfo('version'));
+			}
+			$this->versions[$manifest->id] = $version;
+
+			return '' === $version ? null : $version;
+		}
+
 		if (! defined('WP_PLUGIN_DIR')) {
 			$this->versions[$manifest->id] = '';
 
@@ -622,15 +660,18 @@ final class AdapterRegistry implements SensitiveValueDetector
 		return '' === $version ? null : $version;
 	}
 
-	private function isActive(string $pluginFile): bool
+	private function isActive(AdapterManifest $manifest): bool
 	{
+		if ('wordpress' === $manifest->componentType) {
+			return null !== $this->installedVersion($manifest);
+		}
 		if (! function_exists('get_option')) {
 			return false;
 		}
 
 		$active = get_option('active_plugins', array());
 
-		return is_array($active) && in_array($pluginFile, $active, true);
+		return is_array($active) && in_array($manifest->pluginFile, $active, true);
 	}
 
 	private function versionMatches(string $version, string $constraint): bool

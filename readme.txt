@@ -26,14 +26,15 @@ Site icons, site logos, and supported Yoast logo and social-image settings show 
 
 All evidence remains in the website database. ConfigOps does not send capture data to pyrra or another external service. Suggested disclosure text is added to WordPress's privacy-policy guide.
 
-= Tested plugin contracts =
+= Tested component contracts =
 
 The first release includes pinned adapters for:
 
+* WordPress Core 7.0
 * WP Mail SMTP Free 4.9.0
 * Yoast SEO Free 28.2
 
-The Plugin support screen states exactly which capabilities are supported, limited, or not available. An untested plugin version keeps its capture evidence but disables automatic undo.
+The Plugin support screen states exactly which WordPress and plugin capabilities are supported, limited, or not available. An untested component version keeps its capture evidence but disables automatic undo.
 
 = Current scope =
 
@@ -79,7 +80,7 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 
 1. A real WP Mail SMTP capture separates the settings a person changed from technical writes and removes the SMTP password before storage.
 2. A Yoast SEO capture explains a nested XML sitemap change as a clear on-to-off decision.
-3. Plugin support is published as an explicit capability contract with tested versions and known limits.
+3. WordPress Core and plugin support are published as explicit capability contracts with tested versions and known limits.
 4. Incomplete evidence is shown prominently and disables whole-capture undo instead of presenting an unsafe action.
 
 == Changelog ==
@@ -90,6 +91,7 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 * Explicit local captures with request grouping and source attribution.
 * Same-request option-write chains collapse to their original and final state; complete same-owner reverts disappear from review.
 * Typed nested diffs, conservative noise classification, and secret redaction before persistence.
+* A WordPress Core 7.0 settings contract for General, Writing, Reading, Discussion, Media, and Permalink settings.
 * Conflict-checked field and session undo with value-free audit records and compensating recovery.
 * Exact deep-field contracts for every bundled WP Mail SMTP Free 4.9.0 mailer and the Yoast SEO Free 28.2 feature, crawl, schema, search, social, and LLMs.txt families.
 * Media and content identity review for WordPress site icons/logos and supported Yoast image/page fields, including missing-target undo protection.

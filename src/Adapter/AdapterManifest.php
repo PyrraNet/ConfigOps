@@ -25,7 +25,8 @@ final readonly class AdapterManifest
 		public array $capabilities,
 		public array $coverage,
 		public array $limitations,
-		public string $sourceUrl
+		public string $sourceUrl,
+		public string $componentType = 'plugin'
 	) {
 	}
 }

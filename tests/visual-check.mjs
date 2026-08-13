@@ -426,8 +426,8 @@ try {
 	await page.setViewportSize({ width: 1440, height: 1100 });
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops&view=support`, { waitUntil: 'networkidle' });
 	await page.getByRole('heading', { name: 'Plugin support', exact: true }).waitFor();
-	if (await page.locator('.configops-support-row').count() !== 2) {
-		throw new Error('The support contract should list exactly the two shipped real-plugin adapters.');
+	if (await page.locator('.configops-support-row').count() !== 3) {
+		throw new Error('The support contract should list WordPress Core and both shipped real-plugin adapters.');
 	}
 	const firstSupport = page.locator('.configops-support-row').first();
 	await firstSupport.locator('summary').click();
