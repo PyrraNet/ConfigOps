@@ -14,8 +14,13 @@ staging_root="$(mktemp -d)"
 trap 'rm -rf "$staging_root"' EXIT
 
 plugin_root="$staging_root/configops"
-archive_root="$repository_root/dist"
+archive_root="${CONFIGOPS_ARCHIVE_ROOT:-$repository_root/dist}"
 archive="$archive_root/configops-$version.zip"
+
+if [[ -z "$archive_root" || "$archive_root" == "/" || "$archive_root" == "$repository_root" ]]; then
+	echo "Refusing to use an unsafe archive directory." >&2
+	exit 1
+fi
 
 mkdir -p "$plugin_root" "$archive_root"
 

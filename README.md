@@ -8,9 +8,13 @@
 <p align="center"><strong>Know what WordPress changed. Undo only what ConfigOps can prove.</strong></p>
 
 <p align="center">
-  v0.1.0
+  v0.2.0
   &nbsp;·&nbsp; Local recorder
   &nbsp;·&nbsp; No account required
+</p>
+
+<p align="center">
+  <a href="https://pyrranet.github.io/ConfigOps/">Read the operations &amp; safety docs</a>
 </p>
 
 <br>
@@ -55,9 +59,9 @@ The exact field coverage and limitations are available inside **ConfigOps → Pl
 3. Activate ConfigOps and open **ConfigOps** in the admin menu.
 4. Name the capture, record one settings change, then stop and review it.
 
-Requires WordPress 7.0 or newer and PHP 8.3 or newer.
+Requires WordPress 7.0 or newer and PHP 8.2 or newer. PHP 8.2 is the oldest supported runtime; production sites should prefer a newer actively supported PHP branch.
 
-> **Technical preview:** v0.1 is a local, single-site configuration recorder—not a backup or a promise of transactional rollback. It does not deploy content, synchronize databases, manage fleets, or generically understand custom plugin tables.
+> **Technical preview:** v0.2 is a local, single-site configuration recorder—not a backup or a promise of transactional rollback. It does not deploy content, synchronize databases, manage fleets, or generically understand custom plugin tables.
 
 ## Safety model
 
@@ -90,6 +94,10 @@ are available immediately. Rebuild UI changes with `npm run build:ui`.
 Useful commands:
 
 ```bash
+npm run test:adversarial            # Hostile cookies, payloads, secrets, and value shapes
+npm run test:minimum                # Full PHP path on the oldest supported PHP 8.2 runtime
+npm run test:coverage               # Fails below 70% overall or 75% trust-boundary line coverage
+npm run test:docs                   # Build and browser-check every documentation route
 npm run wp:cli -- plugin list       # Run WP-CLI in the container
 npm run wp:debug-log                # Follow wp-content/debug.log
 npm run wp:logs                     # Follow Apache/PHP container output
@@ -119,6 +127,6 @@ npm run dev
 
 The recorder is PHP because it observes the WordPress hook lifecycle. The review interface is made of route-specific React islands, with React supplied by WordPress. ConfigOps-owned JavaScript is held below a 24 KiB gzip release budget and shipped in human-readable form.
 
-Architecture decisions: [capture and storage](docs/architecture.md) · [React islands](docs/frontend.md) · [adapter contracts](docs/adapters.md)
+Documentation: [operations & safety](https://pyrranet.github.io/ConfigOps/) · [capture and storage](docs/architecture.md) · [test and coverage evidence](docs/testing.md) · [React islands](docs/frontend.md) · [adapter contracts](docs/adapters.md)
 
 Created by **pyrra**. Licensed under [GPL-2.0-or-later](LICENSE).

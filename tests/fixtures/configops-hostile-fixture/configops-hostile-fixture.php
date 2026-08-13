@@ -3,7 +3,7 @@
  * Plugin Name: ConfigOps Hostile Fixture
  * Description: Deliberately awkward settings behavior for ConfigOps trust tests.
  * Version: 2.0.0
- * Requires PHP: 8.3
+ * Requires PHP: 8.2
  *
  * @package ConfigOpsHostileFixture
  */

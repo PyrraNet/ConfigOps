@@ -9,6 +9,35 @@ permissions:
   contents: read
 
 jobs:
+  documentation:
+    name: Documentation build and link integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked documentation tooling
+        run: npm ci
+
+      - name: Reject high-impact tooling vulnerabilities
+        run: npm audit --audit-level=high
+
+      - name: Install the documentation browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Build and exercise every documentation route
+        env:
+          DOCS_BASE: /ConfigOps/
+        run: npm run test:docs
+
   release-compliance:
     name: WordPress.org release compliance
     runs-on: ubuntu-latest
@@ -28,8 +57,14 @@ jobs:
         run: |
           npm ci
           npm run build:plugin
-          mkdir -p .release-check
           version="$(node -p "require('./package.json').version")"
+          archive="dist/configops-$version.zip"
+          first_checksum="$(sha256sum "$archive" | cut -d ' ' -f 1)"
+          rm -f "$archive"
+          npm run build:plugin
+          second_checksum="$(sha256sum "$archive" | cut -d ' ' -f 1)"
+          test "$first_checksum" = "$second_checksum"
+          mkdir -p .release-check
           unzip -q "dist/configops-$version.zip" -d .release-check
 
       - name: Run official WordPress Plugin Check
@@ -57,6 +92,60 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  coverage:
+    name: Coverage (70% production / 75% trust boundaries)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Enforce coverage against isolated WordPress and MariaDB
+        run: npm run test:coverage
+
+      - name: Keep machine-readable coverage evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: configops-coverage
+          path: coverage/
+          if-no-files-found: warn
+          retention-days: 30
+
+  static-analysis:
+    name: PHP 8.2–8.5 compatibility and dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: "8.5"
+          coverage: none
+
+      - name: Install locked static-analysis tooling
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Reject known dependency vulnerabilities
+        run: composer audit --locked
+
+      - name: Reject an end-of-life minimum PHP runtime
+        run: npm run check:runtime-policy
+
+      - name: Scan every PHP source for runtime incompatibilities
+        run: composer lint:compatibility
+
   wordpress:
     name: WordPress ${{ matrix.wordpress }} / PHP ${{ matrix.php }}
     runs-on: ubuntu-latest
@@ -65,6 +154,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - php: "8.2"
+            wordpress: "7.0"
           - php: "8.3"
             wordpress: "7.0"
           - php: "8.4"
@@ -83,7 +174,7 @@ jobs:
           cache: npm
 
       - name: Install test tooling
-        run: npm ci
+        run: npm ci && npm audit --audit-level=high
 
       - name: Build performance-budgeted React islands
         run: npm run build:ui && npm run check:ui-budget
@@ -104,6 +195,14 @@ jobs:
           --mount=.:/wordpress/wp-content/plugins/configops
           -- /wordpress/wp-content/plugins/configops/tests/run.php
 
+      - name: Run hostile-input checks
+        run: >-
+          node_modules/.bin/wp-playground-cli php
+          --php=${{ matrix.php }}
+          --wp=${{ matrix.wordpress }}
+          --mount=.:/wordpress/wp-content/plugins/configops
+          -- /wordpress/wp-content/plugins/configops/tests/adversarial.php
+
       - name: Run WordPress integration checks
         run: >-
           node_modules/.bin/wp-playground-cli php
@@ -114,9 +213,13 @@ jobs:
           -- /wordpress/wp-content/plugins/configops/tests/integration.php
 
   adapters:
-    name: Real plugin contracts and user flows
+    name: Real plugin contracts and user flows / PHP ${{ matrix.php }}
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.2", "8.5"]
 
     steps:
       - name: Check out repository
@@ -132,7 +235,13 @@ jobs:
         run: npm ci
 
       - name: Test exact WP Mail SMTP and Yoast releases
-        run: npm run test:adapters
+        run: >-
+          node_modules/.bin/wp-playground-cli php
+          --php=${{ matrix.php }}
+          --wp=latest
+          --blueprint=tests/adapters.blueprint.json
+          --mount=.:/wordpress/wp-content/plugins/configops
+          -- /wordpress/wp-content/plugins/configops/tests/adapters-integration.php
 
       - name: Build React islands for browser flow
         run: npm run build:ui && npm run check:ui-budget
@@ -142,7 +251,7 @@ jobs:
           CONFIGOPS_CHROME_PATH: /usr/bin/google-chrome
         run: |
           npx wp-playground-cli server \
-            --php=8.3 \
+            --php=${{ matrix.php }} \
             --wp=latest \
             --port=9401 \
             --workers=6 \
@@ -166,13 +275,13 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: adapter-user-flow-evidence
+          name: adapter-user-flow-php-${{ matrix.php }}-evidence
           path: |
             artifacts/adapter-user-flows/
             /tmp/configops-adapter-ui.log
 
   native-database:
-    name: Native ${{ matrix.name }} / PHP 8.3
+    name: Native ${{ matrix.name }} / PHP ${{ matrix.php }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
@@ -181,8 +290,10 @@ jobs:
         include:
           - name: MySQL 8.4
             image: mysql:8.4.10
+            php: "8.2"
           - name: MariaDB 11.4
             image: mariadb:11.4.12
+            php: "8.5"
 
     services:
       database:
@@ -206,7 +317,7 @@ jobs:
       - name: Set up PHP with the native MySQL driver
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
-          php-version: "8.3"
+          php-version: ${{ matrix.php }}
           extensions: mysqli, mbstring, intl
           coverage: none
 

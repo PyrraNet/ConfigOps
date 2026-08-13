@@ -44,8 +44,15 @@ const undoVisibleSetting = async (name) => {
 
 try {
 	const loginUrl = `${baseUrl}/wp-login.php`;
-	await Promise.all(
-		Array.from({ length: 12 }, (_, index) => page.request.get(`${loginUrl}?configops_warm=${index}`))
+	const anonymousBurst = await Promise.all(
+		Array.from({ length: 48 }, (_, index) => page.request.get(`${baseUrl}/?configops_burst=${index}`))
+	);
+	assert.equal(anonymousBurst.every((response) => response.ok()), true, 'A concurrent anonymous frontend burst must complete without HTTP errors.');
+	const anonymousHtml = await anonymousBurst[0].text();
+	assert.equal(
+		/configops-(?:admin|intent-observer|runtime)|wp-content\/plugins\/configops\/assets/i.test(anonymousHtml),
+		false,
+		'Anonymous frontend HTML must not expose ConfigOps CSS, JavaScript, or bootstrap state.'
 	);
 	await page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
 	const loginResponse = await page.request.post(loginUrl, {
@@ -102,7 +109,7 @@ try {
 	assert.equal(await mailReview.getByRole('button', { name: 'Undo 7 safe settings' }).count(), 1, 'Visible non-secret SMTP fields should remain individually reversible.');
 	assert.equal(await mailReview.locator('.configops-option > span').getByText('WP Mail SMTP', { exact: true }).count(), 1, 'A user should see the responsible plugin before its technical source path.');
 	assert.equal(await page.locator('#wp-admin-bar-configops-recording').count(), 0, 'Stopping from the React control should remove the recording badge immediately.');
-	assert.equal(await mailReview.locator('.configops-request-index').first().innerText(), 'Save action 01', 'Filtered request groups should begin at one.');
+	assert.equal(await mailReview.locator('.configops-request-index').first().innerText(), 'SAVE ACTION 01', 'Filtered request groups should begin at one.');
 	await page.screenshot({ path: new URL('wp-mail-smtp-review.png', artifacts).pathname, fullPage: true });
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.screenshot({ path: new URL('wp-mail-smtp-review-mobile.png', artifacts).pathname, fullPage: true });
@@ -146,7 +153,7 @@ try {
 	assert.equal(await yoastReview.locator('.configops-option > span').getByText('Yoast SEO', { exact: true }).count(), 1, 'Yoast provenance should lead with a recognizable product name.');
 	assert.equal(await page.getByRole('button', { name: 'Why can’t I undo the whole capture?' }).count(), 1, 'Undo limits should say they affect the whole capture, not the visible per-setting action.');
 	assert.equal(await page.locator('#wp-admin-bar-configops-recording').count(), 0, 'The recording badge should not survive a completed Yoast capture.');
-	assert.equal(await yoastReview.locator('.configops-request-index').first().innerText(), 'Save action 01', 'Technical requests hidden by the Review filter must not create a confusing numbering gap.');
+	assert.equal(await yoastReview.locator('.configops-request-index').first().innerText(), 'SAVE ACTION 01', 'Technical requests hidden by the Review filter must not create a confusing numbering gap.');
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.screenshot({ path: new URL('yoast-review-mobile.png', artifacts).pathname, fullPage: true });
 	await page.setViewportSize({ width: 1440, height: 1100 });

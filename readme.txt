@@ -3,8 +3,8 @@ Contributors: pyrra
 Tags: settings, history, rollback, configuration, developer
 Requires at least: 7.0
 Tested up to: 7.0
-Requires PHP: 8.3
-Stable tag: 0.1.0
+Requires PHP: 8.2
+Stable tag: 0.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -84,6 +84,14 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 4. Incomplete evidence is shown prominently and disables whole-capture undo instead of presenting an unsafe action.
 
 == Changelog ==
+
+= 0.2.0 =
+
+* Supports PHP 8.2 through 8.5 with full minimum-runtime and endpoint browser contracts.
+* Enforces 70% production and 75% trust-boundary PHP line coverage in CI.
+* Adds hostile-input, warning/deprecation, dependency-advisory, and runtime-lifecycle gates.
+* Builds a byte-reproducible release archive before WordPress Plugin Check.
+* Publishes a complete operator, safety, support, and development documentation site through GitHub Pages.
 
 = 0.1.0 =
 

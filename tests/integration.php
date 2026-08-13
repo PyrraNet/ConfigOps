@@ -7,10 +7,8 @@
 
 declare(strict_types=1);
 
-if (! defined('WP_DEBUG')) {
-	define('WP_DEBUG', true);
-	define('WP_DEBUG_DISPLAY', true);
-}
+require_once __DIR__ . '/production-error-trap.php';
+
 register_shutdown_function(
 	static function (): void {
 		$error = error_get_last();
@@ -1338,12 +1336,80 @@ $assert(
 	&& 'rest_forbidden' === ($viewerRestoreResponse->get_data()['code'] ?? ''),
 	'Read-only operators must not execute undo through the Agent API.'
 );
+$userReferences = new \ConfigOps\Reference\UserReferenceResolver();
+$viewerSnapshot = $userReferences->snapshot((int) $viewerId);
+$assert(
+	is_array($viewerSnapshot)
+	&& 'available' === ($viewerSnapshot['status'] ?? '')
+	&& ! isset($viewerSnapshot['email'], $viewerSnapshot['user_login']),
+	'User references must retain only bounded display identity and never persist login or email data.'
+);
+$assert($userReferences->isAvailable($viewerSnapshot), 'An existing referenced user should remain restorable.');
+$assert(null === $userReferences->snapshot(array('id' => $viewerId)), 'Non-scalar user identifiers must fail closed.');
 require_once ABSPATH . 'wp-admin/includes/user.php';
 wp_delete_user((int) $viewerId);
+$missingViewer = $userReferences->present($viewerSnapshot);
+$assert(
+	'missing' === ($missingViewer['current_status'] ?? '') && ! $userReferences->isAvailable($viewerSnapshot),
+	'A deleted referenced user must become visibly unavailable before restore.'
+);
 
 wp_set_current_user(0);
 $forbiddenResponse = $restServer->dispatch(new WP_REST_Request('GET', '/configops/v1/state'));
 $assert($forbiddenResponse->get_status() >= 400, 'The local Agent API must fail closed without a ConfigOps capability.');
+
+wp_dequeue_style('configops-admin');
+wp_dequeue_script('configops-intent-observer');
+wp_dequeue_script('configops-runtime');
+$adminController = new \ConfigOps\Admin\AdminController(
+	$freshCaptures,
+	$restore,
+	new \ConfigOps\Admin\FlashNoticeStore(),
+	$payloadFactory
+);
+$adminController->enqueueToolbarAssets();
+$adminController->enqueueAdminAssets('dashboard_page_unrelated');
+$assert(
+	! wp_style_is('configops-admin', 'enqueued')
+	&& ! wp_script_is('configops-intent-observer', 'enqueued')
+	&& ! wp_script_is('configops-runtime', 'enqueued'),
+	'Anonymous frontend and unrelated inactive admin requests must enqueue no ConfigOps CSS or JavaScript.'
+);
+$assert(
+	'<script src="fixture.js"></script>' === $adminController->moduleScriptTag('<script src="fixture.js"></script>', 'third-party', 'fixture.js'),
+	'The module-tag filter must leave every third-party script byte-for-byte unchanged.'
+);
+$assert(
+	str_contains($adminController->moduleScriptTag('<script src="runtime.js"></script>', 'configops-runtime', 'runtime.js'), 'type="module"')
+	&& ! str_contains($adminController->moduleScriptTag('<script type="text/javascript" src="runtime.js"></script>', 'configops-runtime', 'runtime.js'), 'text/javascript'),
+	'Only the ConfigOps runtime should receive one normalized module type.'
+);
+
+wp_set_current_user(1);
+$adminCapture = $freshCaptures->start('Admin asset boundary', 1, '/wp-admin/profile.php');
+$adminController->enqueueAdminAssets('profile.php');
+$assert(
+	wp_style_is('configops-admin', 'enqueued') && wp_script_is('configops-intent-observer', 'enqueued'),
+	'An authorized active capture should load its bounded admin observer outside the ConfigOps screen.'
+);
+$freshCaptures->stop();
+$adminController->enqueueAdminAssets('toplevel_page_configops');
+$assert(wp_script_is('configops-runtime', 'enqueued'), 'The ConfigOps screen should load its review runtime explicitly.');
+$assert($adminCapture > 0, 'The admin asset boundary must execute against a persisted capture.');
+
+$flashNotices = new \ConfigOps\Admin\FlashNoticeStore();
+$flashNotices->put('<script>Error</script>', '<b>Database detail</b>');
+$flashPayload = $flashNotices->pull();
+$assert(
+	! str_contains($flashPayload['code'], '<')
+	&& ! str_contains($flashPayload['message'], '<')
+	&& str_contains($flashPayload['message'], 'Database detail'),
+	'Flash notices must be sanitized before crossing a request boundary.'
+);
+$assert(
+	array('code' => '', 'message' => '') === $flashNotices->pull(),
+	'Flash notices must be one-shot and disappear immediately after retrieval.'
+);
 
 set_transient('configops_flash_uninstall_fixture', array('code' => 'fixture'), MINUTE_IN_SECONDS);
 add_option('configops_operation_lock_uninstall_fixture', array('token' => 'fixture', 'expires_at' => time() + 60), '', false);

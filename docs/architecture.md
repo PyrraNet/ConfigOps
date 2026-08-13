@@ -1,11 +1,11 @@
 # Architecture decision: Recorder first
 
-Status: accepted for Iteration 0
-Date: 2026-08-12
+Status: accepted for Iteration 0; runtime contract amended for 0.2.0
+Date: 2026-08-13
 
 ## Decision
 
-ConfigOps starts as a native WordPress plugin whose core is PHP 8.3. The first product boundary is one local WordPress site, one explicit capture session, Options API mutations, semantic nested diffs, provenance, and compensating restore.
+ConfigOps starts as a native WordPress plugin whose supported floor is PHP 8.2. The first product boundary is one local WordPress site, one explicit capture session, Options API mutations, semantic nested diffs, provenance, and compensating restore.
 
 JavaScript is the interaction layer and may later observe labels, field names, tabs, and client-side requests, but only the PHP observer can assert that WordPress actually persisted a mutation. The wp-admin interface uses code-split React islands over a capability-gated REST boundary. There is no Node service, monolithic SPA, cloud account, or remote control plane in the recorder.
 
@@ -13,11 +13,11 @@ JavaScript is the interaction layer and may later observe labels, field names, t
 
 `update_option()` and its hooks execute inside PHP. Capturing old and new typed values, the current actor, request metadata, and the responsible call path is both more precise and cheaper in that same process. Reconstructing this from browser requests or database polling would lose internal writes, invent correlations, and complicate deployment.
 
-PHP 8.3 is a deliberate product constraint, not an accidental use of new syntax. WordPress 7.0 recommends PHP 8.3, and the intended early users are technical agencies that should not run configuration-control software on an end-of-life runtime. We can revisit the floor only with real design-partner hosting data.
+PHP 8.2 is the oldest branch in the 0.2.0 runtime contract. The full parser, unit, hostile-input, and integration path is exercised from PHP 8.2 through 8.5, and an automated lifecycle gate forces the minimum to be reviewed when its upstream security support ends. This keeps the compatibility claim explicit instead of letting an end-of-life runtime remain supported by inertia.
 
 ## Boundaries
 
-| Concern | Iteration 0 authority | Later extension |
+| Concern | Recorder authority | Later extension |
 | --- | --- | --- |
 | Persisted mutation | WordPress Options API hooks; value-free signal for unmanaged writes | Adapter-owned custom tables and APIs |
 | Human intent | Explicit session name, request context, and value-free admin-field correlation | Deeper fetch/REST correlation and reviewed adapter suggestions |
@@ -90,6 +90,8 @@ The visual direction remains server-shell plus forensic instruments: a compact p
 
 The deliberately hostile fixture plugin now exercises simple and nested options, typed WordPress IDs, secret redaction, transients, synchronous side effects, a versioned schema migration, AJAX metadata, direct SQL writes, and a neighboring plugin slug that shares the `configops` prefix. Integration contracts capture real attachment and content identities, render current availability, restore existing references, and refuse deleted targets before writing. Separate browser contracts install exact public releases of WP Mail SMTP and Yoast, operate their real settings screens, review the resulting capture at desktop and mobile widths, undo safe fields, and verify the result back in each plugin. The exact-release contract additionally covers provider routing, less-obvious credential paths, dynamic social images, and LLMs.txt page references.
 
+Every tracked PHP file under `src/` is also part of a reproducible Xdebug line-coverage run against an isolated WordPress and MariaDB installation. Unit, hostile-input, integration, and exact-adapter fragments are merged into LCOV, Clover, and JSON evidence. Unvisited and dead-code lines remain in the denominator. CI fails below 70% globally or 75% across the trust-boundary namespaces rather than allowing presentation coverage or never-loaded production files to hide risk. The complete method and its limits are recorded in [testing.md](testing.md).
+
 ## Next boundary
 
-Iteration 0 now runs exact-release contract checks against WP Mail SMTP Free 4.9.0 and Yoast SEO Free 28.2. The next boundary is repeated design-partner evidence across real settings screens, followed by reviewed mutations becoming Release Changes—not fleet UI.
+Version 0.2.0 runs exact-release contract and browser checks against WP Mail SMTP Free 4.9.0 and Yoast SEO Free 28.2 at both ends of the supported PHP range. The next product boundary should be based on repeated design-partner evidence across real settings screens—not a speculative fleet interface.

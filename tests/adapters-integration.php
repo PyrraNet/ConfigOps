@@ -7,6 +7,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/production-error-trap.php';
+
 $wordpressRoot = rtrim((string) (getenv('CONFIGOPS_WP_ROOT') ?: '/wordpress'), '/');
 require_once $wordpressRoot . '/wp-load.php';
 require_once ABSPATH . 'wp-admin/includes/plugin.php';

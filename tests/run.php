@@ -9,6 +9,7 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/production-error-trap.php';
 require_once dirname(__DIR__) . '/src/Autoload.php';
 
 use ConfigOps\Capture\ValueCodec;

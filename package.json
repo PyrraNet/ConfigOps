@@ -1,6 +1,6 @@
 {
   "name": "configops",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Desired state management for WordPress configuration.",
   "scripts": {
@@ -8,9 +8,14 @@
     "build:wp-assets": "node build/build-wordpress-assets.mjs",
     "build:plugin": "npm run build:ui && npm run check:release && bash build/package-plugin.sh",
     "check:release": "node build/check-release.mjs",
+    "check:runtime-policy": "node tests/runtime-policy.mjs",
     "check:ui-budget": "node build/check-ui-budget.mjs",
     "predev": "npm run build:ui",
     "dev": "wp-playground-cli start --php=8.3 --wp=latest --auto-mount --login",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
+    "test:docs": "npm run docs:build && node tests/docs-smoke.mjs",
     "wp:start": "bash .dev/start.sh",
     "wp:stop": "docker compose stop",
     "wp:down": "docker compose down",
@@ -20,18 +25,30 @@
     "wp:debug-log": "docker compose exec --user www-data wordpress sh -lc 'touch /var/www/html/wp-content/debug.log && tail -f /var/www/html/wp-content/debug.log'",
     "lint:php": "wp-playground-cli php --php=8.3 --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/lint.php",
     "test:unit": "wp-playground-cli php --php=8.3 --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/run.php",
+    "test:adversarial": "wp-playground-cli php --php=8.3 --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/adversarial.php",
     "test:integration": "wp-playground-cli php --php=8.3 --mount=.:/wordpress/wp-content/plugins/configops --mount=tests/fixtures/configops-hostile-fixture:/wordpress/wp-content/plugins/configops-hostile-fixture -- /wordpress/wp-content/plugins/configops/tests/integration.php",
+    "test:minimum": "wp-playground-cli php --php=8.2 --wp=7.0 --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/lint.php && wp-playground-cli php --php=8.2 --wp=7.0 --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/run.php && wp-playground-cli php --php=8.2 --wp=7.0 --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/adversarial.php && wp-playground-cli php --php=8.2 --wp=7.0 --mount=.:/wordpress/wp-content/plugins/configops --mount=tests/fixtures/configops-hostile-fixture:/wordpress/wp-content/plugins/configops-hostile-fixture -- /wordpress/wp-content/plugins/configops/tests/integration.php",
     "test:adapters": "wp-playground-cli php --php=8.3 --wp=latest --blueprint=tests/adapters.blueprint.json --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/adapters-integration.php",
+    "test:coverage": "bash tests/coverage/run-docker.sh",
+    "test:coverage:report": "node tests/coverage/report.mjs --minimum=70 --critical-minimum=75",
     "test:adapter-ui": "node tests/adapters-user-flow.mjs",
     "test:visual": "node tests/visual-check.mjs",
-    "test": "npm run build:plugin && npm run check:ui-budget && npm run lint:php && npm run test:unit && npm run test:integration && npm run test:adapters"
+    "test": "npm run build:plugin && npm run check:ui-budget && npm run check:runtime-policy && npm run lint:php && npm run test:unit && npm run test:adversarial && npm run test:integration && npm run test:adapters"
   },
   "devDependencies": {
     "@wp-playground/cli": "3.1.49",
     "esbuild": "0.28.2",
-    "playwright-core": "1.62.1"
+    "playwright": "1.62.1",
+    "playwright-core": "1.62.1",
+    "vitepress": "1.6.4",
+    "vue": "3.5.41"
   },
   "engines": {
     "node": ">=22"
+  },
+  "overrides": {
+    "vitepress": {
+      "vite": "6.4.3"
+    }
   }
 }

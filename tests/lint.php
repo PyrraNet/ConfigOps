@@ -10,10 +10,25 @@ declare(strict_types=1);
 $root   = dirname(__DIR__);
 $errors = array();
 $count  = 0;
-
-$iterator = new RecursiveIteratorIterator(
-	new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)
+$excludedDirectories = array(
+	'.design-review',
+	'.git',
+	'.release-check',
+	'artifacts',
+	'coverage',
+	'dist',
+	'node_modules',
+	'vendor',
 );
+
+$directory = new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS);
+$filter = new RecursiveCallbackFilterIterator(
+	$directory,
+	static function (SplFileInfo $entry) use ($excludedDirectories): bool {
+		return ! $entry->isDir() || ! in_array($entry->getFilename(), $excludedDirectories, true);
+	}
+);
+$iterator = new RecursiveIteratorIterator($filter);
 
 foreach ($iterator as $file) {
 	if (! $file instanceof SplFileInfo || 'php' !== strtolower($file->getExtension())) {

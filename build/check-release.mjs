@@ -19,10 +19,14 @@ const githubReadme = read('README.md');
 const readme = read('readme.txt');
 const changelog = read('CHANGELOG.md');
 const security = read('SECURITY.md');
+const docsHome = read('docs/.vitepress/theme/components/DocsHome.vue');
+const docsRelease = read(`docs/releases/${packageJson.version}.md`);
 
 const headerVersion = match(plugin, /^ \* Version:\s+([^\s]+)$/m, 'plugin header version');
 const constantVersion = match(plugin, /^define\('CONFIGOPS_VERSION', '([^']+)'\);$/m, 'CONFIGOPS_VERSION');
 const stableTag = match(readme, /^Stable tag:\s+([^\s]+)$/m, 'WordPress stable tag');
+const headerPhp = match(plugin, /^ \* Requires PHP:\s+([^\s]+)$/m, 'plugin PHP requirement');
+const readmePhp = match(readme, /^Requires PHP:\s+([^\s]+)$/m, 'readme PHP requirement');
 const versions = new Set([
 	headerVersion,
 	constantVersion,
@@ -35,11 +39,17 @@ const versions = new Set([
 if (versions.size !== 1 || versions.has(undefined)) {
 	fail(`version sources disagree: ${[...versions].join(', ')}`);
 }
+if (headerPhp !== readmePhp || composer.require?.php !== `>=${headerPhp}` || headerPhp !== '8.2') {
+	fail(`PHP requirements disagree: header ${headerPhp}, readme ${readmePhp}, Composer ${composer.require?.php}`);
+}
 if (!changelog.includes(`## ${headerVersion} `)) {
 	fail(`CHANGELOG.md has no ${headerVersion} release`);
 }
 if (!readme.includes(`= ${headerVersion} =`)) {
 	fail(`readme.txt has no ${headerVersion} changelog entry`);
+}
+if (!docsHome.includes(`Documentation · ${headerVersion}`) || !docsRelease.includes(`# ConfigOps ${headerVersion}`)) {
+	fail(`documentation does not identify the ${headerVersion} release`);
 }
 if (/github\.com\/PyrraNet(?:\/ConfigOps)?/i.test(`${plugin}\n${githubReadme}\n${readme}`)) {
 	fail('public plugin metadata must not link to the private GitHub repository or organization page');

@@ -1,0 +1,42 @@
+services:
+  database:
+    image: mariadb:11.4
+    environment:
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: configops
+      MARIADB_PASSWORD: configops
+      MARIADB_ROOT_PASSWORD: configops-root
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+
+  wordpress:
+    build:
+      context: ../..
+      dockerfile: .dev/Dockerfile
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: database:3306
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_USER: configops
+      WORDPRESS_DB_PASSWORD: configops
+      WORDPRESS_DEBUG: "1"
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_ENVIRONMENT_TYPE', 'development');
+        define('WP_DEBUG_DISPLAY', false);
+        define('WP_DISABLE_FATAL_ERROR_HANDLER', true);
+        define('FS_METHOD', 'direct');
+      XDEBUG_MODE: coverage
+    volumes:
+      - wordpress_data:/var/www/html
+      - ../..:/var/www/html/wp-content/plugins/configops
+      - ../fixtures/configops-hostile-fixture:/var/www/html/wp-content/plugins/configops-hostile-fixture
+
+volumes:
+  wordpress_data:
