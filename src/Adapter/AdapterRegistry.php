@@ -321,37 +321,11 @@ final class AdapterRegistry implements SensitiveValueDetector
 	{
 		$described = array();
 		foreach ($changes as $change) {
-			if (
-				is_string($change['label'] ?? null)
-				&& is_string($change['group'] ?? null)
-				&& is_string($change['kind'] ?? null)
-				&& is_string($change['explanation'] ?? null)
-			) {
-				$path = is_string($change['path'] ?? null) ? $change['path'] : '/';
-				$field = $adapter instanceof ChangeAwareAdapter
-					? $adapter->fieldForChange($optionName, $path, $change, $changes)
-					: $adapter->field($optionName, $path);
-				if (! isset($change['reference_type']) && null !== $field?->referenceType) {
-					$change['reference_type'] = $field->referenceType;
-				}
-				$described[] = $change;
-				continue;
-			}
-
 			$path = is_string($change['path'] ?? null) ? $change['path'] : '/';
 			$field = $adapter instanceof ChangeAwareAdapter
 				? $adapter->fieldForChange($optionName, $path, $change, $changes)
 				: $adapter->field($optionName, $path);
-			if (null !== $field) {
-				$change['label']       = $field->label;
-				$change['group']       = $field->group;
-				$change['kind']        = $field->kind;
-				$change['explanation'] = $field->explanation;
-				if (null !== $field->referenceType) {
-					$change['reference_type'] = $field->referenceType;
-				}
-			}
-			$described[] = $change;
+			$described[] = null === $field ? $change : $field->applyTo($change);
 		}
 
 		return $described;
@@ -366,14 +340,9 @@ final class AdapterRegistry implements SensitiveValueDetector
 		foreach ($changes as &$change) {
 			$path = is_string($change['path'] ?? null) ? $change['path'] : '/';
 			$field = $this->wordpressReferences->field($optionName, $path);
-			if (null === $field) {
-				continue;
+			if (null !== $field) {
+				$change = $field->applyTo($change);
 			}
-			$change['label']       = $field->label;
-			$change['group']       = $field->group;
-			$change['kind']        = $field->kind;
-			$change['explanation'] = $field->explanation;
-			$change['reference_type'] = $field->referenceType;
 		}
 		unset($change);
 
@@ -494,12 +463,6 @@ final class AdapterRegistry implements SensitiveValueDetector
 
 	public function manifest(string $adapterId): ?AdapterManifest
 	{
-		$adapter = $this->adapters[$adapterId] ?? null;
-
-		if (null === $adapter) {
-			return null;
-		}
-
 		return $this->manifests[$adapterId] ?? null;
 	}
 

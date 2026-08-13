@@ -76,7 +76,9 @@ final class Plugin
 		$codec     = new ValueCodec($adapters);
 		$source    = new SourceAttributor(CONFIGOPS_PATH);
 		$request   = new RequestContext();
-		(new HistoryRetention($wpdb, new OperationLock($wpdb)))->register();
+		$operationLock = new OperationLock($wpdb);
+		$restoreAudits = new RestoreAuditRepository($wpdb);
+		(new HistoryRetention($wpdb, $operationLock))->register();
 		(new PrivacyPolicy())->register();
 
 		(new SqlWriteSentry($wpdb, $captures, $signals, $source, $request, $adapters))->register();
@@ -99,9 +101,9 @@ final class Plugin
 			$mutations,
 			$codec,
 			$metadata,
-			new OperationLock($wpdb),
+			$operationLock,
 			$adapters,
-			new RestoreAuditRepository($wpdb)
+			$restoreAudits
 		);
 		$presenter = new ReviewPresenter($adapters);
 		$payloads  = new AdminPayloadFactory(
@@ -110,7 +112,7 @@ final class Plugin
 			$signals,
 			$presenter,
 			$adapters,
-			new RestoreAuditRepository($wpdb)
+			$restoreAudits
 		);
 
 		(new RestController($captures, $mutations, $restore, $payloads))->register();

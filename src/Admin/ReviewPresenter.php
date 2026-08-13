@@ -125,29 +125,11 @@ final class ReviewPresenter
 		foreach ($diff as &$change) {
 			$path  = is_string($change['path'] ?? null) ? $change['path'] : '/';
 			$field = $this->adapters->field($adapterId, $schemaVersion, $optionName, $path);
-			if (
-				is_string($change['label'] ?? null)
-				&& is_string($change['group'] ?? null)
-				&& is_string($change['kind'] ?? null)
-				&& is_string($change['explanation'] ?? null)
-			) {
-				if (! isset($change['reference_type']) && null !== $field?->referenceType) {
-					$change['reference_type'] = $field->referenceType;
-				}
-				continue;
-			}
 			if (null === $field && '/' === $path) {
 				$field = $this->genericRootField($optionName);
 			}
-			if (null === $field) {
-				continue;
-			}
-			$change['label']       = $field->label;
-			$change['group']       = $field->group;
-			$change['kind']        = $field->kind;
-			$change['explanation'] = $field->explanation;
-			if (null !== $field->referenceType) {
-				$change['reference_type'] = $field->referenceType;
+			if (null !== $field) {
+				$change = $field->applyTo($change);
 			}
 		}
 		unset($change);
@@ -163,7 +145,6 @@ final class ReviewPresenter
 			'blog_public'        => __('Search engine visibility', 'configops'),
 			'default_role'       => __('New user default role', 'configops'),
 			'permalink_structure' => __('Permalink structure', 'configops'),
-			'site_icon'          => __('Site icon', 'configops'),
 			'start_of_week'      => __('Week starts on', 'configops'),
 			'timezone_string'    => __('Time zone', 'configops'),
 			'users_can_register' => __('Anyone can register', 'configops'),

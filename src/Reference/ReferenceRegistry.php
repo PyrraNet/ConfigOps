@@ -14,6 +14,10 @@ use Throwable;
 
 final class ReferenceRegistry
 {
+	private const VALUE_SIDES = array('before', 'after');
+	private const REFERENCE_KEYS = array('before_reference', 'after_reference');
+	private const RESTORED_VALUE_OPERATIONS = array('remove', 'replace');
+
 	/** @var array<string, ReferenceResolver> */
 	private array $resolvers = array();
 
@@ -45,13 +49,12 @@ final class ReferenceRegistry
 	public function capture(array $changes): array
 	{
 		foreach ($changes as &$change) {
-			$type = is_string($change['reference_type'] ?? null) ? $change['reference_type'] : '';
-			$resolver = $this->resolvers[$type] ?? null;
+			$resolver = $this->resolver($change['reference_type'] ?? null);
 			if (null === $resolver) {
 				continue;
 			}
 
-			foreach (array('before', 'after') as $side) {
+			foreach (self::VALUE_SIDES as $side) {
 				if (! array_key_exists($side, $change)) {
 					continue;
 				}
@@ -77,20 +80,19 @@ final class ReferenceRegistry
 	public function present(array $changes): array
 	{
 		foreach ($changes as &$change) {
-			foreach (array('before_reference', 'after_reference') as $key) {
+			foreach (self::REFERENCE_KEYS as $key) {
 				$snapshot = $change[$key] ?? null;
 				if (! is_array($snapshot)) {
 					continue;
 				}
-				$type = is_string($snapshot['type'] ?? null) ? $snapshot['type'] : '';
-				$resolver = $this->resolvers[$type] ?? null;
+				$resolver = $this->resolver($snapshot['type'] ?? null);
 				if (null === $resolver) {
 					continue;
 				}
 				try {
 					$change[$key] = $resolver->present($snapshot);
 				} catch (Throwable) {
-					$change[$key] = $snapshot;
+					// Stored evidence remains unchanged when current presentation fails.
 				}
 			}
 		}
@@ -107,15 +109,14 @@ final class ReferenceRegistry
 	public function assertRestoreTargetsAvailable(array $changes): void
 	{
 		foreach ($changes as $change) {
-			if (! in_array((string) ($change['op'] ?? ''), array('remove', 'replace'), true)) {
+			if (! in_array((string) ($change['op'] ?? ''), self::RESTORED_VALUE_OPERATIONS, true)) {
 				continue;
 			}
 			$snapshot = $change['before_reference'] ?? null;
 			if (! is_array($snapshot) || (int) ($snapshot['id'] ?? 0) <= 0) {
 				continue;
 			}
-			$type = is_string($snapshot['type'] ?? null) ? $snapshot['type'] : '';
-			$resolver = $this->resolvers[$type] ?? null;
+			$resolver = $this->resolver($snapshot['type'] ?? null);
 			try {
 				$available = null !== $resolver && $resolver->isAvailable($snapshot);
 			} catch (Throwable) {
@@ -125,5 +126,10 @@ final class ReferenceRegistry
 				throw new RuntimeException('Reference missing: the media item this undo would restore no longer exists on this website. Nothing was changed.');
 			}
 		}
+	}
+
+	private function resolver(mixed $type): ?ReferenceResolver
+	{
+		return is_string($type) ? ($this->resolvers[$type] ?? null) : null;
 	}
 }

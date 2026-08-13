@@ -1,7 +1,7 @@
 import {
   __name,
   useConfigOpsState
-} from "./chunk-TVQASTIY.js";
+} from "./chunk-QIY7J6RF.js";
 
 // ui/islands/SupportMatrix.jsx
 var levelLabel = /* @__PURE__ */ __name((level, __) => {

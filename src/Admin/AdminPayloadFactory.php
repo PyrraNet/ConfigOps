@@ -52,17 +52,11 @@ final class AdminPayloadFactory
 	): array {
 		$active   = $this->captures->activeSession();
 		$sessions = $this->captures->recent();
-		$selected = null;
-
-		if (null !== $requestedSessionId && $requestedSessionId > 0) {
-			$selected = $this->captures->find($requestedSessionId);
-		}
-		if (! $selected && $active) {
-			$selected = $active;
-		}
-		if (! $selected && ! empty($sessions)) {
-			$selected = $sessions[0];
-		}
+		$selected = null !== $requestedSessionId && $requestedSessionId > 0
+			? $this->captures->find($requestedSessionId)
+			: null;
+		$selected ??= $active;
+		$selected ??= $sessions[0] ?? null;
 
 		$review = $selected
 			? (
@@ -134,10 +128,7 @@ final class AdminPayloadFactory
 			$groups = $this->attachWriteSignals($groups, $this->writeSignals->forSession($sessionId));
 		}
 
-		$captureErrorCount = (int) ($session->capture_error_count ?? 0);
-		if ('stopping' === (string) ($session->status ?? '')) {
-			$captureErrorCount = max(1, $captureErrorCount);
-		}
+		$captureErrorCount = $this->captureErrorCount($session);
 		$lastSessionRestore = $this->restoreAudits->latestSessionRun($sessionId);
 		$blockingMutationRestores = $this->restoreAudits->blockingMutationCountForSession($sessionId);
 		$sessionRestoreBlocksRetry = $lastSessionRestore && in_array(
@@ -215,19 +206,11 @@ final class AdminPayloadFactory
 	 */
 	private function groupPayload(array $group): array
 	{
-		$head = $group['head'];
-
 		return array(
 			'index'      => $group['index'],
 			'requestId'  => $group['request_id'],
 			'title'      => (string) ($group['title'] ?? ''),
-			'head'       => array(
-				'adminScreen' => (string) $head->admin_screen,
-				'requestUri'  => (string) $head->request_uri,
-				'method'      => (string) $head->request_method,
-				'occurredAt'  => $this->isoDate((string) $head->occurred_at),
-				'timeLabel'   => get_date_from_gmt((string) $head->occurred_at, 'H:i:s'),
-			),
+			'head'       => $this->requestHead($group['head']),
 			'mutations'  => array_map(
 				function (array $prepared): array {
 					$mutation = $prepared['mutation'];
@@ -262,12 +245,7 @@ final class AdminPayloadFactory
 						'diff'                  => $diff,
 						'adapter'               => $prepared['adapter'],
 						'displayName'           => (string) ($prepared['diff'][0]['label'] ?? ''),
-						'source'                => array(
-							'type'      => (string) $mutation->source_type,
-							'component' => (string) $mutation->source_component,
-							'file'      => (string) $mutation->source_file,
-							'line'      => (int) $mutation->source_line,
-						),
+						'source'                => $this->sourcePayload($mutation),
 					);
 				},
 				$group['mutations']
@@ -306,12 +284,7 @@ final class AdminPayloadFactory
 				'operation'       => strtoupper((string) $signal->operation),
 				'table'           => (string) $signal->table_name,
 				'occurrenceCount' => (int) $signal->occurrence_count,
-				'source'          => array(
-					'type'      => (string) $signal->source_type,
-					'component' => (string) $signal->source_component,
-					'file'      => (string) $signal->source_file,
-					'line'      => (int) $signal->source_line,
-				),
+				'source'          => $this->sourcePayload($signal),
 			);
 		}
 
@@ -338,6 +311,19 @@ final class AdminPayloadFactory
 	}
 
 	/**
+	 * @return array{type: string, component: string, file: string, line: int}
+	 */
+	private function sourcePayload(object $row): array
+	{
+		return array(
+			'type'      => (string) $row->source_type,
+			'component' => (string) $row->source_component,
+			'file'      => (string) $row->source_file,
+			'line'      => (int) $row->source_line,
+		);
+	}
+
+	/**
 	 * @return array<string, int|string|null>
 	 */
 	private function sessionPayload(object $session, bool $withActor = false): array
@@ -358,14 +344,19 @@ final class AdminPayloadFactory
 			'reviewChangeCount' => $reviewChangeCount,
 			'technicalChangeCount' => $technicalChangeCount,
 			'writeSignalCount' => (int) ($session->write_signal_count ?? 0),
-			'captureErrorCount' => 'stopping' === (string) ($session->status ?? '')
-				? max(1, (int) ($session->capture_error_count ?? 0))
-				: (int) ($session->capture_error_count ?? 0),
+			'captureErrorCount' => $this->captureErrorCount($session),
 			'startedAt'        => $this->isoDate((string) $session->started_at),
 			'startedAtLabel'   => human_time_diff(strtotime((string) $session->started_at . ' UTC'), time()),
 			'startedDisplay'   => $withActor ? get_date_from_gmt((string) $session->started_at, 'Y-m-d H:i:s') : null,
 			'actorName'        => $withActor ? ($actor ? (string) $actor->display_name : __('System', 'configops')) : null,
 		);
+	}
+
+	private function captureErrorCount(object $session): int
+	{
+		$count = (int) ($session->capture_error_count ?? 0);
+
+		return 'stopping' === (string) ($session->status ?? '') ? max(1, $count) : $count;
 	}
 
 	/**

@@ -32,6 +32,15 @@ const errorMessage = (error) => {
 	return window.wp.i18n.__('ConfigOps could not complete that operation.', 'configops');
 };
 
+const publishError = (error, overrides = {}) => {
+	publish({
+		...snapshot,
+		...overrides,
+		notice: { code: 'error', kind: 'error', text: errorMessage(error) },
+		ui: { pending: null },
+	});
+};
+
 const command = async (pending, operation) => {
 	if (snapshot.ui.pending) {
 		return;
@@ -42,11 +51,7 @@ const command = async (pending, operation) => {
 		const next = await operation();
 		publish({ ...next, ui: { pending: null } });
 	} catch (error) {
-		publish({
-			...snapshot,
-			notice: { code: 'error', kind: 'error', text: errorMessage(error) },
-			ui: { pending: null },
-		});
+		publishError(error);
 	}
 };
 
@@ -114,11 +119,7 @@ export const selectSession = async (id) => {
 		url.searchParams.set('session', String(id));
 		window.history.replaceState({}, '', url);
 	} catch (error) {
-		publish({
-			...snapshot,
-			notice: { code: 'error', kind: 'error', text: errorMessage(error) },
-			ui: { pending: null },
-		});
+		publishError(error);
 	}
 };
 
@@ -142,11 +143,7 @@ export const loadMoreMutations = async () => {
 			ui: { pending: null },
 		});
 	} catch (error) {
-		publish({
-			...snapshot,
-			notice: { code: 'error', kind: 'error', text: errorMessage(error) },
-			ui: { pending: null },
-		});
+		publishError(error);
 	}
 };
 
@@ -161,11 +158,6 @@ export const hydrateReview = async () => {
 		const review = await fetchMutationPage(selectedId, 0);
 		publish({ ...snapshot, review, ui: { pending: null } });
 	} catch (error) {
-		publish({
-			...snapshot,
-			notice: { code: 'error', kind: 'error', text: errorMessage(error) },
-			review: { ...snapshot.review, deferred: false },
-			ui: { pending: null },
-		});
+		publishError(error, { review: { ...snapshot.review, deferred: false } });
 	}
 };

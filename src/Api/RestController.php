@@ -38,82 +38,73 @@ final class RestController
 
 	public function registerRoutes(): void
 	{
-		register_rest_route(
-			self::NAMESPACE,
+		$this->registerRoute(
 			'/state',
-			array(
-				'methods'             => WP_REST_Server::READABLE,
-				'callback'            => array($this, 'state'),
-				'permission_callback' => fn (): bool => current_user_can('configops_view'),
-				'args'                => array(
-					'session' => array('type' => 'integer', 'minimum' => 1),
-				),
-			)
+			WP_REST_Server::READABLE,
+			'state',
+			'configops_view',
+			array('session' => array('type' => 'integer', 'minimum' => 1))
 		);
 
-		register_rest_route(
-			self::NAMESPACE,
+		$this->registerRoute(
 			'/captures/(?P<id>\d+)/mutations',
+			WP_REST_Server::READABLE,
+			'mutations',
+			'configops_view',
 			array(
-				'methods'             => WP_REST_Server::READABLE,
-				'callback'            => array($this, 'mutations'),
-				'permission_callback' => fn (): bool => current_user_can('configops_view'),
-				'args'                => array(
-					'id'    => array('type' => 'integer', 'minimum' => 1, 'required' => true),
-					'after' => array('type' => 'integer', 'minimum' => 0, 'default' => 0),
-					'limit' => array('type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 100),
-				),
+				'id'    => array('type' => 'integer', 'minimum' => 1, 'required' => true),
+				'after' => array('type' => 'integer', 'minimum' => 0, 'default' => 0),
+				'limit' => array('type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 100),
 			)
 		);
 
-		register_rest_route(
-			self::NAMESPACE,
+		$this->registerRoute(
 			'/captures',
-			array(
-				'methods'             => WP_REST_Server::CREATABLE,
-				'callback'            => array($this, 'startCapture'),
-				'permission_callback' => fn (): bool => current_user_can('configops_capture'),
-				'args'                => array(
-					'name' => array('type' => 'string', 'maxLength' => 191),
-				),
-			)
+			WP_REST_Server::CREATABLE,
+			'startCapture',
+			'configops_capture',
+			array('name' => array('type' => 'string', 'maxLength' => 191))
 		);
 
-		register_rest_route(
-			self::NAMESPACE,
+		$this->registerRoute(
 			'/captures/active/stop',
-			array(
-				'methods'             => WP_REST_Server::CREATABLE,
-				'callback'            => array($this, 'stopCapture'),
-				'permission_callback' => fn (): bool => current_user_can('configops_capture'),
-			)
+			WP_REST_Server::CREATABLE,
+			'stopCapture',
+			'configops_capture'
 		);
 
-		register_rest_route(
-			self::NAMESPACE,
+		$this->registerRoute(
 			'/mutations/(?P<id>\d+)/restore',
-			array(
-				'methods'             => WP_REST_Server::CREATABLE,
-				'callback'            => array($this, 'restoreMutation'),
-				'permission_callback' => fn (): bool => current_user_can('configops_rollback'),
-				'args'                => array(
-					'id' => array('type' => 'integer', 'minimum' => 1, 'required' => true),
-				),
-			)
+			WP_REST_Server::CREATABLE,
+			'restoreMutation',
+			'configops_rollback',
+			array('id' => array('type' => 'integer', 'minimum' => 1, 'required' => true))
 		);
 
-		register_rest_route(
-			self::NAMESPACE,
+		$this->registerRoute(
 			'/captures/(?P<id>\d+)/restore',
-			array(
-				'methods'             => WP_REST_Server::CREATABLE,
-				'callback'            => array($this, 'restoreSession'),
-				'permission_callback' => fn (): bool => current_user_can('configops_rollback'),
-				'args'                => array(
-					'id' => array('type' => 'integer', 'minimum' => 1, 'required' => true),
-				),
-			)
+			WP_REST_Server::CREATABLE,
+			'restoreSession',
+			'configops_rollback',
+			array('id' => array('type' => 'integer', 'minimum' => 1, 'required' => true))
 		);
+	}
+
+	/**
+	 * @param array<string, array<string, bool|int|string>> $args
+	 */
+	private function registerRoute(string $path, string $methods, string $callback, string $capability, array $args = array()): void
+	{
+		$route = array(
+			'methods'             => $methods,
+			'callback'            => array($this, $callback),
+			'permission_callback' => static fn (): bool => current_user_can($capability),
+		);
+		if (! empty($args)) {
+			$route['args'] = $args;
+		}
+
+		register_rest_route(self::NAMESPACE, $path, $route);
 	}
 
 	public function state(WP_REST_Request $request): WP_REST_Response
@@ -131,14 +122,9 @@ final class RestController
 			return new WP_Error('configops_capture_not_found', __('The capture session no longer exists.', 'configops'), array('status' => 404));
 		}
 
-		$response = $this->response(
+		return $this->response(
 			$this->payloads->mutationPage($sessionId, (int) $request['after'], (int) $request['limit'])
 		);
-		// Captures can contain configuration values. Never let a browser, proxy,
-		// or shared wp-admin cache retain this evidence.
-		$response->header('Cache-Control', 'private, no-store');
-
-		return $response;
 	}
 
 	public function startCapture(WP_REST_Request $request): WP_REST_Response|WP_Error

@@ -42,42 +42,12 @@ final class RestoreService
 			throw new RuntimeException('The mutation no longer exists.');
 		}
 
-		$auditId = $this->audit->start('mutation', $mutationId, (int) $mutation->session_id, get_current_user_id());
-		try {
-			$this->operationLock->run(
-				'restore',
-				function () use ($mutationId): void {
-					$this->assertNoActiveCapture();
-
-					$mutation = $this->mutations->find($mutationId);
-					if (! $mutation) {
-						throw new RuntimeException('The mutation no longer exists.');
-					}
-
-					$this->assertRestorable($mutation);
-					if ('patch' === $this->restoreMode($mutation)) {
-						$this->restoreSafeFields($mutation);
-					} else {
-						$this->adapters->assertRestorableReferences($this->storedDiff($mutation));
-						$this->assertCurrentState(
-							(string) $mutation->option_name,
-							(string) $mutation->new_value,
-							isset($mutation->new_autoload) ? (string) $mutation->new_autoload : null
-						);
-						$this->applyState(
-							(string) $mutation->option_name,
-							(string) $mutation->old_value,
-							isset($mutation->old_autoload) ? (string) $mutation->old_autoload : null
-						);
-					}
-				}
-			);
-		} catch (Throwable $error) {
-			$this->recordAuditFailure($auditId, $error);
-			throw $error;
-		}
-
-		$this->finalizeSuccessfulAudit($auditId, 1);
+		$this->audited(
+			'mutation',
+			$mutationId,
+			(int) $mutation->session_id,
+			fn (): int => $this->operationLock->run('restore', fn (): int => $this->restoreMutationUnlocked($mutationId))
+		);
 	}
 
 	public function restoreSession(int $sessionId): int
@@ -86,9 +56,53 @@ final class RestoreService
 			throw new RuntimeException('The capture session no longer exists.');
 		}
 
-		$auditId = $this->audit->start('session', $sessionId, $sessionId, get_current_user_id());
+		return $this->audited(
+			'session',
+			$sessionId,
+			$sessionId,
+			fn (): int => $this->operationLock->run('restore', fn (): int => $this->restoreSessionUnlocked($sessionId))
+		);
+	}
+
+	private function restoreMutationUnlocked(int $mutationId): int
+	{
+		$this->assertNoActiveCapture();
+
+		$mutation = $this->mutations->find($mutationId);
+		if (! $mutation) {
+			throw new RuntimeException('The mutation no longer exists.');
+		}
+
+		$this->assertRestorable($mutation);
+		if ('patch' === $this->restoreMode($mutation)) {
+			$this->restoreSafeFields($mutation);
+
+			return 1;
+		}
+
+		$this->adapters->assertRestorableReferences($this->storedDiff($mutation));
+		$this->assertCurrentState(
+			(string) $mutation->option_name,
+			(string) $mutation->new_value,
+			isset($mutation->new_autoload) ? (string) $mutation->new_autoload : null
+		);
+		$this->applyState(
+			(string) $mutation->option_name,
+			(string) $mutation->old_value,
+			isset($mutation->old_autoload) ? (string) $mutation->old_autoload : null
+		);
+
+		return 1;
+	}
+
+	/**
+	 * @param callable(): int $operation
+	 */
+	private function audited(string $scope, int $targetId, int $sessionId, callable $operation): int
+	{
+		$auditId = $this->audit->start($scope, $targetId, $sessionId, get_current_user_id());
 		try {
-			$count = $this->operationLock->run('restore', fn (): int => $this->restoreSessionUnlocked($sessionId));
+			$count = $operation();
 		} catch (Throwable $error) {
 			$this->recordAuditFailure($auditId, $error);
 			throw $error;

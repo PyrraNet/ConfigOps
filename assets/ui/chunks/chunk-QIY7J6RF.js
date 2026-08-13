@@ -48,6 +48,14 @@ var errorMessage = /* @__PURE__ */ __name((error) => {
   }
   return window.wp.i18n.__("ConfigOps could not complete that operation.", "configops");
 }, "errorMessage");
+var publishError = /* @__PURE__ */ __name((error, overrides = {}) => {
+  publish({
+    ...snapshot,
+    ...overrides,
+    notice: { code: "error", kind: "error", text: errorMessage(error) },
+    ui: { pending: null }
+  });
+}, "publishError");
 var command = /* @__PURE__ */ __name(async (pending, operation) => {
   if (snapshot.ui.pending) {
     return;
@@ -57,11 +65,7 @@ var command = /* @__PURE__ */ __name(async (pending, operation) => {
     const next = await operation();
     publish({ ...next, ui: { pending: null } });
   } catch (error) {
-    publish({
-      ...snapshot,
-      notice: { code: "error", kind: "error", text: errorMessage(error) },
-      ui: { pending: null }
-    });
+    publishError(error);
   }
 }, "command");
 var reindexGroups = /* @__PURE__ */ __name((groups) => groups.map((group, index) => ({
@@ -120,11 +124,7 @@ var selectSession = /* @__PURE__ */ __name(async (id) => {
     url.searchParams.set("session", String(id));
     window.history.replaceState({}, "", url);
   } catch (error) {
-    publish({
-      ...snapshot,
-      notice: { code: "error", kind: "error", text: errorMessage(error) },
-      ui: { pending: null }
-    });
+    publishError(error);
   }
 }, "selectSession");
 var loadMoreMutations = /* @__PURE__ */ __name(async () => {
@@ -146,11 +146,7 @@ var loadMoreMutations = /* @__PURE__ */ __name(async () => {
       ui: { pending: null }
     });
   } catch (error) {
-    publish({
-      ...snapshot,
-      notice: { code: "error", kind: "error", text: errorMessage(error) },
-      ui: { pending: null }
-    });
+    publishError(error);
   }
 }, "loadMoreMutations");
 var hydrateReview = /* @__PURE__ */ __name(async () => {
@@ -163,12 +159,7 @@ var hydrateReview = /* @__PURE__ */ __name(async () => {
     const review = await fetchMutationPage(selectedId, 0);
     publish({ ...snapshot, review, ui: { pending: null } });
   } catch (error) {
-    publish({
-      ...snapshot,
-      notice: { code: "error", kind: "error", text: errorMessage(error) },
-      review: { ...snapshot.review, deferred: false },
-      ui: { pending: null }
-    });
+    publishError(error, { review: { ...snapshot.review, deferred: false } });
   }
 }, "hydrateReview");
 

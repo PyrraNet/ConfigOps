@@ -41,7 +41,8 @@ const MediaReferenceValue = ({ dataLabel, snapshot }) => {
 	}
 
 	const missing = status === 'missing';
-	const name = snapshot.title || snapshot.filename || sprintf(__('Attachment #%d', 'configops'), id);
+	const attachmentLabel = sprintf(__('Attachment #%d', 'configops'), id);
+	const name = snapshot.title || snapshot.filename || attachmentLabel;
 	const metadata = [
 		snapshot.mime,
 		Number.isFinite(snapshot.width) && Number.isFinite(snapshot.height)
@@ -62,7 +63,7 @@ const MediaReferenceValue = ({ dataLabel, snapshot }) => {
 				{snapshot.title && snapshot.filename && <span>{snapshot.filename}</span>}
 				{metadata.length > 0 && <span>{metadata.join(' · ')}</span>}
 				<span className="configops-media-id">
-					{sprintf(__('Attachment #%d', 'configops'), id)}
+					{attachmentLabel}
 					{missing && <em>{__('Missing', 'configops')}</em>}
 				</span>
 			</div>
@@ -94,11 +95,8 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 	const restoreDescriptionId = `configops-restore-${mutation.id}`;
 	const operationLabels = {
 		add: __('Added option', 'configops'),
-		added: __('Added option', 'configops'),
 		update: __('Updated option', 'configops'),
-		updated: __('Updated option', 'configops'),
 		delete: __('Deleted option', 'configops'),
-		deleted: __('Deleted option', 'configops'),
 	};
 	const operationLabel = operationLabels[mutation.type] || mutation.type;
 	const visibleCount = mutation.diff.length;
@@ -109,6 +107,20 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 	const undoSucceeded = mutation.lastRestore?.status === 'succeeded';
 	const undoUncertain = ['running', 'compensation_failed'].includes(mutation.lastRestore?.status);
 	const missingRestoreReference = hasMissingRestoreReference(mutation.diff);
+	const showReviewActions = filter !== 'noise';
+	const undoUnavailableExplanation = !showReviewActions
+		? ''
+		: missingRestoreReference
+			? __('The earlier media item no longer exists on this website. ConfigOps will not restore a broken attachment reference.', 'configops')
+			: !mutation.restorable && !mutation.redacted
+				? __('The adapter marks this as technical, unsupported, or outside its tested version range. ConfigOps keeps the evidence but will not guess during rollback.', 'configops')
+				: '';
+	const canUndo = canRestore
+		&& mutation.restorable
+		&& !missingRestoreReference
+		&& !undoSucceeded
+		&& !undoUncertain
+		&& showReviewActions;
 	const undoLabel = patchRestore
 		? (!mutation.redacted
 			? __('Undo this change', 'configops')
@@ -182,17 +194,12 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 							{__('A previous undo and its compensation did not both complete. Inspect the current plugin setting before attempting another change.', 'configops')}
 						</Hint>
 					)}
-					{missingRestoreReference && filter !== 'noise' && (
+					{undoUnavailableExplanation && (
 						<Hint label={__('Why can’t this be undone?', 'configops')} align="end" trigger={__('Undo unavailable', 'configops')}>
-							{__('The earlier media item no longer exists on this website. ConfigOps will not restore a broken attachment reference.', 'configops')}
+							{undoUnavailableExplanation}
 						</Hint>
 					)}
-					{!mutation.restorable && !mutation.redacted && !missingRestoreReference && filter !== 'noise' && (
-						<Hint label={__('Why can’t this be undone?', 'configops')} align="end" trigger={__('Undo unavailable', 'configops')}>
-							{__('The adapter marks this as technical, unsupported, or outside its tested version range. ConfigOps keeps the evidence but will not guess during rollback.', 'configops')}
-						</Hint>
-					)}
-					{canRestore && mutation.restorable && !missingRestoreReference && !undoSucceeded && !undoUncertain && filter !== 'noise' && (
+					{canUndo && (
 						<span className="configops-action-hint">
 							<button
 								className="button button-small"
@@ -335,6 +342,7 @@ export default function ReviewLedger() {
 	const visibleMissingRestoreReference = review.groups.some((group) => (
 		group.mutations.some((mutation) => hasMissingRestoreReference(mutation.diff))
 	));
+	const canRestoreSession = canRestore && review.summary.total > 0 && review.summary.allRestorable;
 	const [filter, setFilter] = window.wp.element.useState('review');
 	const filteredGroups = window.wp.element.useMemo(() => {
 		const selectChanges = (mutation) => mutation.diff.filter((change) => {
@@ -425,7 +433,7 @@ export default function ReviewLedger() {
 						<span>{__('Check the current settings before continuing.', 'configops')}</span>
 					</span>
 				)}
-				{canRestore && review.summary.total > 0 && review.summary.allRestorable && !visibleMissingRestoreReference && !sessionUndoSucceeded && !sessionUndoUncertain && (
+				{canRestoreSession && !visibleMissingRestoreReference && (
 					<button
 						className="button"
 						type="button"
@@ -439,7 +447,7 @@ export default function ReviewLedger() {
 						{state.ui.pending === `restore-session-${selected.id}` ? __('Undoing…', 'configops') : __('Undo this capture', 'configops')}
 					</button>
 				)}
-				{canRestore && review.summary.allRestorable && visibleMissingRestoreReference && (
+				{canRestoreSession && visibleMissingRestoreReference && (
 					<Hint label={__('Why can’t this capture be undone?', 'configops')} align="end" trigger={__('Undo unavailable', 'configops')}>
 						{__('An earlier media item in this capture no longer exists. Other settings can still be reviewed and undone individually.', 'configops')}
 					</Hint>

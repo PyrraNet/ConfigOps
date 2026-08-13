@@ -1,13 +1,13 @@
 import {
   Hint
-} from "./chunk-JEVHJMKH.js";
+} from "./chunk-BDP2GEKT.js";
 import {
   __name,
   dismissNotice,
   startCapture,
   stopCapture,
   useConfigOpsState
-} from "./chunk-TVQASTIY.js";
+} from "./chunk-QIY7J6RF.js";
 
 // ui/components/Notice.jsx
 function Notice({ notice }) {

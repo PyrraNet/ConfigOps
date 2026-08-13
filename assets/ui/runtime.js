@@ -1,7 +1,7 @@
 import {
   __name,
   configureStore
-} from "./chunks/chunk-TVQASTIY.js";
+} from "./chunks/chunk-QIY7J6RF.js";
 
 // ui/runtime.js
 var bootstrapNode = document.getElementById("configops-bootstrap");
@@ -53,12 +53,12 @@ var whenVisible = /* @__PURE__ */ __name((element, callback) => {
 }, "whenVisible");
 try {
   configureStore(JSON.parse(bootstrapNode?.textContent || "{}"));
-  mount("configops-support-island", () => import("./chunks/SupportMatrix-NIAEU62Y.js"));
-  mount("configops-capture-island", () => import("./chunks/CaptureControls-J7HBNVQT.js"));
-  onIdle(() => mount("configops-sessions-island", () => import("./chunks/Sessions-QMLYVJN5.js")));
+  mount("configops-support-island", () => import("./chunks/SupportMatrix-DFBWYBGP.js"));
+  mount("configops-capture-island", () => import("./chunks/CaptureControls-VWGYMYRF.js"));
+  onIdle(() => mount("configops-sessions-island", () => import("./chunks/Sessions-HWPD6MT6.js")));
   whenVisible(
     document.getElementById("configops-review-island"),
-    () => mount("configops-review-island", () => import("./chunks/ReviewLedger-TBWMNYO3.js"))
+    () => mount("configops-review-island", () => import("./chunks/ReviewLedger-Q6CGQ4XY.js"))
   );
 } catch (error) {
   window.console.error("ConfigOps bootstrap could not be parsed.", error);

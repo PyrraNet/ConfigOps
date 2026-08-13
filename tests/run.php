@@ -250,6 +250,27 @@ $yoastMultisite = $yoastAdapter->analyze('wpseo_ms', array(array('path' => '/acc
 $assert('unsupported' === $yoastMultisite->classification, 'The Yoast adapter should make the Multisite boundary explicit.');
 $assert(6 === count($yoastAdapter->manifest()->capabilities), 'Yoast support should disclose every current product capability.');
 
+$referenceField = new FieldDefinition('Fixture logo', 'Fixture identity', 'reference', 'Fixture media reference.', 'media');
+$describedReference = $referenceField->applyTo(array('path' => '/logo'));
+$assert(
+	'Fixture logo' === ($describedReference['label'] ?? '')
+	&& 'media' === ($describedReference['reference_type'] ?? ''),
+	'Field definitions should apply their complete meaning through one shared diff contract.'
+);
+$historicalReference = $referenceField->applyTo(
+	array(
+		'label'       => 'Historical label',
+		'group'       => 'Historical group',
+		'kind'        => 'reference',
+		'explanation' => 'Historical explanation.',
+	)
+);
+$assert(
+	'Historical label' === ($historicalReference['label'] ?? '')
+	&& 'media' === ($historicalReference['reference_type'] ?? ''),
+	'Field enrichment should preserve stored historical descriptions while adding compatible reference metadata.'
+);
+
 $noise = new NoiseClassifier();
 $commentMigrationLock = $noise->classify('update_comment_type.lock');
 $commentMigrationFinished = $noise->classify('finished_updating_comment_type');
