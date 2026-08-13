@@ -17,6 +17,7 @@ final readonly class ReviewViewModel
 	 *   request_id: string,
 	 *   head: object,
 	 *   title: string,
+	 *   intent: ?array<string, mixed>,
 	 *   mutations: list<array{mutation: object, diff: list<array<string, mixed>>, classification_label: string, adapter: ?array<string, mixed>}>
 	 * }> $groups Prepared request groups.
 	 */

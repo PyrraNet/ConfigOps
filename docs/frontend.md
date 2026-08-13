@@ -16,6 +16,8 @@ The shell includes real headings, product orientation, bounded placeholders, an 
 
 React, React DOM, API fetching, and translations are WordPress-owned externals. ConfigOps bundles only its application code. No component framework, client router, normalized entity cache, CSS-in-JS runtime, or duplicate React build ships with the plugin.
 
+While a capture is active, a separate dependency-free observer runs on wp-admin settings screens. It remembers only touched field names, visible labels, nearby section headings, and the submit action in a short-lived same-site cookie. It never reads configuration field values. PHP correlates that bounded metadata with the actual Options API diff in the save request; unmatched or ambiguous observations disappear instead of becoming guessed intent. The React ledger presents the resulting explanation but does not use it to authorize undo.
+
 ## Brand layer
 
 The admin UI consumes the company design system as a scoped CSS layer instead of importing the public-site stylesheet. Its Avenir Next system stack, Ink/Paper surfaces, Brand Blue action edge, control radii, spacing, focus treatment, and state colors map directly to the supplied tokens without leaking into WordPress. The original light wordmark ships as a single cached SVG; no webfont, icon library, theme runtime, or branding JavaScript is loaded.

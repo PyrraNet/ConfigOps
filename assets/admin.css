@@ -852,6 +852,52 @@ body.toplevel_page_configops #wpbody-content {
 	font-size: 10px;
 }
 
+.configops-intent-summary {
+	display: flex;
+	width: auto;
+	max-width: min(720px, 100%);
+	gap: 11px;
+	align-items: start;
+	margin-top: 10px;
+	padding: 8px 0 2px 11px;
+	border-left: 3px solid var(--co-brand-blue-400);
+	background: transparent;
+}
+
+.configops-intent-mark {
+	color: var(--co-action);
+	font-family: var(--co-font-code);
+	font-size: 13px;
+}
+
+.configops-intent-summary > div {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.configops-intent-summary > div > span {
+	color: var(--co-action);
+	font-size: 8px;
+	font-weight: 800;
+	letter-spacing: .055em;
+	text-transform: uppercase;
+}
+
+.configops-intent-summary strong {
+	overflow: hidden;
+	font-size: 12px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.configops-intent-summary > div > em {
+	color: var(--co-ink-600);
+	font-size: 9px;
+	font-style: normal;
+}
+
 .configops-request-evidence {
 	position: relative;
 	flex: 0 0 auto;
@@ -1060,6 +1106,15 @@ body.toplevel_page_configops #wpbody-content {
 .configops-field-kind {
 	color: var(--co-ink-500);
 	font-size: 9px;
+}
+
+.configops-field-intent {
+	width: fit-content;
+	padding: 2px 5px;
+	border: 1px solid var(--co-brand-blue-100);
+	color: var(--co-action);
+	font-size: 8px;
+	font-weight: 750;
 }
 
 .configops-diff-value {

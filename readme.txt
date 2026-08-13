@@ -89,6 +89,7 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 
 * First technical preview by pyrra.
 * Explicit local captures with request grouping and source attribution.
+* Local intent correlation matches touched admin-field names and labels to saved option paths without reading field values or expanding undo permissions.
 * Same-request option-write chains collapse to their original and final state; complete same-owner reverts disappear from review.
 * Typed nested diffs, conservative noise classification, and secret redaction before persistence.
 * A WordPress Core 7.0 settings contract for General, Writing, Reading, Discussion, Media, and Permalink settings.

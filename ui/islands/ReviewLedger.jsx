@@ -188,6 +188,11 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 		? (visibleCount === 1 ? __('1 technical change', 'configops') : `${visibleCount} ${__('technical changes', 'configops')}`)
 		: (visibleCount === 1 ? __('1 setting', 'configops') : `${visibleCount} ${__('settings', 'configops')}`);
 	const patchRestore = mutation.restoreMode === 'patch';
+	const observedFields = [...new Set(
+		mutation.diff
+			.map((change) => change.intent?.field_name)
+			.filter(Boolean),
+	)];
 	const undoSucceeded = mutation.lastRestore?.status === 'succeeded';
 	const undoUncertain = ['running', 'compensation_failed'].includes(mutation.lastRestore?.status);
 	const missingRestoreReference = hasMissingRestoreReference(mutation.diff);
@@ -245,6 +250,13 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 									<strong>{change.label || change.path || '/'}</strong>
 								</div>
 								{change.kind && <span className="configops-field-kind">{fieldKindLabel(change.kind, change.reference_type, __)}</span>}
+								{change.intent && (
+									<span className="configops-field-intent">
+										{change.intent.confidence === 'high'
+											? __('Observed field', 'configops')
+											: __('Likely observed field', 'configops')}
+									</span>
+								)}
 							</div>
 							<div className="configops-diff-value is-before" role="cell">
 								<span className="configops-value-label">{__('Before', 'configops')}</span>
@@ -274,6 +286,9 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 							<div><dt>{__('Changed through', 'configops')}</dt><dd>{sourceOwner}</dd></div>
 							<div><dt>{__('Source', 'configops')}</dt><dd><code>{sourceLabel}{mutation.source.line > 0 ? `:${mutation.source.line}` : ''}</code></dd></div>
 							{mutation.adapter?.componentVersion && <div><dt>{__('Version', 'configops')}</dt><dd><code>{mutation.adapter.componentVersion}</code></dd></div>}
+							{observedFields.length > 0 && (
+								<div><dt>{__('Observed form fields', 'configops')}</dt><dd className="configops-evidence-paths">{observedFields.map((field) => <code key={field}>{field}</code>)}</dd></div>
+							)}
 							<div><dt>{__('Fields', 'configops')}</dt><dd className="configops-evidence-paths">{mutation.diff.map((change, index) => <code key={`${change.path || '/'}-${index}`}>{change.path || '/'}</code>)}</dd></div>
 							<div><dt>{__('Why it is here', 'configops')}</dt><dd>{mutation.classificationReason}</dd></div>
 						</dl>
@@ -358,6 +373,16 @@ const RequestGroup = window.wp.element.memo(function RequestGroup({ group, canRe
 	const writeSignals = group.writeSignals || [];
 	const unmanagedWriteCount = writeSignals.reduce((total, signal) => total + signal.occurrenceCount, 0);
 	const visibleChangeCount = group.mutations.reduce((total, mutation) => total + mutation.diff.length, 0);
+	const intent = group.intent;
+	const intentLabels = Array.isArray(intent?.labels) ? intent.labels.filter(Boolean) : [];
+	const intentStatement = intentLabels.length === 1
+		? sprintf(__('Changed “%s”', 'configops'), intentLabels[0])
+		: intentLabels.length > 1
+			? sprintf(__('Changed fields: %s', 'configops'), intentLabels.join(' · '))
+			: intent?.action || __('Changed admin field', 'configops');
+	const intentEvidence = intent?.confidence === 'high'
+		? sprintf(__('Matched %1$d of %2$d saved settings directly', 'configops'), intent.matchedFields, visibleChangeCount)
+		: sprintf(__('Matched %1$d of %2$d saved settings by option scope', 'configops'), intent?.matchedFields || 0, visibleChangeCount);
 
 	return (
 		<section className="configops-request-group">
@@ -373,6 +398,16 @@ const RequestGroup = window.wp.element.memo(function RequestGroup({ group, canRe
 							)}
 							{' '}<span aria-hidden="true">·</span>{' '}<time dateTime={group.head.occurredAt}>{group.head.timeLabel}</time>
 						</p>
+						{intent && (
+							<div className="configops-intent-summary">
+								<span className="configops-intent-mark" aria-hidden="true">↳</span>
+								<div>
+									<span>{__('Observed intent', 'configops')}</span>
+									<strong>{intentStatement}</strong>
+									<em>{intentEvidence}</em>
+								</div>
+							</div>
+						)}
 					</div>
 				</div>
 				<details className="configops-request-evidence">
@@ -448,6 +483,7 @@ export default function ReviewLedger() {
 				return {
 					...group,
 					mutations,
+					intent: filter === 'noise' ? null : group.intent,
 					writeSignals: filter === 'noise' ? [] : (group.writeSignals || []),
 				};
 			})

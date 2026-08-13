@@ -60,12 +60,16 @@ final class ReviewPresenter
 					),
 				);
 			}
+			$intent = $this->intentSummary($preparedMutations);
 
 			$groups[] = array(
 				'index'      => str_pad((string) ($offset + 1), 2, '0', STR_PAD_LEFT),
 				'request_id' => (string) $requestMutations[0]->request_id,
 				'head'       => $requestMutations[0],
-				'title'      => 1 === count($adapterNames) ? reset($adapterNames) . ' settings' : '',
+				'title'      => 1 === count($adapterNames)
+					? reset($adapterNames) . ' settings'
+					: (string) ($intent['screen'] ?? ''),
+				'intent'     => $intent,
 				'mutations'  => $preparedMutations,
 			);
 		}
@@ -81,6 +85,62 @@ final class ReviewPresenter
 			$totalCount > 0 && 0 === $summary['not_restorable'],
 			$noticeCode,
 			$this->noticeText($noticeCode, $noticeMessage)
+		);
+	}
+
+	/**
+	 * @param list<array{diff: list<array<string, mixed>>}> $preparedMutations
+	 * @return array<string, int|string|list<string>>|null
+	 */
+	private function intentSummary(array $preparedMutations): ?array
+	{
+		$fields = array();
+		$labels = array();
+		$screens = array();
+		$actions = array();
+		$observedFields = 0;
+		$allHighConfidence = true;
+
+		foreach ($preparedMutations as $prepared) {
+			foreach ($prepared['diff'] as $change) {
+				$intent = is_array($change['intent'] ?? null) ? $change['intent'] : null;
+				if (null === $intent) {
+					continue;
+				}
+
+				$fieldName = is_string($intent['field_name'] ?? null) ? $intent['field_name'] : '';
+				if ('' !== $fieldName) {
+					$fields[$fieldName] = true;
+				}
+				$label = is_string($intent['label'] ?? null) ? $intent['label'] : '';
+				if ('' !== $label) {
+					$labels[$label] = true;
+				}
+				$screen = is_string($intent['screen'] ?? null) ? $intent['screen'] : '';
+				if ('' !== $screen) {
+					$screens[$screen] = true;
+				}
+				$action = is_string($intent['action'] ?? null) ? $intent['action'] : '';
+				if ('' !== $action) {
+					$actions[$action] = true;
+				}
+				$observedFields = max($observedFields, (int) ($intent['observed_fields'] ?? 0));
+				$allHighConfidence = $allHighConfidence && 'high' === ($intent['confidence'] ?? '');
+			}
+		}
+
+		$matchedFields = count($fields);
+		if (0 === $matchedFields) {
+			return null;
+		}
+
+		return array(
+			'matchedFields'   => $matchedFields,
+			'observedFields'  => max($matchedFields, $observedFields),
+			'confidence'      => $allHighConfidence ? 'high' : 'medium',
+			'screen'          => 1 === count($screens) ? (string) array_key_first($screens) : '',
+			'action'          => 1 === count($actions) ? (string) array_key_first($actions) : '',
+			'labels'          => array_slice(array_keys($labels), 0, 3),
 		);
 	}
 

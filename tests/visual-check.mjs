@@ -102,6 +102,24 @@ try {
 	const previousDescription = await description.inputValue();
 	const verificationDescription = `ConfigOps visual verification ${String(Date.now()).slice(-6)}`;
 	await description.fill(verificationDescription);
+	const intentCookie = await page.evaluate(() => {
+		const encoded = document.cookie
+			.split('; ')
+			.find((part) => part.startsWith('configops_intent='))
+			?.split('=')[1] || '';
+		if (!encoded) return null;
+		const padded = encoded.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(encoded.length / 4) * 4, '=');
+		const bytes = Uint8Array.from(window.atob(padded), (character) => character.charCodeAt(0));
+
+		return JSON.parse(new TextDecoder().decode(bytes));
+	});
+	if (!intentCookie?.fields?.some((field) => field.name === 'blogdescription' && field.label === 'Tagline')) {
+		throw new Error(`The local intent cookie did not retain the touched field identity: ${JSON.stringify(intentCookie)}.`);
+	}
+	const serializedIntent = JSON.stringify(intentCookie);
+	if (serializedIntent.includes(verificationDescription) || (previousDescription && serializedIntent.includes(previousDescription))) {
+		throw new Error('The local intent cookie retained a configuration field value.');
+	}
 	await page.locator('#submit').click();
 	await page.waitForLoadState('networkidle');
 
@@ -126,6 +144,13 @@ try {
 		throw new Error(`Expected desktop workspace grid, received ${layout}.`);
 	}
 	const blogDescriptionRow = page.locator('.configops-mutation', { hasText: 'blogdescription' }).first();
+	const intentSummary = page.locator('.configops-intent-summary').first();
+	if (!await intentSummary.getByText('Observed intent', { exact: true }).isVisible()) {
+		throw new Error('The settings save did not expose its locally observed form intent.');
+	}
+	if (!await blogDescriptionRow.getByText('Observed field', { exact: true }).isVisible()) {
+		throw new Error('The exact admin field-to-option match is missing from review evidence.');
+	}
 	const afterValueText = await blogDescriptionRow.locator('.configops-diff-value.is-after pre').innerText();
 	if (!afterValueText.includes(JSON.stringify(verificationDescription))) {
 		throw new Error('The captured string value is not rendered with explicit type-preserving quotes.');

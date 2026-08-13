@@ -58,7 +58,7 @@ try {
   onIdle(() => mount("configops-sessions-island", () => import("./chunks/Sessions-5KFLDKAS.js")));
   whenVisible(
     document.getElementById("configops-review-island"),
-    () => mount("configops-review-island", () => import("./chunks/ReviewLedger-2E3ZWCDU.js"))
+    () => mount("configops-review-island", () => import("./chunks/ReviewLedger-FWPJNX3W.js"))
   );
 } catch (error) {
   window.console.error("ConfigOps bootstrap could not be parsed.", error);

@@ -23,6 +23,7 @@ use ConfigOps\Adapter\AdapterManifest;
 use ConfigOps\Adapter\ConfigAdapter;
 use ConfigOps\Adapter\FieldDefinition;
 use ConfigOps\Capture\HeuristicSensitiveValueDetector;
+use ConfigOps\Capture\IntentContext;
 use ConfigOps\Noise\NoiseClassifier;
 
 $assertions = 0;
@@ -47,6 +48,65 @@ $assert('/mail/return_path' === $changes[1]['path'], 'Nested additions should us
 $assert(array() === $diff->compare(array('b' => 2, 'a' => 1), array('a' => 1, 'b' => 2)), 'Associative key order must not create noise.');
 $assert(array() === $diff->compare(null, ''), 'A nullable field normalized to an empty string should not create review noise.');
 $assert(array() === $diff->compare('', null), 'An empty string normalized back to null should not create review noise.');
+
+$encodeIntent = static function (array $payload): string {
+	$json = wp_json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+	return rtrim(strtr(base64_encode(is_string($json) ? $json : '{}'), '+/', '-_'), '=');
+};
+$previousIntentCookie = $_COOKIE[IntentContext::COOKIE_NAME] ?? null;
+$_COOKIE[IntentContext::COOKIE_NAME] = $encodeIntent(
+	array(
+		'v'          => 1,
+		'session'    => 41,
+		'capturedAt' => time(),
+		'screen'     => 'Delivery settings',
+		'action'     => 'Save changes',
+		'fields'     => array(
+			array(
+				'name'  => 'fixture_settings[mail][retry]',
+				'label' => 'Retry attempts',
+				'group' => 'Delivery',
+			),
+		),
+	)
+);
+$intentChanges = (new IntentContext())->enrich(
+	41,
+	'fixture_settings',
+	array(array('op' => 'replace', 'path' => '/mail/retry', 'before' => 3, 'after' => 4))
+);
+$assert('Retry attempts' === ($intentChanges[0]['label'] ?? ''), 'An exact field-name path should explain an otherwise unknown option change.');
+$assert('high' === ($intentChanges[0]['intent']['confidence'] ?? ''), 'An exact option and JSON Pointer match should expose high-confidence intent evidence.');
+$assert('unknown' === ($intentChanges[0]['kind'] ?? ''), 'Observed browser intent must not impersonate adapter-backed field semantics.');
+
+$trustedIntentChanges = (new IntentContext())->enrich(
+	41,
+	'fixture_settings',
+	array(
+		array(
+			'op'          => 'replace',
+			'path'        => '/mail/retry',
+			'label'       => 'Trusted retry policy',
+			'group'       => 'Trusted adapter',
+			'kind'        => 'portable',
+			'explanation' => 'Pinned adapter meaning.',
+		)
+	)
+);
+$assert('Trusted retry policy' === ($trustedIntentChanges[0]['label'] ?? ''), 'Browser metadata must never replace trusted adapter meaning.');
+$assert(isset($trustedIntentChanges[0]['intent']), 'Trusted fields should still retain separate evidence that the operator touched the matching form field.');
+$mismatchedIntentChanges = (new IntentContext())->enrich(
+	42,
+	'fixture_settings',
+	array(array('op' => 'replace', 'path' => '/mail/retry'))
+);
+$assert(! isset($mismatchedIntentChanges[0]['intent']), 'Intent evidence from another capture session must be ignored.');
+if (null === $previousIntentCookie) {
+	unset($_COOKIE[IntentContext::COOKIE_NAME]);
+} else {
+	$_COOKIE[IntentContext::COOKIE_NAME] = $previousIntentCookie;
+}
 
 $emptyNormalizationChanges = $diff->compare(
 	array('nullable' => null, 'meaningful' => 'before'),

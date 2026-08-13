@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ConfigOps\Admin;
 
+use ConfigOps\Capture\IntentContext;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Restore\RestoreService;
 use Throwable;
@@ -54,11 +55,30 @@ final class AdminController
 
 	public function enqueueAdminAssets(string $hookSuffix): void
 	{
-		if ('toplevel_page_' . self::PAGE !== $hookSuffix && null === $this->captures->activeId()) {
+		$activeId = $this->captures->activeId();
+		if ('toplevel_page_' . self::PAGE !== $hookSuffix && null === $activeId) {
 			return;
 		}
 
 		$this->enqueueStyles();
+		if (null !== $activeId && current_user_can('configops_capture')) {
+			wp_enqueue_script(
+				'configops-intent-observer',
+				CONFIGOPS_URL . 'assets/intent-observer.js',
+				array(),
+				$this->assetVersion('assets/intent-observer.js'),
+				true
+			);
+			$settings = wp_json_encode(
+				array(
+					'sessionId' => $activeId,
+					'cookieName' => IntentContext::COOKIE_NAME,
+				)
+			);
+			if (is_string($settings)) {
+				wp_add_inline_script('configops-intent-observer', 'window.configOpsIntent = ' . $settings . ';', 'before');
+			}
+		}
 
 		if ('toplevel_page_' . self::PAGE === $hookSuffix) {
 			wp_enqueue_script(

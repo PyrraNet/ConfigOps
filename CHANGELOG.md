@@ -9,6 +9,7 @@ The first technical preview, created by pyrra.
 ### Shipped
 
 - Explicit local capture sessions with request grouping and source attribution.
+- Local, value-free intent correlation that matches touched wp-admin fields to persisted option paths and explains the match without changing restore authority.
 - Same-request, same-owner option-write coalescing from the original baseline to the final state, including removal of complete reverts.
 - Typed nested diffs, conservative noise separation, and redaction before persistence.
 - Scalar normalization that suppresses storage-only `null` ↔ empty-string and canonical integer ↔ string churn while preserving structural and meaningful typed value changes.

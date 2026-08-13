@@ -20,7 +20,7 @@ PHP 8.3 is a deliberate product constraint, not an accidental use of new syntax
 | Concern | Iteration 0 authority | Later extension |
 | --- | --- | --- |
 | Persisted mutation | WordPress Options API hooks; value-free signal for unmanaged writes | Adapter-owned custom tables and APIs |
-| Human intent | Explicit session name and request context | Admin field and fetch/REST correlation |
+| Human intent | Explicit session name, request context, and value-free admin-field correlation | Deeper fetch/REST correlation and reviewed adapter suggestions |
 | Value semantics | Type-preserving codec, JSON Pointer diff, versioned field schemas, and bounded local media/content references | Cross-site semantic resolution and release transforms |
 | Noise | Conservative built-in rules plus pinned WP Mail SMTP and Yoast contracts | Registry fixtures and adapter normalization |
 | Secrets | Redact before persistence; preserve during field-level undo | Secret references and target-local resolution |
@@ -72,6 +72,7 @@ PHP 8.3 is a deliberate product constraint, not an accidental use of new syntax
 - **Direct writes fail visibly, not magically.** During an active capture, the SQL Sentry recognizes common write statements, ignores ConfigOps-owned tables and Options API duplicates, and stores only operation, table, count, provenance, and safe request metadata. Raw SQL and values never enter persistence. Fifty unique signals per request form a hard ceiling; repeated signals collapse by source.
 - **Uncorrelated core cron stays out of an admin task.** Anonymous `/wp-cron.php` writes are not attributed to an explicit operator capture. Synchronous plugin side effects in the user’s Save request remain visible; future async correlation requires an adapter-owned job token instead of timing guesses.
 - **Unknown effects limit rollback.** Any unmanaged database write disables full-session restore in the review contract. Individually supported Options API mutations remain conflict-checkable and restorable.
+- **Intent is evidence, never authority.** During an active capture, a small admin observer records only the names, visible labels, sections, and submit action of fields the operator touches. A short-lived same-site cookie makes that metadata available to the same save request without sending a configuration value or adding a remote service. PHP accepts only bounded, current-session field names whose option and JSON Pointer match the persisted diff. The result can explain an unknown field and summarize likely intent, but it cannot change classification, adapter compatibility, redaction, or restore eligibility.
 
 ## Admin direction
 

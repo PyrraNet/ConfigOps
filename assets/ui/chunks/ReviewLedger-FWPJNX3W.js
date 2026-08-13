@@ -176,6 +176,9 @@ var MutationRow = window.wp.element.memo(/* @__PURE__ */ __name(function Mutatio
  ${__("technical changes", "configops")}` : visibleCount === 1 ? __("1 setting", "configops") : `${visibleCount} ${__("s\
 ettings", "configops")}`;
   const patchRestore = mutation.restoreMode === "patch";
+  const observedFields = [...new Set(
+    mutation.diff.map((change) => change.intent?.field_name).filter(Boolean)
+  )];
   const undoSucceeded = mutation.lastRestore?.status === "succeeded";
   const undoUncertain = ["running", "compensation_failed"].includes(mutation.lastRestore?.status);
   const missingRestoreReference = hasMissingRestoreReference(mutation.diff);
@@ -213,11 +216,13 @@ row", key: `${change.path || "/"}-${change.op || ""}-${index}` }, /* @__PURE__ *
 configops-diff-field", role: "rowheader" }, /* @__PURE__ */ wp.element.createElement("span", { className: "configops-fie\
 ld-context" }, change.group || __("Setting", "configops")), /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.
     element.createElement("strong", null, change.label || change.path || "/")), change.kind && /* @__PURE__ */ wp.element.
-    createElement("span", { className: "configops-field-kind" }, fieldKindLabel(change.kind, change.reference_type, __))),
-    /* @__PURE__ */ wp.element.createElement("div", { className: "configops-diff-value is-before", role: "cell" }, /* @__PURE__ */ wp.
-    element.createElement("span", { className: "configops-value-label" }, __("Before", "configops")), /* @__PURE__ */ wp.
-    element.createElement(DiffValue, { change, side: "before", label: __("Before", "configops") })), /* @__PURE__ */ wp.
-    element.createElement("span", { className: "configops-diff-direction", "aria-hidden": "true" }, "\u2192"), /* @__PURE__ */ wp.
+    createElement("span", { className: "configops-field-kind" }, fieldKindLabel(change.kind, change.reference_type, __)),
+    change.intent && /* @__PURE__ */ wp.element.createElement("span", { className: "configops-field-intent" }, change.intent.
+    confidence === "high" ? __("Observed field", "configops") : __("Likely observed field", "configops"))), /* @__PURE__ */ wp.
+    element.createElement("div", { className: "configops-diff-value is-before", role: "cell" }, /* @__PURE__ */ wp.element.
+    createElement("span", { className: "configops-value-label" }, __("Before", "configops")), /* @__PURE__ */ wp.element.
+    createElement(DiffValue, { change, side: "before", label: __("Before", "configops") })), /* @__PURE__ */ wp.element.
+    createElement("span", { className: "configops-diff-direction", "aria-hidden": "true" }, "\u2192"), /* @__PURE__ */ wp.
     element.createElement("div", { className: "configops-diff-value is-after", role: "cell" }, /* @__PURE__ */ wp.element.
     createElement("span", { className: "configops-value-label" }, __("Now", "configops")), /* @__PURE__ */ wp.element.createElement(
     DiffValue, { change, side: "after", label: __("Now", "configops") })), change.explanation && /* @__PURE__ */ wp.element.
@@ -235,18 +240,21 @@ ence" }, /* @__PURE__ */ wp.element.createElement("summary", null, __("Technical
     createElement("code", null, sourceLabel, mutation.source.line > 0 ? `:${mutation.source.line}` : ""))), mutation.adapter?.
     componentVersion && /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.element.createElement("\
 dt", null, __("Version", "configops")), /* @__PURE__ */ wp.element.createElement("dd", null, /* @__PURE__ */ wp.element.
-    createElement("code", null, mutation.adapter.componentVersion))), /* @__PURE__ */ wp.element.createElement("div", null,
-    /* @__PURE__ */ wp.element.createElement("dt", null, __("Fields", "configops")), /* @__PURE__ */ wp.element.createElement(
-    "dd", { className: "configops-evidence-paths" }, mutation.diff.map((change, index) => /* @__PURE__ */ wp.element.createElement(
-    "code", { key: `${change.path || "/"}-${index}` }, change.path || "/")))), /* @__PURE__ */ wp.element.createElement(
-    "div", null, /* @__PURE__ */ wp.element.createElement("dt", null, __("Why it is here", "configops")), /* @__PURE__ */ wp.
-    element.createElement("dd", null, mutation.classificationReason)))), /* @__PURE__ */ wp.element.createElement("div",
-    { className: "configops-mutation-action" }, undoSucceeded && /* @__PURE__ */ wp.element.createElement("span", { className: "\
-configops-restore-state is-succeeded" }, /* @__PURE__ */ wp.element.createElement("strong", null, __("Undone", "configop\
-s")), /* @__PURE__ */ wp.element.createElement("span", null, mutation.lastRestore.actorName, " \xB7 ", mutation.lastRestore.
-    finishedAtLabel)), undoUncertain && /* @__PURE__ */ wp.element.createElement("span", { className: "configops-undo-un\
-available" }, /* @__PURE__ */ wp.element.createElement("strong", null, __("Undo needs inspection", "configops")), /* @__PURE__ */ wp.
-    element.createElement("span", null, __("Check the current plugin setting before continuing.", "configops"))), undoUnavailableExplanation &&
+    createElement("code", null, mutation.adapter.componentVersion))), observedFields.length > 0 && /* @__PURE__ */ wp.element.
+    createElement("div", null, /* @__PURE__ */ wp.element.createElement("dt", null, __("Observed form fields", "configop\
+s")), /* @__PURE__ */ wp.element.createElement("dd", { className: "configops-evidence-paths" }, observedFields.map((field) => /* @__PURE__ */ wp.
+    element.createElement("code", { key: field }, field)))), /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.
+    element.createElement("dt", null, __("Fields", "configops")), /* @__PURE__ */ wp.element.createElement("dd", { className: "\
+configops-evidence-paths" }, mutation.diff.map((change, index) => /* @__PURE__ */ wp.element.createElement("code", { key: `${change.
+    path || "/"}-${index}` }, change.path || "/")))), /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.
+    element.createElement("dt", null, __("Why it is here", "configops")), /* @__PURE__ */ wp.element.createElement("dd",
+    null, mutation.classificationReason)))), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-mut\
+ation-action" }, undoSucceeded && /* @__PURE__ */ wp.element.createElement("span", { className: "configops-restore-state\
+ is-succeeded" }, /* @__PURE__ */ wp.element.createElement("strong", null, __("Undone", "configops")), /* @__PURE__ */ wp.
+    element.createElement("span", null, mutation.lastRestore.actorName, " \xB7 ", mutation.lastRestore.finishedAtLabel)),
+    undoUncertain && /* @__PURE__ */ wp.element.createElement("span", { className: "configops-undo-unavailable" }, /* @__PURE__ */ wp.
+    element.createElement("strong", null, __("Undo needs inspection", "configops")), /* @__PURE__ */ wp.element.createElement(
+    "span", null, __("Check the current plugin setting before continuing.", "configops"))), undoUnavailableExplanation &&
     /* @__PURE__ */ wp.element.createElement("span", { className: "configops-undo-unavailable" }, /* @__PURE__ */ wp.element.
     createElement("strong", null, __("Undo unavailable", "configops")), /* @__PURE__ */ wp.element.createElement("span",
     null, undoUnavailableExplanation)), canUndo && /* @__PURE__ */ wp.element.createElement("span", { className: "config\
@@ -298,6 +306,14 @@ var RequestGroup = window.wp.element.memo(/* @__PURE__ */ __name(function Reques
   const writeSignals = group.writeSignals || [];
   const unmanagedWriteCount = writeSignals.reduce((total, signal) => total + signal.occurrenceCount, 0);
   const visibleChangeCount = group.mutations.reduce((total, mutation) => total + mutation.diff.length, 0);
+  const intent = group.intent;
+  const intentLabels = Array.isArray(intent?.labels) ? intent.labels.filter(Boolean) : [];
+  const intentStatement = intentLabels.length === 1 ? sprintf(__("Changed \u201C%s\u201D", "configops"), intentLabels[0]) :
+  intentLabels.length > 1 ? sprintf(__("Changed fields: %s", "configops"), intentLabels.join(" \xB7 ")) : intent?.action ||
+  __("Changed admin field", "configops");
+  const intentEvidence = intent?.confidence === "high" ? sprintf(__("Matched %1$d of %2$d saved settings directly", "con\
+figops"), intent.matchedFields, visibleChangeCount) : sprintf(__("Matched %1$d of %2$d saved settings by option scope", "\
+configops"), intent?.matchedFields || 0, visibleChangeCount);
   return /* @__PURE__ */ wp.element.createElement("section", { className: "configops-request-group" }, /* @__PURE__ */ wp.
   element.createElement("header", { className: "configops-request-header" }, /* @__PURE__ */ wp.element.createElement("d\
 iv", null, /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.element.createElement("span", { className: "\
@@ -307,12 +323,17 @@ e", "configops") : sprintf(__("%d visible changes", "configops"), visibleChangeC
   element.createElement(wp.element.Fragment, null, " ", /* @__PURE__ */ wp.element.createElement("span", { "aria-hidden": "\
 true" }, "\xB7"), " ", sprintf(__("%d outside API", "configops"), unmanagedWriteCount)), " ", /* @__PURE__ */ wp.element.
   createElement("span", { "aria-hidden": "true" }, "\xB7"), " ", /* @__PURE__ */ wp.element.createElement("time", { dateTime: group.
-  head.occurredAt }, group.head.timeLabel)))), /* @__PURE__ */ wp.element.createElement("details", { className: "configo\
-ps-request-evidence" }, /* @__PURE__ */ wp.element.createElement("summary", null, __("Request details", "configops")), /* @__PURE__ */ wp.
-  element.createElement("div", null, /* @__PURE__ */ wp.element.createElement("code", null, group.head.method), /* @__PURE__ */ wp.
-  element.createElement("code", null, group.head.requestUri)))), /* @__PURE__ */ wp.element.createElement("div", { className: "\
-configops-mutation-list" }, writeSignals.map((signal) => /* @__PURE__ */ wp.element.createElement(DatabaseWriteSignal, {
-  key: signal.id, signal })), group.mutations.map((mutation) => /* @__PURE__ */ wp.element.createElement(
+  head.occurredAt }, group.head.timeLabel)), intent && /* @__PURE__ */ wp.element.createElement("div", { className: "con\
+figops-intent-summary" }, /* @__PURE__ */ wp.element.createElement("span", { className: "configops-intent-mark", "aria-h\
+idden": "true" }, "\u21B3"), /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.element.createElement(
+  "span", null, __("Observed intent", "configops")), /* @__PURE__ */ wp.element.createElement("strong", null, intentStatement),
+  /* @__PURE__ */ wp.element.createElement("em", null, intentEvidence))))), /* @__PURE__ */ wp.element.createElement("de\
+tails", { className: "configops-request-evidence" }, /* @__PURE__ */ wp.element.createElement("summary", null, __("Reque\
+st details", "configops")), /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.element.createElement(
+  "code", null, group.head.method), /* @__PURE__ */ wp.element.createElement("code", null, group.head.requestUri)))), /* @__PURE__ */ wp.
+  element.createElement("div", { className: "configops-mutation-list" }, writeSignals.map((signal) => /* @__PURE__ */ wp.
+  element.createElement(DatabaseWriteSignal, { key: signal.id, signal })), group.mutations.map((mutation) => /* @__PURE__ */ wp.
+  element.createElement(
     MutationRow,
     {
       key: mutation.id,
@@ -366,6 +387,7 @@ gops") } : { className: "is-recorded", label: __("Recorded", "configops") };
       return {
         ...group,
         mutations,
+        intent: filter === "noise" ? null : group.intent,
         writeSignals: filter === "noise" ? [] : group.writeSignals || []
       };
     }).filter((group) => group.mutations.length > 0 || group.writeSignals.length > 0).map((group, index) => ({ ...group,

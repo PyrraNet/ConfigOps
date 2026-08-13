@@ -62,6 +62,7 @@ Requires WordPress 7.0 or newer and PHP 8.3 or newer.
 ## Safety model
 
 - probable credentials are redacted before mutation history is written;
+- touched admin fields are correlated locally using names and visible labels only; the observer never reads their configuration values and its evidence never expands undo permissions;
 - capture evidence stays in the website database and is not sent to pyrra or another service;
 - direct custom-table writes produce value-free warnings, never stored SQL;
 - site icons, site logos, every supported Yoast social-image ID, publisher-policy page, content-ignore entry, LLMs.txt page, and represented-person selector retain bounded local identity; referenced objects are never copied or deleted;

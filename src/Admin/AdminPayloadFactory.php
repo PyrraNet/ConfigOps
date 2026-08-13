@@ -210,6 +210,7 @@ final class AdminPayloadFactory
 			'index'      => $group['index'],
 			'requestId'  => $group['request_id'],
 			'title'      => (string) ($group['title'] ?? ''),
+			'intent'     => is_array($group['intent'] ?? null) ? $group['intent'] : null,
 			'head'       => $this->requestHead($group['head']),
 			'mutations'  => array_map(
 				function (array $prepared): array {

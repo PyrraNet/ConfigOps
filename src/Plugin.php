@@ -21,6 +21,7 @@ use ConfigOps\Admin\ReviewPresenter;
 use ConfigOps\Api\RestController;
 use ConfigOps\Capture\InternalOptionPolicy;
 use ConfigOps\Capture\HeuristicSensitiveValueDetector;
+use ConfigOps\Capture\IntentContext;
 use ConfigOps\Capture\MutationObserver;
 use ConfigOps\Capture\RequestContext;
 use ConfigOps\Capture\SqlWriteSentry;
@@ -93,7 +94,8 @@ final class Plugin
 			new NestedDiff(),
 			$adapters,
 			$source,
-			$request
+			$request,
+			new IntentContext()
 		);
 		$observer->register();
 

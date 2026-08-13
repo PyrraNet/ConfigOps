@@ -46,6 +46,7 @@ final class MutationObserver
 	 * }|null
 	 */
 	private ?array $aggregate = null;
+	private readonly IntentContext $intent;
 
 	public function __construct(
 		private readonly CaptureRepository $captures,
@@ -56,8 +57,10 @@ final class MutationObserver
 		private readonly NestedDiff $diff,
 		private readonly AdapterRegistry $adapters,
 		private readonly SourceAttributor $source,
-		private readonly RequestContext $request
+		private readonly RequestContext $request,
+		?IntentContext $intent = null
 	) {
+		$this->intent = $intent ?? new IntentContext();
 	}
 
 	public function register(): void
@@ -264,7 +267,7 @@ final class MutationObserver
 		}
 
 		$classification = $this->adapters->analyze($option, $changes);
-		$changes        = $classification['changes'];
+		$changes        = $this->intent->enrich($sessionId, $option, $classification['changes']);
 		$diffJson       = wp_json_encode($changes, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 		if (! is_string($diffJson) || strlen($diffJson) > self::MAX_DIFF_BYTES) {
 			$changes = array(
