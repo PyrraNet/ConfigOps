@@ -77,14 +77,13 @@ final class WpMailSmtpAdapter extends AbstractOptionAdapter implements ChangeAwa
 				array('id' => 'apply', 'label' => 'Apply to another site', 'level' => 'planned', 'note' => 'Release Packs are the next product iteration, not a hidden promise.'),
 			),
 			array(
-				'All settings in WP Mail SMTP Lite’s main settings record',
-				'Mailer selection, sender identity, SMTP connection, and Lite provider credentials',
-				'Plugin-generated activation, version, and report state',
+				'WP Mail SMTP Lite settings',
+				'Mailer, sender, and SMTP settings',
+				'Plugin-generated activation, version, and report data',
 			),
 			array(
-				'Pro-only mailers are redacted conservatively but are not part of the tested field map.',
-				'A changed secret cannot be reconstructed from capture history and is deliberately left untouched by undo.',
-				'Sending a test email is not yet a verification contract.',
+				'WP Mail SMTP Pro settings are not mapped.',
+				'Changed passwords and API keys cannot be restored.',
 			),
 			'https://github.com/awesomemotive/WP-Mail-SMTP'
 		);

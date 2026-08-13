@@ -32,11 +32,11 @@ $configopsBootstrapJson = wp_json_encode(
 				height="32"
 			>
 			<span class="configops-app-divider" aria-hidden="true"></span>
-			<h1><?php echo 'support' === $view ? esc_html__('Plugin support', 'configops') : esc_html__('Change review', 'configops'); ?></h1>
+			<h1><?php echo 'support' === $view ? esc_html__('Supported plugins', 'configops') : esc_html__('Change review', 'configops'); ?></h1>
 		</div>
 		<nav class="configops-app-nav" aria-label="<?php esc_attr_e('ConfigOps sections', 'configops'); ?>">
 			<a class="<?php echo esc_attr('review' === $view ? 'is-current' : ''); ?>" <?php if ('review' === $view) : ?>aria-current="page"<?php endif; ?> href="<?php echo esc_url(admin_url('admin.php?page=configops')); ?>"><?php esc_html_e('Changes', 'configops'); ?></a>
-			<a class="<?php echo esc_attr('support' === $view ? 'is-current' : ''); ?>" <?php if ('support' === $view) : ?>aria-current="page"<?php endif; ?> href="<?php echo esc_url(admin_url('admin.php?page=configops&view=support')); ?>"><?php esc_html_e('Plugin support', 'configops'); ?></a>
+			<a class="<?php echo esc_attr('support' === $view ? 'is-current' : ''); ?>" <?php if ('support' === $view) : ?>aria-current="page"<?php endif; ?> href="<?php echo esc_url(admin_url('admin.php?page=configops&view=support')); ?>"><?php esc_html_e('Supported plugins', 'configops'); ?></a>
 		</nav>
 	</header>
 
@@ -70,8 +70,7 @@ $configopsBootstrapJson = wp_json_encode(
 
 	<noscript>
 		<section class="configops-no-script">
-			<h2><?php esc_html_e('JavaScript is required for the ConfigOps interface.', 'configops'); ?></h2>
-			<p><?php esc_html_e('Capture remains server-authoritative; the interactive review and support views load as small React islands.', 'configops'); ?></p>
+			<h2><?php esc_html_e('Enable JavaScript to use ConfigOps.', 'configops'); ?></h2>
 			<?php if ('review' === $view && null !== ($bootstrap['active'] ?? null)) : ?>
 				<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
 					<input type="hidden" name="action" value="configops_stop_capture">

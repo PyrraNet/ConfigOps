@@ -44,8 +44,8 @@ try {
 	if ((await appNavigation.getByRole('link', { name: 'Changes' }).getAttribute('aria-current')) !== 'page') {
 		throw new Error('Server-routed navigation does not expose the current page to assistive technology.');
 	}
-	if (!await appNavigation.getByRole('link', { name: 'Plugin support' }).isVisible()) {
-		throw new Error('The honest plugin support contract is missing from the product navigation.');
+	if (!await appNavigation.getByRole('link', { name: 'Supported plugins' }).isVisible()) {
+		throw new Error('Supported plugins is missing from the product navigation.');
 	}
 	const bootstrap = await page.locator('#configops-bootstrap').evaluate((element) => ({
 		bytes: new TextEncoder().encode(element.textContent || '').byteLength,
@@ -225,22 +225,18 @@ try {
 
 	await page.setViewportSize({ width: 1440, height: 1100 });
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops&view=support`, { waitUntil: 'networkidle' });
-	await page.getByRole('heading', { name: 'Plugin support', exact: true }).waitFor();
-	await page.getByRole('heading', { name: 'Know what ConfigOps understands.', exact: true }).waitFor();
+	await page.getByRole('heading', { name: 'Supported plugins', exact: true }).waitFor();
 	if (await page.locator('.configops-support-row').count() !== 2) {
 		throw new Error('The support contract should list exactly the two shipped real-plugin adapters.');
 	}
 	const firstSupport = page.locator('.configops-support-row').first();
 	await firstSupport.locator('summary').click();
-	if (await firstSupport.locator('.configops-support-capability').count() !== 6) {
-		throw new Error('The expanded adapter contract does not disclose all six current capability levels.');
+	if (await firstSupport.locator('.configops-support-capability').count() !== 5) {
+		throw new Error('The expanded plugin row does not disclose all five current capabilities.');
 	}
-	const supportHint = firstSupport.getByRole('button', { name: /Find changes:/ }).first();
-	await supportHint.focus();
-	if ((await supportHint.locator('xpath=..').getByRole('tooltip').evaluate((element) => getComputedStyle(element).visibility)) !== 'visible') {
-		throw new Error('Adapter limits are not exposed on keyboard focus.');
+	if (await page.getByText('Know what ConfigOps understands.', { exact: true }).count()) {
+		throw new Error('The removed support marketing copy is still rendered.');
 	}
-	await page.locator('.configops-support-intro h2').click();
 	await page.screenshot({ path: new URL('configops-support-desktop.png', artifacts).pathname, fullPage: true });
 
 	await page.setViewportSize({ width: 390, height: 844 });
@@ -249,7 +245,7 @@ try {
 		scrollWidth: document.documentElement.scrollWidth,
 	}));
 	if (supportViewport.scrollWidth > supportViewport.clientWidth) {
-		throw new Error(`Plugin support caused page-level horizontal overflow on mobile: ${JSON.stringify(supportViewport)}.`);
+		throw new Error(`Supported plugins caused page-level horizontal overflow on mobile: ${JSON.stringify(supportViewport)}.`);
 	}
 	await page.screenshot({ path: new URL('configops-support-mobile.png', artifacts).pathname, fullPage: true });
 

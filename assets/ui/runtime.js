@@ -53,7 +53,7 @@ var whenVisible = /* @__PURE__ */ __name((element, callback) => {
 }, "whenVisible");
 try {
   configureStore(JSON.parse(bootstrapNode?.textContent || "{}"));
-  mount("configops-support-island", () => import("./chunks/SupportMatrix-TLSOSZ2H.js"));
+  mount("configops-support-island", () => import("./chunks/SupportMatrix-NIAEU62Y.js"));
   mount("configops-capture-island", () => import("./chunks/CaptureControls-J7HBNVQT.js"));
   onIdle(() => mount("configops-sessions-island", () => import("./chunks/Sessions-QMLYVJN5.js")));
   whenVisible(

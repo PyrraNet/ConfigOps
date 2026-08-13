@@ -65,8 +65,8 @@ try {
 
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops&view=support`, { waitUntil: 'domcontentloaded' });
 	assert.match(page.url(), /\/wp-admin\/admin\.php/, 'The browser should reach the authenticated ConfigOps support screen.');
-	await page.getByRole('heading', { name: 'Plugin support', exact: true }).waitFor();
-	const readyPlugins = page.getByText('Ready on this website', { exact: true });
+	await page.getByRole('heading', { name: 'Supported plugins', exact: true }).waitFor();
+	const readyPlugins = page.getByText('Active', { exact: true });
 	await readyPlugins.first().waitFor();
 	assert.equal(await readyPlugins.count(), 2, 'Both exact plugin releases should be ready before user-flow testing.');
 

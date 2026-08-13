@@ -1337,90 +1337,21 @@ body.toplevel_page_configops #wpbody-content {
 
 .configops-support {
 	max-width: 1180px;
-	padding: clamp(44px, 7vw, 92px) 0 96px;
-}
-
-.configops-support-intro {
-	max-width: 680px;
-	margin-bottom: 42px;
-}
-
-.configops-eyebrow {
-	display: inline-block;
-	margin-bottom: 9px;
-	color: var(--co-action);
-	font-size: 10px;
-	font-weight: 750;
-	letter-spacing: 0.075em;
-	text-transform: uppercase;
-}
-
-.configops-support-intro h2 {
-	margin: 0;
-	font-family: var(--co-font-sans);
-	font-size: clamp(32px, 4vw, 54px);
-	font-weight: 650;
-	letter-spacing: -0.055em;
-	line-height: 0.98;
-}
-
-.configops-support-intro p {
-	max-width: 610px;
-	margin: 18px 0 0;
-	color: var(--co-text-muted);
-	font-size: 14px;
-	line-height: 1.55;
-}
-
-.configops-support-legend {
-	display: flex;
-	min-height: 47px;
-	gap: 20px;
-	align-items: center;
-	justify-content: flex-end;
-	border-bottom: 1px solid var(--co-border-strong);
-	color: var(--co-text-muted);
-	font-size: 10px;
-}
-
-.configops-support-legend > span {
-	display: inline-flex;
-	gap: 6px;
-	align-items: center;
-}
-
-.configops-support-legend i,
-.configops-support-quick > span {
-	font-family: var(--co-font-code);
-	font-style: normal;
-}
-
-.configops-support-legend .is-full,
-.configops-support-quick .is-full {
-	color: var(--co-success);
-}
-
-.configops-support-legend .is-partial,
-.configops-support-quick .is-partial {
-	color: var(--co-warning);
-}
-
-.configops-support-legend .is-planned,
-.configops-support-quick .is-planned {
-	color: var(--co-ink-400);
+	padding: 30px 0 96px;
 }
 
 .configops-support-head,
 .configops-support-row > summary {
 	display: grid;
-	grid-template-columns: minmax(240px, 1.35fr) minmax(150px, 0.8fr) minmax(120px, 0.65fr) 12px;
+	grid-template-columns: minmax(260px, 1.35fr) minmax(130px, 0.65fr) minmax(180px, 0.85fr) 12px;
 	gap: 22px;
 	align-items: center;
 }
 
 .configops-support-head {
-	min-height: 38px;
+	min-height: 42px;
 	padding: 0 14px;
+	border-bottom: 1px solid var(--co-border-strong);
 	color: var(--co-text-muted);
 	font-size: 9px;
 	font-weight: 700;
@@ -1430,16 +1361,12 @@ body.toplevel_page_configops #wpbody-content {
 
 .configops-support-row {
 	margin: 0;
-	border-top: 1px solid var(--co-border);
-}
-
-.configops-support-row:last-child {
 	border-bottom: 1px solid var(--co-border);
 }
 
 .configops-support-row > summary {
-	min-height: 92px;
-	padding: 13px 14px;
+	min-height: 76px;
+	padding: 11px 14px;
 	cursor: pointer;
 	list-style: none;
 	transition: background-color var(--co-duration-fast) var(--co-ease-out);
@@ -1455,8 +1382,8 @@ body.toplevel_page_configops #wpbody-content {
 }
 
 .configops-support-row[open] > summary {
-	background: var(--co-ink-950);
-	color: var(--co-ink-50);
+	box-shadow: inset 3px 0 0 var(--co-action);
+	background: var(--co-brand-blue-50);
 }
 
 .configops-support-plugin {
@@ -1468,12 +1395,12 @@ body.toplevel_page_configops #wpbody-content {
 
 .configops-support-mark {
 	display: grid;
-	flex: 0 0 38px;
-	width: 38px;
-	height: 38px;
+	flex: 0 0 34px;
+	width: 34px;
+	height: 34px;
 	place-items: center;
 	border: 1px solid var(--co-border);
-	border-radius: 8px;
+	border-radius: 7px;
 	background: var(--co-surface-raised);
 	color: var(--co-action);
 	font-size: 14px;
@@ -1493,14 +1420,6 @@ body.toplevel_page_configops #wpbody-content {
 	color: var(--co-text-muted);
 	font-family: var(--co-font-code);
 	font-size: 9px;
-}
-
-.configops-support-row[open] .configops-support-plugin p {
-	color: var(--co-ink-400);
-}
-
-.configops-support-row[open] .configops-support-plugin h3 {
-	color: var(--co-ink-50);
 }
 
 .configops-plugin-state {
@@ -1523,25 +1442,47 @@ body.toplevel_page_configops #wpbody-content {
 .configops-plugin-state.is-ready::before { background: var(--co-success); }
 .configops-plugin-state.is-warning::before { background: var(--co-warning); }
 
-.configops-support-quick {
+.configops-support-summary {
 	display: flex;
-	gap: 11px;
-	font-size: 13px;
+	flex-wrap: wrap;
+	gap: 4px 14px;
+	color: var(--co-text-muted);
+	font-size: 10px;
+}
+
+.configops-support-summary span {
+	display: inline-flex;
+	gap: 4px;
+	align-items: baseline;
+}
+
+.configops-support-summary strong {
+	font-size: 12px;
+}
+
+.configops-support-summary .is-full strong {
+	color: var(--co-success);
+}
+
+.configops-support-summary .is-partial strong,
+.configops-support-summary.is-warning {
+	color: var(--co-warning);
+	font-weight: 650;
 }
 
 .configops-support-row[open] .configops-chevron {
-	color: var(--co-ink-300);
 	transform: rotate(225deg) translate(-1px, -1px);
 }
 
 .configops-support-detail {
-	padding: 26px 14px 18px 65px;
-	border-top: 3px solid var(--co-action);
+	padding: 20px 14px 24px 61px;
+	box-shadow: inset 3px 0 0 var(--co-action);
+	border-top: 1px solid var(--co-border);
 	background: var(--co-surface-raised);
 }
 
 .configops-support-detail h4 {
-	margin: 0 0 13px;
+	margin: 0 0 9px;
 	font-family: var(--co-font-sans);
 	font-size: 11px;
 	font-weight: 750;
@@ -1551,43 +1492,45 @@ body.toplevel_page_configops #wpbody-content {
 
 .configops-support-capabilities {
 	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 	border-top: 1px solid var(--co-border);
-	border-left: 1px solid var(--co-border);
 }
 
 .configops-support-capability {
-	display: flex;
-	min-height: 62px;
-	flex-direction: column;
-	gap: 5px;
-	justify-content: center;
-	padding: 10px 12px;
-	border-right: 1px solid var(--co-border);
+	display: grid;
+	min-height: 48px;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 12px;
+	align-items: center;
+	padding: 9px 18px 9px 0;
 	border-bottom: 1px solid var(--co-border);
 }
 
-.configops-support-capability > span {
+.configops-support-capability:nth-child(even) {
+	padding-right: 0;
+	padding-left: 18px;
+	border-left: 1px solid var(--co-border);
+}
+
+.configops-support-capability span {
 	font-size: 11px;
 	font-weight: 650;
 }
 
-.configops-support-capability .configops-hint-trigger.is-text {
-	width: fit-content;
-	min-height: 20px;
+.configops-support-capability strong {
 	color: var(--co-text-muted);
 	font-size: 9px;
+	font-weight: 650;
 }
 
-.configops-support-capability.is-full { border-top: 2px solid var(--co-success); }
-.configops-support-capability.is-partial { border-top: 2px solid var(--co-warning); }
-.configops-support-capability.is-planned { border-top: 2px solid var(--co-ink-300); }
+.configops-support-capability.is-full strong { color: var(--co-success); }
+.configops-support-capability.is-partial strong { color: var(--co-warning); }
 
 .configops-support-notes {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
 	gap: clamp(30px, 6vw, 82px);
-	margin: 28px 0;
+	margin: 26px 0 0;
 }
 
 .configops-support-notes ul {
@@ -1597,36 +1540,12 @@ body.toplevel_page_configops #wpbody-content {
 }
 
 .configops-support-notes li {
-	position: relative;
 	margin: 0;
-	padding: 7px 0 7px 17px;
+	padding: 7px 0;
 	border-bottom: 1px solid var(--co-ink-200);
 	color: var(--co-text-muted);
 	font-size: 11px;
 	line-height: 1.45;
-}
-
-.configops-support-notes li::before {
-	position: absolute;
-	top: 8px;
-	left: 1px;
-	color: var(--co-action);
-	content: "—";
-}
-
-.configops-support-detail > footer {
-	display: flex;
-	justify-content: space-between;
-	padding-top: 12px;
-	border-top: 1px solid var(--co-border);
-	color: var(--co-text-muted);
-	font-size: 9px;
-}
-
-.configops-support-detail > footer a {
-	color: var(--co-action-hover);
-	font-weight: 650;
-	text-decoration: none;
 }
 
 .configops-provenance {
@@ -1992,7 +1911,7 @@ body.toplevel_page_configops #wpbody-content {
 	}
 
 	.configops-support-row > summary > .configops-plugin-state,
-	.configops-support-row > summary > .configops-support-quick {
+	.configops-support-row > summary > .configops-support-summary {
 		grid-column: 1;
 	}
 
@@ -2002,7 +1921,7 @@ body.toplevel_page_configops #wpbody-content {
 	}
 
 	.configops-support-detail {
-		padding-left: 14px;
+		padding-left: 17px;
 	}
 
 	.configops-support-capabilities {
@@ -2081,22 +2000,18 @@ body.toplevel_page_configops #wpbody-content {
 	}
 
 	.configops-support {
-		padding-top: 38px;
-	}
-
-	.configops-support-intro h2 {
-		font-size: 34px;
-	}
-
-	.configops-support-legend {
-		flex-wrap: wrap;
-		justify-content: flex-start;
-		gap: 8px 16px;
-		padding: 10px 0;
+		padding-top: 18px;
 	}
 
 	.configops-support-capabilities {
 		grid-template-columns: 1fr;
+	}
+
+	.configops-support-capability,
+	.configops-support-capability:nth-child(even) {
+		padding-right: 0;
+		padding-left: 0;
+		border-left: 0;
 	}
 
 	.configops-capture-command.is-recording {

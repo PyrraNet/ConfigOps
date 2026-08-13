@@ -169,16 +169,15 @@ final class YoastSeoAdapter extends AbstractOptionAdapter implements DatabaseWri
 				array('id' => 'apply', 'label' => 'Apply to another site', 'level' => 'planned', 'note' => 'IDs require semantic references before Release Packs can apply them elsewhere.'),
 			),
 			array(
-				'General Yoast features and crawl settings',
-				'Search appearance, title templates, breadcrumbs, and noindex rules',
-				'Social profiles, Open Graph, X / Twitter, and LLMs.txt settings',
-				'Indexing, migration, tracking, and maintenance noise',
+				'Features, crawl, and search appearance settings',
+				'Title templates, breadcrumbs, and indexing rules',
+				'Social profiles, Open Graph, X / Twitter, and LLMs.txt',
+				'Plugin-generated indexing, migration, tracking, and maintenance data',
 			),
 			array(
-				'Taxonomy metadata is content and is not treated as deployable configuration.',
-				'Multisite settings are outside the current ConfigOps product scope.',
-				'Attachment and page IDs are identified but still require future semantic resolvers for cross-site use.',
-				'Premium extension options are not part of this tested contract.',
+				'Taxonomy metadata is excluded.',
+				'Multisite settings are excluded.',
+				'Yoast Premium settings are not mapped.',
 			),
 			'https://github.com/Yoast/wordpress-seo'
 		);
