@@ -66,7 +66,8 @@ Requires WordPress 7.0 or newer and PHP 8.3 or newer.
 - direct custom-table writes produce value-free warnings, never stored SQL;
 - restore operations are serialized, audited, conflict-checked, and compensated when possible;
 - interrupted, incomplete, or version-uncertain evidence fails closed;
-- completed local history is retained for 30 days by default.
+- while ConfigOps is active, completed local history is retained for 30 days by default;
+- uninstalling ConfigOps removes its capture history, installation options, scheduled cleanup, and capabilities.
 
 Release Packs, Plans, Policies, and Drift are the direction after the recorder earns trust.
 

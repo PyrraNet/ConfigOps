@@ -108,7 +108,7 @@ if (!read('LICENSE').includes('GNU GENERAL PUBLIC LICENSE\n                     
 	fail('LICENSE does not contain the GPL version 2 text');
 }
 
-const productionRoots = ['configops.php', 'src', 'templates', 'assets'];
+const productionRoots = ['configops.php', 'uninstall.php', 'src', 'templates', 'assets'];
 const productionFiles = [];
 const walk = (entry) => {
 	const info = fs.statSync(entry);

@@ -245,6 +245,10 @@ final class ValueCodec
 			return true;
 		}
 
+		if ($this->looksLikeCredentialToken($trimmed)) {
+			return true;
+		}
+
 		if (1 === preg_match(
 			'/(?:^|[?&;\s])(?:password|passwd|passphrase|pwd|secret|token|access_token|refresh_token|api_key|apikey|private_key|client_secret|consumer_secret|authorization|credentials?)\s*=/i',
 			$trimmed
@@ -280,6 +284,46 @@ final class ValueCodec
 		$visited = 0;
 
 		return $this->structuredValueContainsSecret($decoded, $optionName, $path, 0, $visited);
+	}
+
+	private function looksLikeCredentialToken(string $value): bool
+	{
+		$knownPatterns = array(
+			'/(?:^|[^A-Za-z0-9_-])sk-(?:proj-|live-|test-)?[A-Za-z0-9_-]{16,}(?:$|[^A-Za-z0-9_-])/i',
+			'/(?:^|[^A-Za-z0-9_])(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}(?:$|[^A-Za-z0-9_])/i',
+			'/(?:^|[^A-Za-z0-9_])(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})(?:$|[^A-Za-z0-9_])/',
+			'/(?:^|[^A-Za-z0-9-])(?:glpat-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})(?:$|[^A-Za-z0-9-])/',
+			'/(?:^|[^A-Z0-9])AKIA[A-Z0-9]{16}(?:$|[^A-Z0-9])/',
+			'/(?:^|[^A-Za-z0-9_-])AIza[A-Za-z0-9_-]{20,}(?:$|[^A-Za-z0-9_-])/',
+			'/(?:^|[^A-Za-z0-9_])(?:npm_[A-Za-z0-9]{20,}|SK[0-9a-f]{32})(?:$|[^A-Za-z0-9_])/i',
+			'/(?:^|[^A-Za-z0-9_.-])SG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}(?:$|[^A-Za-z0-9_.-])/',
+			'/(?:^|[\s"\'=:])eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}(?:$|[\s"\',;&])/',
+		);
+		foreach ($knownPatterns as $pattern) {
+			if (1 === preg_match($pattern, $value)) {
+				return true;
+			}
+		}
+
+		$length = strlen($value);
+		if (
+			$length < 48
+			|| $length > 4096
+			|| 1 !== preg_match('/^[A-Za-z0-9._~+\/=\-]+$/', $value)
+			|| 1 !== preg_match('/[A-Za-z]/', $value)
+			|| 1 !== preg_match('/[0-9]/', $value)
+			|| 1 === preg_match('/^(?:sha(?:256|384|512)-[A-Za-z0-9+\/=]+|[a-f0-9]{40,128})$/i', $value)
+		) {
+			return false;
+		}
+
+		$entropy = 0.0;
+		foreach (count_chars($value, 1) as $occurrences) {
+			$probability = $occurrences / $length;
+			$entropy -= $probability * log($probability, 2);
+		}
+
+		return $entropy >= 4.3;
 	}
 
 	/**

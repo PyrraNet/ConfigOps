@@ -5,7 +5,11 @@ const roots = new Map();
 
 const renderFailure = (element) => {
 	element.removeAttribute('aria-busy');
-	element.innerHTML = `<p class="configops-island-error" role="alert">${window.wp.i18n.__('This ConfigOps instrument could not be loaded. Reload the page to try again.', 'configops')}</p>`;
+	const message = document.createElement('p');
+	message.className = 'configops-island-error';
+	message.setAttribute('role', 'alert');
+	message.textContent = window.wp.i18n.__('This ConfigOps instrument could not be loaded. Reload the page to try again.', 'configops');
+	element.replaceChildren(message);
 };
 
 const mount = async (id, importer) => {

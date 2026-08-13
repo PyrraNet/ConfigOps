@@ -27,7 +27,7 @@ final class PrivacyPolicy
 			'configops'
 		) . '</p>';
 		$content .= '<p>' . esc_html__(
-			'ConfigOps does not send this evidence to pyrra or another external service. Users with the ConfigOps viewing capability can review it. Completed and interrupted captures are deleted after 30 days by default; site developers can change that retention period with the configops_retention_days filter.',
+			'ConfigOps does not send this evidence to pyrra or another external service. Users with the ConfigOps viewing capability can review it. While ConfigOps is active, completed and interrupted captures are deleted after 30 days by default; site developers can change that retention period with the configops_retention_days filter. Uninstalling ConfigOps removes its capture history and installation data.',
 			'configops'
 		) . '</p>';
 

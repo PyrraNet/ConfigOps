@@ -23,6 +23,7 @@ mkdir -p "$plugin_root" "$archive_root"
 find "$archive_root" -maxdepth 1 -type f -name 'configops-*.zip' ! -name "$(basename "$archive")" -delete
 
 cp "$repository_root/configops.php" "$plugin_root/configops.php"
+cp "$repository_root/uninstall.php" "$plugin_root/uninstall.php"
 cp "$repository_root/readme.txt" "$plugin_root/readme.txt"
 cp "$repository_root/CHANGELOG.md" "$plugin_root/CHANGELOG.md"
 cp "$repository_root/LICENSE" "$plugin_root/LICENSE"
@@ -42,6 +43,7 @@ rm -f "$archive"
 entries="$(unzip -Z1 "$archive")"
 for required in \
 	configops/configops.php \
+	configops/uninstall.php \
 	configops/readme.txt \
 	configops/LICENSE \
 	configops/CHANGELOG.md \

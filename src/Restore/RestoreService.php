@@ -553,13 +553,59 @@ final class RestoreService
 
 	private function applyState(string $optionName, string $payload, ?string $autoload): void
 	{
+		$sentinel        = new \stdClass();
+		$current         = get_option($optionName, $sentinel);
+		$currentAutoload = $this->optionMetadata->autoloadFor($optionName);
+		$currentEncoded  = $current === $sentinel
+			? $this->codec->missing()
+			: $this->codec->encode($current, $optionName);
+		if (! $currentEncoded->restorable) {
+			throw new RuntimeException('The current value cannot be retained safely for restore compensation. Nothing was changed.');
+		}
+		$currentPayload  = $currentEncoded->payload;
+
+		try {
+			$this->writeState($optionName, $payload, $autoload);
+			$this->assertAppliedState($optionName, $payload, $autoload);
+		} catch (Throwable $error) {
+			try {
+				// The failed write may have returned successfully before another plugin's
+				// synchronous option hook changed the value again. Re-read first so an
+				// unchanged original state does not trigger an unnecessary second write.
+				try {
+					$this->assertAppliedState($optionName, $currentPayload, $currentAutoload);
+				} catch (Throwable) {
+					$this->writeState($optionName, $currentPayload, $currentAutoload);
+					$this->assertAppliedState($optionName, $currentPayload, $currentAutoload);
+				}
+			} catch (Throwable) {
+				// phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- compensationFailure() escapes the message; the previous throwable is metadata.
+				throw $this->compensationFailure(
+					$error->getMessage() . ' The original current value could not be restored completely.',
+					true,
+					$error
+				);
+				// phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
+			}
+
+			// phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- compensationFailure() escapes the message; the previous throwable is metadata.
+			throw $this->compensationFailure(
+				$error->getMessage() . ' The original current value was reapplied and verified.',
+				false,
+				$error
+			);
+			// phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
+	}
+
+	private function writeState(string $optionName, string $payload, ?string $autoload): void
+	{
 		$sentinel = new \stdClass();
 		$current  = get_option($optionName, $sentinel);
 
 		if ($this->codec->isMissing($payload)) {
-			if ($current !== $sentinel && ! delete_option($optionName)) {
-				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
-				throw $this->runtimeFailure("WordPress could not delete {$optionName} during restore.");
+			if ($current !== $sentinel) {
+				delete_option($optionName);
 			}
 
 			return;
@@ -569,20 +615,43 @@ final class RestoreService
 		$autoloadFlag = $this->autoloadFlag($autoload);
 
 		if ($current === $sentinel) {
-			if (! add_option($optionName, $value, '', $autoloadFlag)) {
+			add_option($optionName, $value, '', $autoloadFlag);
+
+			return;
+		}
+
+		update_option($optionName, $value, $autoloadFlag);
+	}
+
+	private function assertAppliedState(string $optionName, string $payload, ?string $expectedAutoload): void
+	{
+		$storedAutoload = $this->optionMetadata->autoloadFor($optionName);
+		if ($this->codec->isMissing($payload)) {
+			if (null !== $storedAutoload) {
 				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
-				throw $this->runtimeFailure("WordPress could not recreate {$optionName} during restore.");
+				throw $this->runtimeFailure("WordPress did not preserve the restored absence of {$optionName}.");
 			}
 
 			return;
 		}
 
-		if (! update_option($optionName, $value, $autoloadFlag)) {
-			$stored = get_option($optionName, $sentinel);
-			if ($stored === $sentinel || ! $this->codec->matches($stored, $payload, $optionName)) {
-				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
-				throw $this->runtimeFailure("WordPress could not restore {$optionName}.");
-			}
+		$sentinel = new \stdClass();
+		$stored   = get_option($optionName, $sentinel);
+		if (
+			null === $storedAutoload
+			|| $stored === $sentinel
+			|| ! $this->codec->matches($stored, $payload, $optionName)
+		) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
+			throw $this->runtimeFailure("WordPress did not preserve the restored value of {$optionName}.");
+		}
+
+		if (
+			null !== $expectedAutoload
+			&& $this->autoloadMode($expectedAutoload) !== $this->autoloadMode($storedAutoload)
+		) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
+			throw $this->runtimeFailure("WordPress did not preserve the restored autoload state of {$optionName}.");
 		}
 	}
 

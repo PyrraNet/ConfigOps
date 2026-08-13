@@ -8,8 +8,12 @@ var bootstrapNode = document.getElementById("configops-bootstrap");
 var roots = /* @__PURE__ */ new Map();
 var renderFailure = /* @__PURE__ */ __name((element) => {
   element.removeAttribute("aria-busy");
-  element.innerHTML = `<p class="configops-island-error" role="alert">${window.wp.i18n.__("This ConfigOps instrument cou\
-ld not be loaded. Reload the page to try again.", "configops")}</p>`;
+  const message = document.createElement("p");
+  message.className = "configops-island-error";
+  message.setAttribute("role", "alert");
+  message.textContent = window.wp.i18n.__("This ConfigOps instrument could not be loaded. Reload the page to try again.",
+  "configops");
+  element.replaceChildren(message);
 }, "renderFailure");
 var mount = /* @__PURE__ */ __name(async (id, importer) => {
   const element = document.getElementById(id);

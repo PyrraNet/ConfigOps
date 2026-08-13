@@ -584,6 +584,77 @@ try {
 }
 $assert($redactedRejected, 'Restore must reject a mutation whose secret material was redacted.');
 
+$postWriteOption = 'fixture_restore_post_write_verification';
+delete_option($postWriteOption);
+add_option($postWriteOption, 'baseline', '', false);
+$postWriteSession = $captures->start('Post-write verification', 0, '/wp-admin/options-general.php');
+update_option($postWriteOption, 'captured-change', false);
+$captures->stop();
+$postWriteMutation = $mutations->forSession($postWriteSession)[0];
+$rewriteRestoredValue = static function (string $option, mixed $oldValue, mixed $newValue) use ($postWriteOption): void {
+	unset($oldValue);
+	if ($postWriteOption === $option && 'baseline' === $newValue) {
+		update_option($postWriteOption, 'hook-rewritten', false);
+	}
+};
+add_action('updated_option', $rewriteRestoredValue, 20, 3);
+$postWriteCompensated = false;
+try {
+	$restore->restoreMutation((int) $postWriteMutation->id);
+} catch (\ConfigOps\Restore\RestoreCompensationException $error) {
+	$postWriteCompensated = ! $error->compensationFailed;
+}
+remove_action('updated_option', $rewriteRestoredValue, 20);
+$assert($postWriteCompensated, 'A synchronous post-update rewrite must make restore fail as compensated instead of claiming success.');
+$assert('captured-change' === get_option($postWriteOption), 'Failed post-update verification must reapply and verify the original current value.');
+$postWriteAudits = $restoreAudit->forSession($postWriteSession);
+$assert('compensated' === (string) $postWriteAudits[0]->status, 'A post-write mismatch must remain visible in the restore audit.');
+
+$postAddOption = 'fixture_restore_post_add_verification';
+delete_option($postAddOption);
+add_option($postAddOption, 'baseline', '', false);
+$postAddSession = $captures->start('Post-add verification', 0, '/wp-admin/options-general.php');
+delete_option($postAddOption);
+$captures->stop();
+$postAddMutation = $mutations->forSession($postAddSession)[0];
+$rewriteRestoredAdd = static function (string $option, mixed $value) use ($postAddOption): void {
+	if ($postAddOption === $option && 'baseline' === $value) {
+		update_option($postAddOption, 'hook-rewritten', false);
+	}
+};
+add_action('added_option', $rewriteRestoredAdd, 20, 2);
+$postAddCompensated = false;
+try {
+	$restore->restoreMutation((int) $postAddMutation->id);
+} catch (\ConfigOps\Restore\RestoreCompensationException $error) {
+	$postAddCompensated = ! $error->compensationFailed;
+}
+remove_action('added_option', $rewriteRestoredAdd, 20);
+$assert($postAddCompensated, 'A synchronous post-add rewrite must make restore fail as compensated instead of claiming success.');
+$assert(false === get_option($postAddOption, false), 'Failed post-add verification must compensate back to the original missing state.');
+
+$postDeleteOption = 'fixture_restore_post_delete_verification';
+delete_option($postDeleteOption);
+$postDeleteSession = $captures->start('Post-delete verification', 0, '/wp-admin/options-general.php');
+add_option($postDeleteOption, 'captured-add', '', false);
+$captures->stop();
+$postDeleteMutation = $mutations->forSession($postDeleteSession)[0];
+$recreateRestoredDelete = static function (string $option) use ($postDeleteOption): void {
+	if ($postDeleteOption === $option) {
+		add_option($postDeleteOption, 'hook-recreated', '', false);
+	}
+};
+add_action('deleted_option', $recreateRestoredDelete, 20, 1);
+$postDeleteCompensated = false;
+try {
+	$restore->restoreMutation((int) $postDeleteMutation->id);
+} catch (\ConfigOps\Restore\RestoreCompensationException $error) {
+	$postDeleteCompensated = ! $error->compensationFailed;
+}
+remove_action('deleted_option', $recreateRestoredDelete, 20);
+$assert($postDeleteCompensated, 'A synchronous post-delete recreation must make restore fail as compensated instead of claiming success.');
+$assert('captured-add' === get_option($postDeleteOption), 'Failed post-delete verification must compensate back to the original current value.');
+
 $secondSession = $captures->start('Session restore check', 0, '/wp-admin/options-general.php');
 update_option('fixture_nested', array('mail' => array('enabled' => true, 'retry' => 9)));
 update_option('fixture_deleted', 'recreated');
@@ -686,6 +757,9 @@ delete_option('fixture_semantic_reorder');
 delete_option('fixture_compensation_failure');
 delete_option('fixture_restore_meaningful');
 delete_option('_transient_fixture_restore_runtime');
+delete_option($postWriteOption);
+delete_option($postAddOption);
+delete_option($postDeleteOption);
 delete_transient('configops_flash_integration');
 
 \ConfigOpsHostileFixture\SettingsFixture::cleanup();
@@ -1036,5 +1110,21 @@ wp_delete_user((int) $viewerId);
 wp_set_current_user(0);
 $forbiddenResponse = $restServer->dispatch(new WP_REST_Request('GET', '/configops/v1/state'));
 $assert($forbiddenResponse->get_status() >= 400, 'The local Agent API must fail closed without a ConfigOps capability.');
+
+set_transient('configops_flash_uninstall_fixture', array('code' => 'fixture'), MINUTE_IN_SECONDS);
+add_option('configops_operation_lock_uninstall_fixture', array('token' => 'fixture', 'expires_at' => time() + 60), '', false);
+\ConfigOps\Uninstall::run();
+$assert(false === wp_next_scheduled(\ConfigOps\Maintenance\HistoryRetention::HOOK), 'Uninstall must remove the scheduled retention event.');
+$assert(false === get_option('configops_schema_version', false), 'Uninstall must remove ConfigOps installation options.');
+$assert(false === get_transient('configops_flash_uninstall_fixture'), 'Uninstall must remove per-user ConfigOps flash transients.');
+$assert(false === get_option('configops_operation_lock_uninstall_fixture', false), 'Uninstall must remove outstanding ConfigOps operation locks.');
+$assert(! get_role('administrator')->has_cap('configops_view'), 'Uninstall must remove ConfigOps capabilities from WordPress roles.');
+foreach (array('configops_restore_runs', 'configops_write_signals', 'configops_mutations', 'configops_capture_sessions') as $suffix) {
+	$table = $wpdb->prefix . $suffix;
+	$assert(
+		null === $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table))),
+		"Uninstall must remove the {$suffix} table."
+	);
+}
 
 fwrite(STDOUT, "ConfigOps WordPress integration checks passed ({$assertions} assertions).\n");

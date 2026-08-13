@@ -65,7 +65,7 @@ The host settings request is allowed to finish. ConfigOps marks the recording in
 
 = How long is local history kept? =
 
-Completed and interrupted captures are kept for 30 days by default. Cleanup is bounded and never selects an active capture. Developers may change the window with the `configops_retention_days` filter.
+While ConfigOps is active, completed and interrupted captures are kept for 30 days by default. Cleanup is bounded and never selects an active capture. Developers may change the window with the `configops_retention_days` filter. Uninstalling ConfigOps removes its capture history, installation options, scheduled cleanup, and capabilities.
 
 = How do I report a security issue? =
 

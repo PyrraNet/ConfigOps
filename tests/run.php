@@ -103,6 +103,19 @@ $assert($codec->isEntireOptionSensitive($connectorOption), 'WordPress Connector 
 $assert($connectorSecret->redacted && ! $connectorSecret->restorable, 'A complete Connector API key option must be redacted and non-restorable.');
 $assert(! str_contains($connectorSecret->payload, 'sk-must-never-persist'), 'Connector API key plaintext must never enter an encoded payload.');
 
+$unlabelledProviderToken = 'sk_live_51ConfigOpsSecurityReviewABCDEF123456';
+$providerToken = $codec->encode($unlabelledProviderToken, 'vendor_connection');
+$assert($providerToken->redacted && ! $providerToken->restorable, 'Recognizable provider tokens must be redacted even under an unfamiliar option name.');
+$assert(! str_contains($providerToken->payload, $unlabelledProviderToken), 'Provider token plaintext must never enter an encoded payload.');
+
+$unlabelledJwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkNvbmZpZ09wcyJ9.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+$jwt = $codec->encode(array('session' => $unlabelledJwt), 'vendor_settings');
+$assert($jwt->redacted && ! $jwt->restorable, 'JWT credentials must be redacted without relying on a secret-like field name.');
+$assert(! str_contains($jwt->payload, 'eyJhbGci'), 'JWT plaintext must never enter an encoded payload.');
+
+$publicIntegrity = $codec->encode('sha256-Lve95gjOVATpfV8EL5X4nxwjKHE=', 'fixture_asset_integrity');
+$assert($publicIntegrity->restorable && ! $publicIntegrity->redacted, 'Public subresource-integrity hashes must not be mistaken for credentials.');
+
 $opaqueJsonSecret = '{"transport":{"host":"smtp.example.test","password":"do-not-persist"}}';
 $opaqueJson = $codec->encode($opaqueJsonSecret, 'fixture_opaque_blob');
 $assert($opaqueJson->redacted && ! $opaqueJson->restorable, 'Secrets nested in an opaque JSON string must redact the complete string.');
