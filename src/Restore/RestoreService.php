@@ -66,7 +66,7 @@ final class RestoreService
 
 	private function restoreMutationUnlocked(int $mutationId): int
 	{
-		$this->assertNoActiveCapture();
+		$this->assertNoActiveNamedCapture();
 
 		$mutation = $this->mutations->find($mutationId);
 		if (! $mutation) {
@@ -115,7 +115,7 @@ final class RestoreService
 
 	private function restoreSessionUnlocked(int $sessionId): int
 	{
-		$this->assertNoActiveCapture();
+		$this->assertNoActiveNamedCapture();
 
 		$session = $this->captures->find($sessionId);
 		if (! $session) {
@@ -296,10 +296,10 @@ final class RestoreService
 		}
 	}
 
-	private function assertNoActiveCapture(): void
+	private function assertNoActiveNamedCapture(): void
 	{
-		if (null !== $this->captures->activeId() || $this->captures->hasOpenAutomatic()) {
-			throw new RuntimeException('Stop the active capture or wait for the current automatic observation before restoring values.');
+		if (null !== $this->captures->activeId()) {
+			throw new RuntimeException('Stop the active change session before restoring values.');
 		}
 	}
 

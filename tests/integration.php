@@ -1372,21 +1372,26 @@ $assert(
 	&& null !== $automaticEvidence[0]['undo'],
 	'Automatic feedback should expose compact counts and offer undo only for a fully safe observation.'
 );
-$restore->restoreSession((int) $automaticSession);
-$assert('before' === get_option($automaticOption), 'The automatic feedback target should use the existing conflict-checked session undo.');
-delete_option($automaticOption);
-$overlappingAutomatic = $freshCaptures->startAutomatic('Concurrent request', 1, '/wp-admin/options.php');
-$overlappingRestoreBlocked = false;
+$blockingNamedSession = $freshCaptures->start('Block undo while recording', 1, '/wp-admin/options.php');
+$namedSessionRestoreBlocked = false;
 try {
 	$restore->restoreSession((int) $automaticSession);
 } catch (RuntimeException $error) {
-	$overlappingRestoreBlocked = str_contains($error->getMessage(), 'automatic observation');
+	$namedSessionRestoreBlocked = str_contains($error->getMessage(), 'active change session');
 }
+$freshCaptures->stop();
+$assert(
+	$namedSessionRestoreBlocked && $blockingNamedSession > 0,
+	'Undo must remain blocked while a site-wide named Change Session is recording.'
+);
+$overlappingAutomatic = $freshCaptures->startAutomatic('Concurrent request', 1, '/wp-admin/options.php');
+$restore->restoreSession((int) $automaticSession);
 $freshCaptures->interruptAutomatic($overlappingAutomatic, 'automatic_test_complete');
 $assert(
-	$overlappingRestoreBlocked && ! $freshCaptures->hasOpenAutomatic(),
-	'Undo should fail closed while another automatic settings request is still recording.'
+	'before' === get_option($automaticOption) && ! $freshCaptures->hasOpenAutomatic(),
+	'A request-local automatic observation must not block conflict-checked undo in an independent request.'
 );
+delete_option($automaticOption);
 
 $incompleteAutomaticNotices = new \ConfigOps\Admin\EvidenceNoticeStore();
 $incompleteAutomaticRecorder = new \ConfigOps\Capture\AutomaticRecorder(

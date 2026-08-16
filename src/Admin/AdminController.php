@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ConfigOps\Admin;
 
+use ConfigOps\Capture\AutomaticRecorder;
 use ConfigOps\Capture\IntentContext;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Restore\RestoreService;
@@ -23,7 +24,8 @@ final class AdminController
 		private readonly CaptureRepository $captures,
 		private readonly RestoreService $restore,
 		private readonly FlashNoticeStore $notices,
-		private readonly AdminPayloadFactory $payloads
+		private readonly AdminPayloadFactory $payloads,
+		private readonly ?AutomaticRecorder $automatic = null
 	) {
 	}
 
@@ -197,6 +199,7 @@ final class AdminController
 	{
 		$this->authorize('configops_capture');
 		check_admin_referer('configops_start_capture');
+		$this->automatic?->suppress();
 
 		$name = isset($_POST['capture_name']) ? sanitize_text_field(wp_unslash($_POST['capture_name'])) : '';
 		if ('' === $name) {
@@ -219,6 +222,7 @@ final class AdminController
 	{
 		$this->authorize('configops_capture');
 		check_admin_referer('configops_stop_capture');
+		$this->automatic?->suppress();
 
 		try {
 			$id = $this->captures->stop();
@@ -232,6 +236,7 @@ final class AdminController
 	{
 		$this->authorize('configops_rollback');
 		check_admin_referer('configops_restore_mutation');
+		$this->automatic?->suppress();
 		$id = isset($_POST['mutation_id']) ? absint($_POST['mutation_id']) : 0;
 
 		try {
@@ -246,6 +251,7 @@ final class AdminController
 	{
 		$this->authorize('configops_rollback');
 		check_admin_referer('configops_restore_session');
+		$this->automatic?->suppress();
 		$id = isset($_POST['session_id']) ? absint($_POST['session_id']) : 0;
 
 		try {

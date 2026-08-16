@@ -125,7 +125,7 @@ final class Plugin
 		);
 
 		(new RestController($captures, $mutations, $restore, $payloads, $evidenceNotices, $automatic))->register();
-		(new AdminController($captures, $restore, new FlashNoticeStore(), $payloads))->register();
+		(new AdminController($captures, $restore, new FlashNoticeStore(), $payloads, $automatic))->register();
 	}
 
 	public static function boot(): void
