@@ -124,7 +124,7 @@ final class Plugin
 			$restoreAudits
 		);
 
-		(new RestController($captures, $mutations, $restore, $payloads, $evidenceNotices))->register();
+		(new RestController($captures, $mutations, $restore, $payloads, $evidenceNotices, $automatic))->register();
 		(new AdminController($captures, $restore, new FlashNoticeStore(), $payloads))->register();
 	}
 

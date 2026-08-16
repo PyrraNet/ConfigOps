@@ -18,6 +18,7 @@ final class AutomaticRecorder
 	private ?int $automaticSessionId = null;
 	private bool $startAttempted = false;
 	private bool $finalized = false;
+	private bool $suppressed = false;
 
 	public function __construct(
 		private readonly CaptureRepository $captures,
@@ -29,6 +30,15 @@ final class AutomaticRecorder
 	public function register(): void
 	{
 		add_action('shutdown', array($this, 'finalize'), PHP_INT_MAX);
+	}
+
+	/**
+	 * Prevent ConfigOps command handlers from observing their own writes after
+	 * a named session is stopped during the current request.
+	 */
+	public function suppress(): void
+	{
+		$this->suppressed = true;
 	}
 
 	/**
@@ -93,7 +103,7 @@ final class AutomaticRecorder
 
 	private function isEligible(): bool
 	{
-		if (! current_user_can('configops_capture')) {
+		if ($this->suppressed || ! current_user_can('configops_capture')) {
 			return false;
 		}
 

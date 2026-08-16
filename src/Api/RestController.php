@@ -11,6 +11,7 @@ namespace ConfigOps\Api;
 
 use ConfigOps\Admin\AdminPayloadFactory;
 use ConfigOps\Admin\EvidenceNoticeStore;
+use ConfigOps\Capture\AutomaticRecorder;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\MutationRepository;
 use ConfigOps\Restore\RestoreService;
@@ -29,7 +30,8 @@ final class RestController
 		private readonly MutationRepository $mutations,
 		private readonly RestoreService $restore,
 		private readonly AdminPayloadFactory $payloads,
-		private readonly ?EvidenceNoticeStore $evidenceNotices = null
+		private readonly ?EvidenceNoticeStore $evidenceNotices = null,
+		private readonly ?AutomaticRecorder $automatic = null
 	) {
 	}
 
@@ -212,6 +214,8 @@ final class RestController
 	 */
 	private function command(callable $operation): WP_REST_Response|WP_Error
 	{
+		$this->automatic?->suppress();
+
 		try {
 			return $this->response($operation());
 		} catch (Throwable $error) {

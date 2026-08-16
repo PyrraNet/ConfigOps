@@ -1294,6 +1294,22 @@ if (null === $originalRestRoute) {
 } else {
 	$_GET['rest_route'] = $originalRestRoute;
 }
+$suppressedAutomaticRecorder = new \ConfigOps\Capture\AutomaticRecorder(
+	$freshCaptures,
+	$automaticNotices,
+	new \ConfigOps\Capture\RequestContext()
+);
+$suppressedAutomaticRecorder->suppress();
+$suppressionSession = $freshCaptures->start('Internal command suppression', 1, '/wp-admin/admin.php?page=configops');
+$assert(
+	$suppressionSession === $suppressedAutomaticRecorder->sessionId(),
+	'An internal command may still finish the named session that was active when its request began.'
+);
+$freshCaptures->stop();
+$assert(
+	null === $suppressedAutomaticRecorder->sessionId(),
+	'An internal command must not start a new automatic observation after stopping its named session.'
+);
 $allowAutomaticContext = static fn (): bool => true;
 add_filter('configops_automatic_recording_context_allowed', $allowAutomaticContext, 10, 2);
 $automaticSession = $automaticRecorder->sessionId();
