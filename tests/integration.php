@@ -1294,6 +1294,27 @@ if (null === $originalRestRoute) {
 } else {
 	$_GET['rest_route'] = $originalRestRoute;
 }
+$earlyAutomaticRecorder = new \ConfigOps\Capture\AutomaticRecorder(
+	$freshCaptures,
+	$automaticNotices,
+	new \ConfigOps\Capture\RequestContext()
+);
+$allowEarlyAutomaticContext = static fn (): bool => true;
+add_filter('configops_automatic_recording_context_allowed', $allowEarlyAutomaticContext, 10, 2);
+$earlyAutomaticSession = $earlyAutomaticRecorder->sessionId();
+remove_filter('configops_automatic_recording_context_allowed', $allowEarlyAutomaticContext, 10);
+$assert(
+	null !== $earlyAutomaticSession && $freshCaptures->hasOpenAutomatic(),
+	'An early settings write may open an automatic observation before an internal REST callback runs.'
+);
+$earlyAutomaticRecorder->suppress();
+$earlyAutomaticRow = $freshCaptures->find((int) $earlyAutomaticSession);
+$assert(
+	'discarded' === (string) $earlyAutomaticRow->status
+	&& ! $freshCaptures->hasOpenAutomatic()
+	&& null === $earlyAutomaticRecorder->sessionId(),
+	'An internal command must close a request-local automatic observation and keep its own later writes suppressed.'
+);
 $suppressedAutomaticRecorder = new \ConfigOps\Capture\AutomaticRecorder(
 	$freshCaptures,
 	$automaticNotices,

@@ -33,12 +33,19 @@ final class AutomaticRecorder
 	}
 
 	/**
-	 * Prevent ConfigOps command handlers from observing their own writes after
-	 * a named session is stopped during the current request.
+	 * Close any observation opened during early request boot, then prevent
+	 * ConfigOps command handlers from observing their own writes.
 	 */
 	public function suppress(): void
 	{
 		$this->suppressed = true;
+		if (null !== $this->automaticSessionId && ! $this->finalized) {
+			$this->finalize();
+		}
+
+		// A completed or interrupted request-local session must never receive the
+		// command's later writes through sessionId().
+		$this->automaticSessionId = null;
 	}
 
 	/**
