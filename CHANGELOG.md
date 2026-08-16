@@ -26,7 +26,7 @@ The automatic evidence and undo release.
 - WordPress 7.0 and latest on PHP 8.2, 8.3, 8.4, and 8.5.
 - WP Mail SMTP Free 4.9.0 and Yoast SEO Free 28.2 through real save, explain, secret-protection, and undo browser flows at both ends of the PHP range.
 - The official WordPress readme validator and Plugin Check with no release-blocking findings.
-- 77.69% tracked-production and 79.20% trust-boundary line coverage with all 54 tracked production files in the final release-candidate denominator.
+- 77.64% tracked-production and 79.24% trust-boundary line coverage with all 54 tracked production files in the final release-candidate denominator.
 
 ## 0.2.0 — 2026-08-13
 
