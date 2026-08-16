@@ -1,4 +1,4 @@
-# Architecture decision: Recorder first
+# Architecture decision: Observer first
 
 Status: accepted for Iteration 0; automatic-observation contract amended for 0.3.0
 Date: 2026-08-13
@@ -7,7 +7,7 @@ Date: 2026-08-13
 
 ConfigOps starts as a native WordPress plugin whose supported floor is PHP 8.2. The product boundary is one local WordPress site, request-local automatic observations plus optional named Change Sessions, Options API mutations, semantic nested diffs, provenance, and compensating restore.
 
-JavaScript is the interaction layer and may later observe labels, field names, tabs, and client-side requests, but only the PHP observer can assert that WordPress actually persisted a mutation. The wp-admin interface uses code-split React islands over a capability-gated REST boundary. There is no Node service, monolithic SPA, cloud account, or remote control plane in the recorder.
+JavaScript is the interaction layer and may later observe labels, field names, tabs, and client-side requests, but only the PHP observer can assert that WordPress actually persisted a mutation. The wp-admin interface uses code-split React islands over a capability-gated REST boundary. There is no Node service, monolithic SPA, cloud account, or remote control plane in the evidence layer.
 
 ## Why PHP is the right primary language
 
@@ -17,7 +17,7 @@ PHP 8.2 is the oldest branch in the 0.3.0 runtime contract. The full parser, uni
 
 ## Boundaries
 
-| Concern | Recorder authority | Later extension |
+| Concern | Observer authority | Later extension |
 | --- | --- | --- |
 | Persisted mutation | WordPress Options API hooks; value-free signal for unmanaged writes | Adapter-owned custom tables and APIs |
 | Human intent | Request-local automatic observation, optional session name, request context, and value-free admin-field correlation | Deeper fetch/REST correlation and reviewed adapter suggestions |
@@ -34,12 +34,12 @@ PHP 8.2 is the oldest branch in the 0.3.0 runtime contract. The full parser, uni
 1. A `ConfigMutation` is an observation, never an approved release change.
 2. Unknown stays unknown; heuristics never impersonate adapter certainty.
 3. Secret plaintext never enters mutation persistence or exported diagnostics.
-4. Capture failure cannot fail the host settings request.
-5. Restore refuses a target whose current value no longer matches the captured result.
+4. Observation failure cannot fail the host settings request.
+5. Restore refuses a target whose current value no longer matches the observed result.
 6. List order is meaningful; associative key order is not.
 7. ConfigOps does not claim transactional rollback for effects it did not observe.
 8. An unmanaged write signal is not a `ConfigMutation`: it proves only bounded write intent and never fabricates values, semantic paths, or rollback support.
-9. Incomplete evidence is a durable product state: it disables whole-capture undo and cannot be presented as a clean recording.
+9. Incomplete evidence is a durable product state: it disables whole-change undo and cannot be presented as a clean observation.
 10. Every undo attempt creates a value-free audit record before its first configuration write.
 11. A local reference stores bounded identity evidence, never media contents or post bodies; undo refuses a referenced item that no longer exists.
 
@@ -47,37 +47,37 @@ PHP 8.2 is the oldest branch in the 0.3.0 runtime contract. The full parser, uni
 
 - **The automatic boundary is request-local.** An authorized administrative request creates no row until its first Options API mutation. It then owns an independent automatic session, so concurrent saves cannot replace or absorb one another. Technical-only automatic observations are discarded from operator history.
 - **Named-session ownership is atomic.** The active-session option is acquired with `add_option()`, so two concurrent named-session starts cannot silently replace one another. Stale pointers self-heal.
-- **Capture completion is verified.** Stop-time mutation and unmanaged-write summaries must be readable before a session can become completed. Storage failure leaves the capture active for a safe retry; deactivation closes it as interrupted and permanently incomplete.
-- **Capture finalization is explicit.** Stop first moves the session through an atomic `stopping` state. Evidence that finishes after that boundary marks the capture incomplete; an abandoned stop self-recovers to interrupted after five minutes so it cannot strand the recorder or masquerade as complete.
-- **Absence is not memoized.** Positive active-session lookups are cached, but another integration may start or stop a capture later in the same request.
+- **Named-session completion is verified.** Stop-time mutation and unmanaged-write summaries must be readable before a session can become completed. Storage failure leaves the Change Session active for a safe retry; deactivation closes it as interrupted and permanently incomplete.
+- **Named-session finalization is explicit.** Stop first moves the session through an atomic `stopping` state. Evidence that finishes after that boundary marks the observation incomplete; an abandoned stop self-recovers to interrupted after five minutes so it cannot strand the observer or masquerade as complete.
+- **Absence is not memoized.** Positive active-session lookups are cached, but another integration may start or stop a named Change Session later in the same request.
 - **One causal write chain becomes one decision.** Consecutive Options API writes to the same option, in the same request, by the same recognized core/plugin/theme owner are persisted as one baseline-to-final mutation. A chain that returns completely to its baseline is removed. An option change, request change, or provenance-owner change closes the aggregate so distinct causes and restore order remain explicit.
 - **Review diffs are semantic.** Associative key order is ignored. A `null` ↔ empty-string coercion and an exact canonical integer ↔ integer-string coercion at the same existing path are not persisted as review noise. Formatted numeric strings such as `"01"`, floats, booleans, list order, typed array keys, every other scalar-type change, option/key existence, and autoload mode remain significant. Restore conflict checks stay type-preserving.
-- **Media references stay local and bounded.** Site icon, site-logo, theme custom-logo, and explicit Yoast image-ID paths retain attachment identity alongside the raw local ID. Review resolves a current thumbnail on demand. Capture does not hash or copy the file, and undo never creates or deletes attachments.
+- **Media references stay local and bounded.** Site icon, site-logo, theme custom-logo, and explicit Yoast image-ID paths retain attachment identity alongside the raw local ID. Review resolves a current thumbnail on demand. Observation does not hash or copy the file, and undo never creates or deletes attachments.
 - **Content references stay local and bounded.** Pinned Yoast publisher-policy, analysis-ignore, and LLMs.txt page paths retain only ID, title, post type, and status. Post bodies, excerpts, URLs, authors, and user records are not added. Undo refuses deleted or trashed content instead of restoring a broken local ID.
 - **User references disclose display identity only.** Yoast’s represented-person selector retains user ID and display name so review does not show a bare ID. Email, login, roles, capabilities, and user metadata are never added; undo refuses a deleted account.
-- **Restore is serialized and compensating.** Token-owned, expiring locks prevent overlapping restore requests. Session restore preflights the entire plan, rechecks each value immediately before writing, then restores distinct options in reverse last-mutation order. If a later step fails, earlier steps are reapplied to their captured result where possible.
+- **Restore is serialized and compensating.** Token-owned, expiring locks prevent overlapping restore requests. Session restore preflights the entire plan, rechecks each value immediately before writing, then restores distinct options in reverse last-mutation order. If a later step fails, earlier steps are reapplied to their observed result where possible.
 - **Restore is auditable before it is mutable.** A dedicated append-first run records actor, target scope, outcome, restored option count, and bounded failure code. It deliberately contains no option name, value, SQL, stack trace, or raw error message. Successful, refused, compensated, and compensation-failed attempts remain distinct.
 - **Work is budgeted.** Value nodes, persisted payload size, diff operations, and backtraces have explicit upper bounds and disclose truncation or unsupported values.
 - **First paint cannot inherit history size.** The server bootstrap excludes mutation diffs. The ledger fetches cursor pages only near the viewport, with both row and encoded-response budgets.
 - **Large sessions are not loaded whole.** Admin review is paged and restore planning selects only required columns in bounded batches. It retains only the first and last state per option and refuses plans above 1,000 options or 64 MiB.
-- **Retention is bounded and resumable.** Daily cleanup removes at most 1,000 captures after 30 days, never selects active or unfinished captures, marks each batch as deleting before child evidence is touched, and can safely resume after an interrupted cleanup without exposing a half-deleted review.
+- **Retention is bounded and resumable.** Daily cleanup removes at most 1,000 observations after 30 days, never selects active or unfinished sessions, marks each batch as deleting before child evidence is touched, and can safely resume after an interrupted cleanup without exposing a half-deleted review.
 - **Hot reads have matching indexes.** Session review, stop-time recounts, and keyset restore iteration share a `(session_id, id)` index instead of degrading into table scans as history grows.
-- **Internal operations are invisible.** Schema, lock, capability, and flash-notice options never appear in captures.
+- **Internal operations are invisible.** Schema, lock, capability, and flash-notice options never appear in observations.
 - **Error reporting is also isolated.** Even a third-party listener that throws during `configops_capture_error` cannot escape into the settings request being observed. If a ConfigOps table fails while WordPress still saves the host setting, a bounded, value-free emergency marker in `wp_options` makes the session incomplete after storage recovers; unresolved markers produce a persistent administrator warning.
 - **Schema upgrades fail safe.** Upgrades are serialized, required tables and columns are verified before the version advances, and a failed normal boot disables ConfigOps with an administrator notice without taking WordPress down.
 - **Opaque credentials fail closed.** Adapter and heuristic detection covers nested PHP values plus recognizable JSON, malformed JSON, XML-like documents, DSNs, authorization headers, and private keys before persistence. Structured strings deeper than the inspection budget are redacted rather than partially trusted.
-- **Adapters are capability-scoped.** Capture ownership, field meaning, secret detection, and rollback eligibility form the current contract. Apply and verification do not appear on the interface until those engines exist, so recorder support cannot be mistaken for deployment support.
-- **Adapter meaning is pinned at capture time.** Mutations retain adapter ID, schema version, and installed component version. Historical fields are enriched only when the matching schema is still available; newer adapters cannot silently reinterpret old evidence.
+- **Adapters are capability-scoped.** Observation ownership, field meaning, secret detection, and rollback eligibility form the current contract. Apply and verification do not appear on the interface until those engines exist, so observation support cannot be mistaken for deployment support.
+- **Adapter meaning is pinned at observation time.** Mutations retain adapter ID, schema version, and installed component version. Historical fields are enriched only when the matching schema is still available; newer adapters cannot silently reinterpret old evidence.
 - **Derived state stays out of rollback.** Cache, migration, tracking, version, and other adapter-declared runtime values remain visible under Technical. When they share an option with real settings, undo patches only the adapter-backed settings instead of reconstructing the whole option.
 - **Protected options are patched, never reconstructed.** When a supported option also contains a secret, ConfigOps checks and reverses only adapter-backed non-secret paths against the current value. Credentials and plugin housekeeping remain byte-for-byte under the owning plugin’s control.
 - **Direct writes fail visibly, not magically.** During a named session, or after an automatic request has established a configuration mutation, the SQL Sentry recognizes common write statements, ignores ConfigOps-owned tables and Options API duplicates, and stores only operation, table, count, provenance, and safe request metadata. Raw SQL and values never enter persistence. Fifty unique signals per request form a hard ceiling; repeated signals collapse by source.
-- **Uncorrelated core cron stays out of an admin task.** Anonymous `/wp-cron.php` writes are not attributed to an explicit operator capture. Synchronous plugin side effects in the user’s Save request remain visible; future async correlation requires an adapter-owned job token instead of timing guesses.
+- **Uncorrelated core cron stays out of an admin task.** Anonymous `/wp-cron.php` writes are not attributed to an explicit operator Change Session. Synchronous plugin side effects in the user’s Save request remain visible; future async correlation requires an adapter-owned job token instead of timing guesses.
 - **Unknown effects limit rollback.** Any unmanaged database write disables full-session restore in the review contract. Individually supported Options API mutations remain conflict-checkable and restorable.
 - **Intent is evidence, never authority.** A small admin observer records only the names, visible labels, sections, and submit action of fields the operator touches. A short-lived same-site cookie can bind that metadata either to a named session or to the next lazily created automatic observation, without sending a configuration value or adding a remote service. PHP accepts only bounded, current evidence whose option and JSON Pointer match the persisted diff. The result can explain an unknown field and summarize likely intent, but it cannot change classification, adapter compatibility, redaction, or restore eligibility.
 
 ## Admin direction
 
-The interface is a forensic change ledger: dense enough for professional review, calm enough to scan under incident pressure. Request groups form the primary rhythm; mutation rows reveal evidence progressively. Only the implemented Capture surface appears in navigation. Future Packs, Plans, Policies, and Drift do not masquerade as inactive product tiles. The design avoids equal-card dashboards and decorative infrastructure diagrams.
+The interface is a forensic change ledger: dense enough for professional review, calm enough to scan under incident pressure. Automatic evidence feedback provides the immediate entry point; Change History and named Change Sessions provide the deeper review surface. Future Packs, Plans, Policies, and Drift do not masquerade as inactive product tiles. The design avoids equal-card dashboards and decorative infrastructure diagrams.
 
 Three directions were considered:
 
@@ -85,11 +85,11 @@ Three directions were considered:
 2. a pull-request imitation, useful for diffs but too code-host-specific as the whole product identity;
 3. a forensic ledger with request chapters and nested evidence, selected because provenance and uncertainty are the actual product material.
 
-The visual direction remains server-shell plus forensic instruments: a compact product bar and capture command render before only Capture, Sessions, and Review become interactive. This preserves the ledger rather than replacing it with framework-shaped cards. The company brand is expressed through a scoped token mapping and the supplied SVG wordmark; Paper carries the ledger, Ink carries evidence headers, and Brand Blue marks the command or selection without a webfont or visual runtime. Explanations stay attached to specialist terms and restore actions through accessible hover/focus help instead of lengthening every row.
+The visual direction remains server-shell plus forensic instruments: a compact product bar and evidence shell render before Change History, Change Sessions, and Review become interactive. This preserves the ledger rather than replacing it with framework-shaped cards. The company brand is expressed through a scoped token mapping and the supplied SVG wordmark; Paper carries the ledger, Ink carries evidence headers, and Brand Blue marks the command or selection without a webfont or visual runtime. Explanations stay attached to specialist terms and restore actions through accessible hover/focus help instead of lengthening every row.
 
 ## Trust harness
 
-The deliberately hostile fixture plugin now exercises simple and nested options, typed WordPress IDs, secret redaction, transients, synchronous side effects, a versioned schema migration, AJAX metadata, direct SQL writes, and a neighboring plugin slug that shares the `configops` prefix. Integration contracts capture real attachment and content identities, render current availability, restore existing references, and refuse deleted targets before writing. Separate browser contracts install exact public releases of WP Mail SMTP and Yoast, operate their real settings screens, review the resulting capture at desktop and mobile widths, undo safe fields, and verify the result back in each plugin. The exact-release contract additionally covers provider routing, less-obvious credential paths, dynamic social images, and LLMs.txt page references.
+The deliberately hostile fixture plugin now exercises simple and nested options, typed WordPress IDs, secret redaction, transients, synchronous side effects, a versioned schema migration, AJAX metadata, direct SQL writes, and a neighboring plugin slug that shares the `configops` prefix. Integration contracts observe real attachment and content identities, render current availability, restore existing references, and refuse deleted targets before writing. Separate browser contracts install exact public releases of WP Mail SMTP and Yoast, operate their real settings screens inside bounded named Change Sessions, review the resulting evidence at desktop and mobile widths, undo safe fields, and verify the result back in each plugin. The automatic WordPress Core flow separately verifies immediate evidence feedback after a normal settings save. The exact-release contract additionally covers provider routing, less-obvious credential paths, dynamic social images, LLMs.txt page references, and missing-reference refusal.
 
 Every tracked PHP file under `src/` is also part of a reproducible Xdebug line-coverage run against an isolated WordPress and MariaDB installation. Unit, hostile-input, integration, and exact-adapter fragments are merged into LCOV, Clover, and JSON evidence. Unvisited and dead-code lines remain in the denominator. CI fails below 70% globally or 75% across the trust-boundary namespaces rather than allowing presentation coverage or never-loaded production files to hide risk. The complete method and its limits are recorded in [testing.md](testing.md).
 

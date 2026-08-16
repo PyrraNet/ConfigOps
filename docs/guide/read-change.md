@@ -5,14 +5,14 @@ description: Interpret requests, classifications, diffs, intent clues, and undo 
 
 # Read the evidence
 
-The review is an evidence ledger, not a claim that every write was intentional. Read it from the capture boundary inward: status, request group, option mutation, then individual field diff.
+The review is an evidence ledger, not a claim that every write was intentional. Read it from the observation boundary inward: status, request group, option mutation, then individual field diff.
 
-## Start with capture status
+## Start with observation status
 
-| Status | Meaning | Whole-capture undo |
+| Status | Meaning | Whole-change undo |
 | --- | --- | --- |
 | Completed | Stop-time summaries were persisted and verified | Possible only when every decision mutation is fully restorable |
-| Active | Recording is still open | Unavailable |
+| Active | A named Change Session is still open | Unavailable |
 | Stopping | Finalization is in progress or recovering | Unavailable |
 | Interrupted / incomplete | The evidence boundary could not be proven complete | Unavailable |
 
@@ -52,9 +52,9 @@ No control is itself evidence. Common reasons include:
 - a secret or oversized value was removed from restorable history;
 - the adapter version is outside its tested range;
 - only part of an unknown option can be explained;
-- the current value no longer matches the captured result;
+- the current value no longer matches the observed result;
 - a referenced page, media item, or user is now missing;
-- the capture is incomplete;
+- the observation is incomplete;
 - the same target already has a relevant restore in progress or completed.
 
 Next: [Undo safely](/guide/undo-safely).

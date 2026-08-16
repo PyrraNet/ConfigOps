@@ -27,14 +27,14 @@ export default defineConfig({
 			{ text: 'Operate', link: '/guide/getting-started' },
 			{ text: 'Safety', link: '/security/secrets-privacy' },
 			{ text: 'Reference', link: '/reference/support' },
-			{ text: 'v0.2.0', link: '/releases/0.2.0' },
+			{ text: 'v0.3.0', link: '/releases/0.3.0' },
 		],
 		sidebar: [
 			{
 				text: 'Operate ConfigOps',
 				items: [
 					{ text: 'Get started', link: '/guide/getting-started' },
-					{ text: 'Record a task', link: '/guide/first-capture' },
+					{ text: 'Observe a change', link: '/guide/first-capture' },
 					{ text: 'Read the evidence', link: '/guide/read-change' },
 					{ text: 'Undo safely', link: '/guide/undo-safely' },
 				],
@@ -67,6 +67,7 @@ export default defineConfig({
 			{
 				text: 'Releases',
 				items: [
+					{ text: '0.3.0', link: '/releases/0.3.0' },
 					{ text: '0.2.0', link: '/releases/0.2.0' },
 					{ text: '0.1.0', link: '/releases/0.1.0' },
 				],

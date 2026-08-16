@@ -21,7 +21,7 @@ PHP 8.2 is the oldest supported branch. A lifecycle check expires that claim aft
 
 ## Adapter matrix
 
-| Integration | Tested release | Capture | Explain | Secrets | Undo |
+| Integration | Tested release | Observe | Explain | Secrets | Undo |
 | --- | ---: | :---: | :---: | :---: | :---: |
 | WordPress Core | 7.0 | Supported | Field map + local references | Redacted | With limits |
 | WP Mail SMTP Free | 4.9.0 | Supported | Exact schema | Removed before persistence | Full or safe field patch |
@@ -32,8 +32,8 @@ Versions outside an adapter’s tested range keep generic evidence. Adapter-depe
 
 ## What “with limits” means
 
-- The current target must still match the recorded result.
-- The complete capture must be proven complete for whole-capture undo.
+- The current target must still match the observed result.
+- The complete observation must be proven complete for whole-change undo.
 - Secret, derived, oversized, and unsupported evidence is not restorable.
 - Adapter schema and plugin version must still match.
 - Local references must still exist and remain usable.

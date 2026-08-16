@@ -11,23 +11,23 @@ ConfigOps is suitable for production observation only when it sits inside ordina
 
 - Let automatic request-local observations cover ordinary settings saves.
 - Keep named Change Sessions short and scoped to one operator task.
-- Avoid upgrades, imports, bulk jobs, and deployments during recording.
+- Avoid upgrades, imports, bulk jobs, and deployments during a named Change Session.
 - Give `configops_rollback` to fewer people than `configops_view`.
 - Treat mail, authentication, URL, indexing, cache, and integration settings as staging-first changes.
 - Monitor WordPress/PHP logs and database write health.
 - Verify behavior after undo; do not rely on a success badge alone.
 
-Automatic recording is limited to authorized administrative, REST, and WP-CLI contexts and begins lazily on the first Options API mutation. Named Change Sessions observe site option writes across their active window. High traffic is not itself a problem, but a long named session creates more unrelated evidence and more ambiguity. Duration and operational scope matter more than visitor count.
+Automatic observation is limited to authorized administrative, REST, and WP-CLI contexts and begins lazily on the first Options API mutation. Named Change Sessions observe site option writes across their active window. High traffic is not itself a problem, but a long named session creates more unrelated evidence and more ambiguity. Duration and operational scope matter more than visitor count.
 
 ## Local storage
 
-The recorder uses dedicated WordPress tables for capture sessions, mutations, value-free write signals, and restore audit runs. Table names receive the site’s configured WordPress prefix. Evidence remains in the site database.
+ConfigOps uses dedicated WordPress tables for observation sessions, mutations, value-free write signals, and restore audit runs. The internal table identifiers retain `capture` for schema compatibility. Table names receive the site’s configured WordPress prefix. Evidence remains in the site database.
 
 The REST interface is local to WordPress, capability-gated, and returns private `no-store` responses. There is no ConfigOps account, cloud collector, or remote control plane in 0.3.0.
 
 ## Retention
 
-History retention runs daily and removes completed or interrupted capture evidence older than 30 days by default. Change the period only through site code:
+History retention runs daily and removes completed or interrupted observation evidence older than 30 days by default. Change the period only through site code:
 
 ```php
 add_filter(
@@ -36,7 +36,7 @@ add_filter(
 );
 ```
 
-The value is bounded by the plugin. A failed dependent delete preserves the capture instead of leaving a falsely clean partial removal.
+The value is bounded by the plugin. A failed dependent delete preserves the observation instead of leaving a falsely clean partial removal.
 
 ## Health checks
 
@@ -55,7 +55,7 @@ After installation or an incident, verify:
 If a restore fails or compensation fails:
 
 1. Stop further ConfigOps and native settings writes to the affected option.
-2. Record the capture ID, mutation ID, UTC time, and value-free failure code.
+2. Record the change ID, mutation ID, UTC time, and value-free failure code.
 3. Verify current state in the owning plugin and, if appropriate, WP-CLI.
 4. Check PHP, WordPress, and database logs without copying credentials into a ticket.
 5. Recover through the owning plugin or a tested backup when the intended value cannot be proven.

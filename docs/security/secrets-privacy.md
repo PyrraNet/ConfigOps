@@ -5,11 +5,11 @@ description: What ConfigOps stores locally, removes before persistence, and expo
 
 # Secrets & privacy
 
-ConfigOps is local by design. Capture evidence is stored in the WordPress database and is not sent to pyrra or another ConfigOps service.
+ConfigOps is local by design. Observation evidence is stored in the WordPress database and is not sent to pyrra or another ConfigOps service.
 
 ## Data that can be stored
 
-- observation mode, optional capture name, status, timestamps, and initiating user ID;
+- observation mode, optional Change Session name, status, timestamps, and initiating user ID;
 - request ID, actor ID, method, path, admin screen, and bounded source attribution;
 - typed before/after option evidence and nested diffs where safe;
 - classifications, adapter IDs, schema versions, and undo eligibility;
@@ -32,21 +32,21 @@ Intent evidence may improve a label for review. It cannot change classification,
 
 ## Access control
 
-Version 0.3.0 uses separate WordPress capabilities for its active recorder surface:
+Version 0.3.0 uses separate WordPress capabilities for its active observation surface. The identifiers retain `capture` for API compatibility:
 
 | Capability | Grants |
 | --- | --- |
-| `configops_view` | Read ConfigOps state and capture evidence |
-| `configops_capture` | Start and stop captures |
-| `configops_rollback` | Attempt mutation or whole-capture undo |
+| `configops_view` | Read ConfigOps state and observation evidence |
+| `configops_capture` | Start and stop named Change Sessions |
+| `configops_rollback` | Attempt mutation or whole-change undo |
 
-These are the capabilities used by the shipped recorder REST routes. The versioned capability set also reserves names for future product boundaries, but 0.3.0 exposes no recorder endpoint through them. Administrators receive the set on activation. Sites with custom roles should grant only the minimum active capabilities needed. REST responses are capability-gated, private, and marked `no-store`.
+These are the capabilities used by the shipped observation REST routes. The versioned capability set also reserves names for future product boundaries, but 0.3.0 exposes no endpoint through them. Administrators receive the set on activation. Sites with custom roles should grant only the minimum active capabilities needed. REST responses are capability-gated, private, and marked `no-store`.
 
 ## Retention and removal
 
-Completed and interrupted captures are removed after 30 days by default while ConfigOps is active. Site developers can change the period with the `configops_retention_days` filter. Cleanup is bounded and preserves history when dependent evidence cannot be removed safely.
+Completed and interrupted observations are removed after 30 days by default while ConfigOps is active. Site developers can change the period with the `configops_retention_days` filter. Cleanup is bounded and preserves history when dependent evidence cannot be removed safely.
 
-Uninstalling ConfigOps removes its capture tables, installation options, scheduled cleanup, and capabilities. Deactivation does not erase history; it closes an active capture as interrupted.
+Uninstalling ConfigOps removes its evidence tables, installation options, scheduled cleanup, and capabilities. Deactivation does not erase history; it closes an active Change Session as interrupted.
 
 ## Suggested privacy disclosure
 

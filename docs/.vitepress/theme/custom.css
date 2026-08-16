@@ -101,9 +101,8 @@ body { font-synthesis: none; text-rendering: optimizeLegibility; }
 .co-section-heading > p:last-child { max-width: 510px; align-self: end; margin: 0; color: var(--vp-c-text-2); font-size: 18px; line-height: 1.6; }
 .co-proof__figure { margin: 0; border: 1px solid var(--vp-c-divider); background: var(--vp-c-bg-elv); }
 .co-proof__mobile-note { display: none; }
-.co-proof__figure > a { display: block; max-height: 760px; overflow: hidden; border-bottom: 1px solid var(--vp-c-divider); background: #f4f4f4; }
-.co-proof__figure img { display: block; width: 100%; height: auto; transition: transform 300ms cubic-bezier(.22,1,.36,1); }
-.co-proof__figure a:hover img { transform: translateY(-18px); }
+.co-proof__figure > a { display: block; overflow: hidden; border-bottom: 1px solid var(--vp-c-divider); background: #f4f4f4; }
+.co-proof__figure img { display: block; width: 100%; height: auto; }
 .co-proof__figure figcaption { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; min-height: 64px; padding: 14px 18px; font-size: 12px; }
 .co-proof__figure figcaption span { flex: 1 1 300px; color: var(--vp-c-text-3); }
 .co-proof__figure figcaption strong { font-variant-numeric: tabular-nums; }
@@ -139,9 +138,8 @@ body { font-synthesis: none; text-rendering: optimizeLegibility; }
 	.co-proof { padding-top: 100px; }
 	.co-section-heading { display: block; }
 	.co-section-heading h2 { margin-bottom: 24px; }
-	.co-proof__figure > a { max-height: 560px; overflow: auto; overscroll-behavior: contain; }
-	.co-proof__figure img { width: 980px; max-width: none; }
-	.co-proof__figure a:hover img { transform: none; }
+	.co-proof__figure > a { position: relative; height: 400px; }
+	.co-proof__figure img { position: absolute; right: 0; bottom: 0; width: 1200px; max-width: none; }
 	.co-proof__mobile-note { display: block; margin: 0; padding: 10px 12px; border-bottom: 1px solid #344052; background: #0b1424; color: #f3f5f8; font-size: 11px; font-weight: 700; }
 	.co-reading-path { padding: 110px 0; }
 	.co-reading-path li > div { display: block; padding-left: 22px; }
@@ -164,8 +162,8 @@ body { font-synthesis: none; text-rendering: optimizeLegibility; }
 	.co-proof { padding-top: 82px; }
 	.co-section-heading h2 { font-size: 40px; }
 	.co-section-heading > p:last-child { font-size: 16px; }
-	.co-proof__figure > a { max-height: 430px; }
-	.co-proof__figure img { width: 760px; }
+	.co-proof__figure > a { height: 300px; }
+	.co-proof__figure img { width: 1100px; }
 	.co-proof__figure figcaption { display: grid; gap: 7px; }
 	.co-reading-path { padding: 90px 0; }
 	.co-reading-path ol { margin-top: 46px; }
@@ -181,5 +179,5 @@ body { font-synthesis: none; text-rendering: optimizeLegibility; }
 
 @media (prefers-reduced-motion: reduce) {
 	html { scroll-behavior: auto; }
-	.co-action, .co-proof__figure img { transition: none; }
+	.co-action { transition: none; }
 }

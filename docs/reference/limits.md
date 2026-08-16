@@ -9,7 +9,7 @@ Version 0.3.0 is deliberately narrower than a configuration-management platform.
 
 ## Not shipped
 
-- multisite capture or network-wide administration;
+- multisite observation or network-wide administration;
 - remote apply, cross-site synchronization, or fleet control;
 - generic rollback for plugin custom tables or direct SQL;
 - content, media-file, theme-file, or filesystem deployment;

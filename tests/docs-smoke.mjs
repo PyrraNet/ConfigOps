@@ -98,6 +98,28 @@ try {
 				if (evidence.brokenImages.length > 0) {
 					throw new Error(`${profile.name} ${route} contains broken images: ${evidence.brokenImages.join(', ')}`);
 				}
+				if ('/' === route) {
+					const home = await page.evaluate(() => ({
+						text: document.body.textContent || '',
+						hasCurrentReleaseLink: [...document.querySelectorAll('a')].some((link) => (
+							'v0.3.0' === link.textContent?.trim()
+							&& link.getAttribute('href')?.includes('/releases/0.3.0')
+						)),
+						proofAlt: document.querySelector('.co-proof__figure img')?.getAttribute('alt') || '',
+					}));
+					if (!home.hasCurrentReleaseLink) {
+						throw new Error(`${profile.name} home does not link the current 0.3.0 release`);
+					}
+					if (!home.text.includes('Save normally. ConfigOps appears with the evidence.')) {
+						throw new Error(`${profile.name} home does not lead with the automatic evidence proof`);
+					}
+					if (home.text.includes('Capture #1') || home.text.includes('Open full capture')) {
+						throw new Error(`${profile.name} home still exposes the obsolete manual-capture proof`);
+					}
+					if (!home.proofAlt.includes('ConfigOps evidence card')) {
+						throw new Error(`${profile.name} home does not expose the automatic evidence card image`);
+					}
+				}
 				if (runtimeErrors.length > 0) {
 					throw new Error(`${profile.name} ${route} emitted runtime errors:\n${runtimeErrors.join('\n')}`);
 				}

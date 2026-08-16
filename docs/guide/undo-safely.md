@@ -10,14 +10,14 @@ ConfigOps performs compensating writes. It does not rewind the database or claim
 ## Before selecting Undo
 
 1. Read every change in the request group.
-2. Confirm the site should return to the recorded baseline.
+2. Confirm the site should return to the observed baseline.
 3. Check that no one intentionally changed the same setting afterward.
 4. Keep a tested backup for consequential configuration.
-5. Prefer an individual field or option over whole-capture undo when that is the true intent.
+5. Prefer an individual field or option over whole-save or whole-session undo when that is the true intent.
 
 ## Conflict check
 
-The current option must still match the captured **after** state at the scope ConfigOps intends to restore. If it differs, ConfigOps refuses to write. This prevents a stale capture from silently overwriting newer work.
+The current option must still match the observed **after** state at the scope ConfigOps intends to restore. If it differs, ConfigOps refuses to write. This prevents stale evidence from silently overwriting newer work.
 
 Two restore modes can appear:
 
@@ -34,7 +34,7 @@ Some settings point to local media, pages, or users. ConfigOps stores bounded id
 
 Restore operations acquire a local operation lock. Every attempt writes a value-free audit record before its first configuration write, then records success, failure, compensation, or compensation failure.
 
-For a multi-option capture, ConfigOps applies eligible writes in sequence. If a later write fails, it attempts to compensate earlier writes back to the state seen before the restore began. Compensation can also fail; that condition is recorded and requires manual investigation.
+For a multi-option change, ConfigOps applies eligible writes in sequence. If a later write fails, it attempts to compensate earlier writes back to the state seen before the restore began. Compensation can also fail; that condition is recorded and requires manual investigation.
 
 ## After undo
 

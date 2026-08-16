@@ -7,22 +7,23 @@ Date: 2026-08-12
 
 ConfigOps uses route-specific React roots inside a minimal PHP shell:
 
-1. **Capture controls** hydrate immediately because starting and stopping are the primary actions.
-2. **Sessions** hydrate when the browser is idle.
-3. **Review ledger** imports only near the viewport, then requests its first mutation connection.
-4. **Plugin support** loads only on its server-routed view and renders the live WordPress and plugin adapter compatibility contracts.
+1. **Evidence feedback** is dependency-free and appears after a completed automatic observation.
+2. **Change Session controls** hydrate immediately on the ConfigOps screen for explicitly bounded multi-request work.
+3. **History** hydrates when the browser is idle.
+4. **Review ledger** imports only near the viewport, then requests its first mutation connection.
+5. **Plugin support** loads only on its server-routed view and renders the live WordPress and plugin adapter compatibility contracts.
 
-The shell includes real headings, product orientation, bounded placeholders, an initial capture/session snapshot, and a minimal no-script stop action. It does not serialize diff history. This keeps first paint independent from capture size and still avoids a request waterfall for the primary control.
+The shell includes real headings, product orientation, bounded placeholders, an initial observation/session snapshot, and a minimal no-script stop action for an active named Change Session. It does not serialize diff history. This keeps first paint independent from history size and still avoids a request waterfall for the primary controls.
 
 React, React DOM, API fetching, and translations are WordPress-owned externals. ConfigOps bundles only its application code. No component framework, client router, normalized entity cache, CSS-in-JS runtime, or duplicate React build ships with the plugin.
 
-While a capture is active, a separate dependency-free observer runs on wp-admin settings screens. It remembers only touched field names, visible labels, nearby section headings, and the submit action in a short-lived same-site cookie. It never reads configuration field values. PHP correlates that bounded metadata with the actual Options API diff in the save request; unmatched or ambiguous observations disappear instead of becoming guessed intent. The React ledger presents the resulting explanation but does not use it to authorize undo.
+A separate dependency-free observer runs on supported wp-admin settings screens. It remembers only touched field names, visible labels, nearby section headings, and the submit action in a short-lived same-site cookie. It never reads configuration field values. PHP correlates that bounded metadata with the actual Options API diff in the save request, whether the request creates an automatic observation or belongs to a named Change Session; unmatched or ambiguous observations disappear instead of becoming guessed intent. The React ledger presents the resulting explanation but does not use it to authorize undo.
 
 ## Brand layer
 
 The admin UI consumes the company design system as a scoped CSS layer instead of importing the public-site stylesheet. Its Avenir Next system stack, Ink/Paper surfaces, Brand Blue action edge, control radii, spacing, focus treatment, and state colors map directly to the supplied tokens without leaking into WordPress. The original light wordmark ships as a single cached SVG; no webfont, icon library, theme runtime, or branding JavaScript is loaded.
 
-The visual model is an evidence ledger rather than a dashboard. A compact sticky product bar leads directly into the bounded capture command; capture history and request-grouped evidence form one continuous work surface. Light surfaces carry review work, dark fields are reserved for active recording and typed diff headers, and Brand Blue marks the primary command or current selection. The system remains gradient-free.
+The visual model is an evidence ledger rather than a dashboard. A compact sticky product bar leads into Change History, with the optional Change Session boundary available for wider tasks; request-grouped evidence forms one continuous work surface. Light surfaces carry review work, dark fields are reserved for active named sessions, immediate evidence feedback, and typed diff headers, and Brand Blue marks the primary command or current selection. The system remains gradient-free.
 
 Specialist explanations are local, not permanent prose. Request grouping, setting semantics, redaction, classification reasons, adapter limits, and rollback safety are attached to their terms or actions as hover and keyboard-focus tooltips with accessible descriptions. Adapter-backed diffs lead with the field label and keep the option name and JSON Pointer as secondary expert evidence. On narrow screens the session rail becomes a contained horizontal scroller so history does not push the selected review below a long list or create page-level overflow.
 
