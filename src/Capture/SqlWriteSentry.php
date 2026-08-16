@@ -29,7 +29,8 @@ final class SqlWriteSentry
 		private readonly DatabaseWriteSignalRepository $signals,
 		private readonly SourceAttributor $source,
 		private readonly RequestContext $request,
-		private readonly ?AdapterRegistry $adapters = null
+		private readonly ?AdapterRegistry $adapters = null,
+		private readonly ?AutomaticRecorder $automatic = null
 	) {
 	}
 
@@ -47,7 +48,7 @@ final class SqlWriteSentry
 
 		$this->observing = true;
 		try {
-			$sessionId = $this->captures->activeId();
+			$sessionId = $this->sessionId();
 			if (
 				null === $sessionId
 				|| $this->isUncorrelatedCoreCronRequest()
@@ -194,7 +195,7 @@ final class SqlWriteSentry
 	private function reportCaptureError(Throwable $error): void
 	{
 		try {
-			$sessionId = $this->captures->activeId() ?? 0;
+			$sessionId = $this->sessionId() ?? 0;
 		} catch (Throwable) {
 			$sessionId = 0;
 		}
@@ -210,5 +211,12 @@ final class SqlWriteSentry
 		} catch (Throwable) {
 			// Detection and reporting must never escape into the host query.
 		}
+	}
+
+	private function sessionId(): ?int
+	{
+		return null !== $this->automatic
+			? $this->automatic->sessionId(false)
+			: $this->captures->activeId();
 	}
 }

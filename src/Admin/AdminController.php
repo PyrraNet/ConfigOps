@@ -56,12 +56,14 @@ final class AdminController
 	public function enqueueAdminAssets(string $hookSuffix): void
 	{
 		$activeId = $this->captures->activeId();
-		if ('toplevel_page_' . self::PAGE !== $hookSuffix && null === $activeId) {
+		$isConfigOps = 'toplevel_page_' . self::PAGE === $hookSuffix;
+		$canObserve = current_user_can('configops_capture');
+		if (! $isConfigOps && ! $canObserve) {
 			return;
 		}
 
 		$this->enqueueStyles();
-		if (null !== $activeId && current_user_can('configops_capture')) {
+		if ($canObserve) {
 			wp_enqueue_script(
 				'configops-intent-observer',
 				CONFIGOPS_URL . 'assets/intent-observer.js',
@@ -71,16 +73,33 @@ final class AdminController
 			);
 			$settings = wp_json_encode(
 				array(
-					'sessionId' => $activeId,
+					'sessionId' => $activeId ?? 0,
 					'cookieName' => IntentContext::COOKIE_NAME,
 				)
 			);
 			if (is_string($settings)) {
 				wp_add_inline_script('configops-intent-observer', 'window.configOpsIntent = ' . $settings . ';', 'before');
 			}
+
+			wp_enqueue_script(
+				'configops-automatic-feedback',
+				CONFIGOPS_URL . 'assets/automatic-feedback.js',
+				array('wp-i18n'),
+				$this->assetVersion('assets/automatic-feedback.js'),
+				true
+			);
+			$feedback = wp_json_encode(
+				array(
+					'endpoint' => rest_url('configops/v1/evidence'),
+					'nonce'    => wp_create_nonce('wp_rest'),
+				)
+			);
+			if (is_string($feedback)) {
+				wp_add_inline_script('configops-automatic-feedback', 'window.configOpsFeedback = ' . $feedback . ';', 'before');
+			}
 		}
 
-		if ('toplevel_page_' . self::PAGE === $hookSuffix) {
+		if ($isConfigOps) {
 			wp_enqueue_script(
 				'configops-runtime',
 				CONFIGOPS_URL . 'assets/ui/runtime.js',

@@ -89,7 +89,8 @@ final class IntentContext
 			$this->loaded = true;
 		}
 
-		if (null === $this->context || $sessionId !== (int) ($this->context['session'] ?? 0)) {
+		$observedSession = (int) ($this->context['session'] ?? 0);
+		if (null === $this->context || (0 !== $observedSession && $sessionId !== $observedSession)) {
 			return null;
 		}
 
@@ -132,7 +133,7 @@ final class IntentContext
 		$session = (int) ($payload['session'] ?? 0);
 		$capturedAt = (int) ($payload['capturedAt'] ?? 0);
 		$age = time() - $capturedAt;
-		if ($session <= 0 || $capturedAt <= 0 || $age < -30 || $age > self::MAX_AGE_SECONDS) {
+		if ($session < 0 || $capturedAt <= 0 || $age < -30 || $age > self::MAX_AGE_SECONDS) {
 			return null;
 		}
 

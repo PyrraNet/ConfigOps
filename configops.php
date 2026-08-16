@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name:       ConfigOps – Settings History, Diff & Rollback
- * Description:       Record WordPress configuration changes, inspect precise diffs, and safely restore known values.
- * Version:           0.2.0
+ * Plugin Name:       ConfigOps – Undo Settings Changes
+ * Description:       See what a settings save changed and reverse only the values that are still safe to restore.
+ * Version:           0.3.0
  * Requires at least: 7.0
  * Requires PHP:      8.2
  * Author:            pyrra
@@ -20,7 +20,7 @@ if (! defined('ABSPATH')) {
 	exit;
 }
 
-define('CONFIGOPS_VERSION', '0.2.0');
+define('CONFIGOPS_VERSION', '0.3.0');
 define('CONFIGOPS_FILE', __FILE__);
 define('CONFIGOPS_PATH', __DIR__);
 define('CONFIGOPS_URL', plugin_dir_url(__FILE__));

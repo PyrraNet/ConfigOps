@@ -1,6 +1,6 @@
 {
   "name": "pyrra/configops",
-  "description": "Desired state management for WordPress configuration.",
+  "description": "The undo and evidence layer for WordPress settings.",
   "type": "wordpress-plugin",
   "license": "GPL-2.0-or-later",
   "authors": [

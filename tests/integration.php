@@ -48,7 +48,8 @@ $assert = static function (bool $condition, string $message) use (&$assertions):
 $sessionTable = $wpdb->prefix . 'configops_capture_sessions';
 $sessionColumns = $wpdb->get_col("SHOW COLUMNS FROM `{$sessionTable}`", 0);
 $assert(
-	in_array('capture_error_count', $sessionColumns, true)
+	in_array('capture_mode', $sessionColumns, true)
+	&& in_array('capture_error_count', $sessionColumns, true)
 	&& in_array('last_error_code', $sessionColumns, true)
 	&& in_array('last_error_at', $sessionColumns, true),
 	'Schema activation must verify and expose every capture-integrity column before boot.'
@@ -61,11 +62,11 @@ $assert(
 	&& ! in_array('option_value', $restoreRunColumns, true),
 	'Schema activation must provide a value-free restore audit table before boot.'
 );
-update_option('configops_schema_version', 6, false);
+update_option('configops_schema_version', 8, false);
 (new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
-$assert(8 === (int) get_option('configops_schema_version'), 'A stale schema version should upgrade idempotently under the schema lock.');
+$assert(9 === (int) get_option('configops_schema_version'), 'A stale schema version should upgrade idempotently under the schema lock.');
 
-update_option('configops_schema_version', 7, false);
+update_option('configops_schema_version', 8, false);
 $hideSchemaTables = static function (string $query): string {
 	return str_starts_with($query, 'SHOW TABLES LIKE') ? "SELECT 'missing_configops_table'" : $query;
 };
@@ -78,9 +79,9 @@ try {
 }
 remove_filter('query', $hideSchemaTables, PHP_INT_MIN);
 $assert($schemaFailureRejected, 'Schema verification should reject a storage layer that cannot prove its tables exist.');
-$assert(7 === (int) get_option('configops_schema_version'), 'A failed schema verification must never advance the committed schema version.');
+$assert(8 === (int) get_option('configops_schema_version'), 'A failed schema verification must never advance the committed schema version.');
 (new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
-$assert(8 === (int) get_option('configops_schema_version'), 'A schema upgrade should recover after the injected storage failure clears.');
+$assert(9 === (int) get_option('configops_schema_version'), 'A schema upgrade should recover after the injected storage failure clears.');
 
 $administrator = get_role('administrator');
 $assert(false !== $administrator, 'WordPress should provide an administrator role for capability checks.');
@@ -1269,6 +1270,90 @@ $shellPayload = $payloadFactory->state($bulkSession, '', '', false);
 $assert(true === $shellPayload['review']['deferred'], 'The PHP shell must defer mutation history instead of inflating initial HTML.');
 $assert(array() === $shellPayload['review']['groups'], 'Deferred shell state must contain no mutation diff payloads.');
 
+$automaticOption = 'fixture_automatic_settings';
+update_option($automaticOption, 'before', false);
+$automaticNotices = new \ConfigOps\Admin\EvidenceNoticeStore();
+$automaticRecorder = new \ConfigOps\Capture\AutomaticRecorder(
+	$freshCaptures,
+	$automaticNotices,
+	new \ConfigOps\Capture\RequestContext()
+);
+$allowAutomaticContext = static fn (): bool => true;
+add_filter('configops_automatic_recording_context_allowed', $allowAutomaticContext, 10, 2);
+$automaticSession = $automaticRecorder->sessionId();
+remove_filter('configops_automatic_recording_context_allowed', $allowAutomaticContext, 10);
+$assert(null !== $automaticSession, 'An authorized administrative request should lazily create an automatic observation.');
+$automaticObserver = new \ConfigOps\Capture\MutationObserver(
+	$freshCaptures,
+	$mutations,
+	new \ConfigOps\Database\OptionMetadataRepository($wpdb),
+	new \ConfigOps\Capture\InternalOptionPolicy(),
+	$codec,
+	new \ConfigOps\Diff\NestedDiff(),
+	$adapters,
+	new \ConfigOps\Capture\SourceAttributor(CONFIGOPS_PATH),
+	new \ConfigOps\Capture\RequestContext(),
+	new \ConfigOps\Capture\IntentContext(),
+	$automaticRecorder
+);
+$automaticObserver->beforeUpdate('after', $automaticOption, 'before');
+update_option($automaticOption, 'after', false);
+$automaticObserver->onUpdated($automaticOption, 'before', 'after');
+$automaticRecorder->finalize();
+$automaticRow = $freshCaptures->find((int) $automaticSession);
+$assert(
+	'completed' === (string) $automaticRow->status
+	&& 'automatic' === (string) $automaticRow->capture_mode
+	&& null === $freshCaptures->activeId(),
+	'An automatic observation should complete request-locally without claiming the named-session pointer.'
+);
+$queuedAutomatic = $automaticNotices->pull(1);
+$assert(
+	array((int) $automaticSession) === $queuedAutomatic,
+	'Completed automatic evidence should queue one short-lived feedback pointer for its actor.'
+);
+$automaticEvidence = $payloadFactory->evidence($queuedAutomatic);
+$assert(
+	1 === count($automaticEvidence)
+	&& 1 === $automaticEvidence[0]['writeCount']
+	&& null !== $automaticEvidence[0]['undo'],
+	'Automatic feedback should expose compact counts and offer undo only for a fully safe observation.'
+);
+$restore->restoreSession((int) $automaticSession);
+$assert('before' === get_option($automaticOption), 'The automatic feedback target should use the existing conflict-checked session undo.');
+delete_option($automaticOption);
+$overlappingAutomatic = $freshCaptures->startAutomatic('Concurrent request', 1, '/wp-admin/options.php');
+$overlappingRestoreBlocked = false;
+try {
+	$restore->restoreSession((int) $automaticSession);
+} catch (RuntimeException $error) {
+	$overlappingRestoreBlocked = str_contains($error->getMessage(), 'automatic observation');
+}
+$freshCaptures->interruptAutomatic($overlappingAutomatic, 'automatic_test_complete');
+$assert(
+	$overlappingRestoreBlocked && ! $freshCaptures->hasOpenAutomatic(),
+	'Undo should fail closed while another automatic settings request is still recording.'
+);
+
+$incompleteAutomaticNotices = new \ConfigOps\Admin\EvidenceNoticeStore();
+$incompleteAutomaticRecorder = new \ConfigOps\Capture\AutomaticRecorder(
+	$freshCaptures,
+	$incompleteAutomaticNotices,
+	new \ConfigOps\Capture\RequestContext()
+);
+add_filter('configops_automatic_recording_context_allowed', $allowAutomaticContext, 10, 2);
+$incompleteAutomaticSession = $incompleteAutomaticRecorder->sessionId();
+remove_filter('configops_automatic_recording_context_allowed', $allowAutomaticContext, 10);
+$freshCaptures->recordCaptureError((int) $incompleteAutomaticSession, 'automatic_test_failure');
+$incompleteAutomaticRecorder->finalize();
+$incompleteAutomaticEvidence = $payloadFactory->evidence($incompleteAutomaticNotices->pull(1));
+$assert(
+	'interrupted' === (string) $freshCaptures->find((int) $incompleteAutomaticSession)->status
+	&& true === ($incompleteAutomaticEvidence[0]['incomplete'] ?? false)
+	&& null === ($incompleteAutomaticEvidence[0]['undo'] ?? null),
+	'An automatic observation with missed evidence should remain visible and disable direct undo.'
+);
+
 $restServer = rest_get_server();
 $stateRequest = new WP_REST_Request('GET', '/configops/v1/state');
 $stateResponse = $restServer->dispatch($stateRequest);
@@ -1283,6 +1368,14 @@ $assert(
 	'private, no-store' === ($stateHeaders['Cache-Control'] ?? '')
 	&& 'nosniff' === ($stateHeaders['X-Content-Type-Options'] ?? ''),
 	'The Agent state contract must prevent caching and MIME sniffing of configuration evidence.'
+);
+$evidenceResponse = $restServer->dispatch(new WP_REST_Request('GET', '/configops/v1/evidence'));
+$evidenceData = $evidenceResponse->get_data();
+$assert(
+	200 === $evidenceResponse->get_status()
+	&& is_array($evidenceData)
+	&& isset($evidenceData['items']),
+	'The local feedback endpoint should expose a private one-shot evidence collection.'
 );
 
 $firstBulkMutationId = (int) $bulkFirstPage[array_key_last($bulkFirstPage)]->id;
@@ -1360,6 +1453,7 @@ $assert($forbiddenResponse->get_status() >= 400, 'The local Agent API must fail 
 
 wp_dequeue_style('configops-admin');
 wp_dequeue_script('configops-intent-observer');
+wp_dequeue_script('configops-automatic-feedback');
 wp_dequeue_script('configops-runtime');
 $adminController = new \ConfigOps\Admin\AdminController(
 	$freshCaptures,
@@ -1372,6 +1466,7 @@ $adminController->enqueueAdminAssets('dashboard_page_unrelated');
 $assert(
 	! wp_style_is('configops-admin', 'enqueued')
 	&& ! wp_script_is('configops-intent-observer', 'enqueued')
+	&& ! wp_script_is('configops-automatic-feedback', 'enqueued')
 	&& ! wp_script_is('configops-runtime', 'enqueued'),
 	'Anonymous frontend and unrelated inactive admin requests must enqueue no ConfigOps CSS or JavaScript.'
 );
@@ -1389,7 +1484,9 @@ wp_set_current_user(1);
 $adminCapture = $freshCaptures->start('Admin asset boundary', 1, '/wp-admin/profile.php');
 $adminController->enqueueAdminAssets('profile.php');
 $assert(
-	wp_style_is('configops-admin', 'enqueued') && wp_script_is('configops-intent-observer', 'enqueued'),
+	wp_style_is('configops-admin', 'enqueued')
+	&& wp_script_is('configops-intent-observer', 'enqueued')
+	&& wp_script_is('configops-automatic-feedback', 'enqueued'),
 	'An authorized active capture should load its bounded admin observer outside the ConfigOps screen.'
 );
 $freshCaptures->stop();

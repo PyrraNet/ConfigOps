@@ -9,7 +9,7 @@ ConfigOps is local by design. Capture evidence is stored in the WordPress databa
 
 ## Data that can be stored
 
-- capture name, status, timestamps, and initiating user ID;
+- observation mode, optional capture name, status, timestamps, and initiating user ID;
 - request ID, actor ID, method, path, admin screen, and bounded source attribution;
 - typed before/after option evidence and nested diffs where safe;
 - classifications, adapter IDs, schema versions, and undo eligibility;
@@ -26,13 +26,13 @@ No heuristic can guarantee that an unusually named secret is detected. Plugin au
 
 ## Browser intent evidence
 
-The admin observer can correlate a settings save with bounded field names and visible labels. It does not read field values. The short-lived local cookie is limited in bytes, field count, nesting depth, age, and capture ID; malformed or ambiguous evidence is ignored.
+The admin observer can correlate a settings save with bounded field names and visible labels. It does not read field values. The short-lived local cookie is limited in bytes, field count, nesting depth, and age. It binds to a named session ID or remains unbound until the same save request lazily creates its automatic observation; malformed or ambiguous evidence is ignored.
 
 Intent evidence may improve a label for review. It cannot change classification, adapter trust, or undo authority.
 
 ## Access control
 
-Version 0.2.0 uses separate WordPress capabilities for its active recorder surface:
+Version 0.3.0 uses separate WordPress capabilities for its active recorder surface:
 
 | Capability | Grants |
 | --- | --- |
@@ -40,7 +40,7 @@ Version 0.2.0 uses separate WordPress capabilities for its active recorder surfa
 | `configops_capture` | Start and stop captures |
 | `configops_rollback` | Attempt mutation or whole-capture undo |
 
-These are the capabilities used by the shipped recorder REST routes. The versioned capability set also reserves names for future product boundaries, but 0.2.0 exposes no recorder endpoint through them. Administrators receive the set on activation. Sites with custom roles should grant only the minimum active capabilities needed. REST responses are capability-gated, private, and marked `no-store`.
+These are the capabilities used by the shipped recorder REST routes. The versioned capability set also reserves names for future product boundaries, but 0.3.0 exposes no recorder endpoint through them. Administrators receive the set on activation. Sites with custom roles should grant only the minimum active capabilities needed. REST responses are capability-gated, private, and marked `no-store`.
 
 ## Retention and removal
 

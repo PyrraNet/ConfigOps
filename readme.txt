@@ -1,24 +1,48 @@
-=== ConfigOps – Settings History, Diff & Rollback ===
+=== ConfigOps – Undo Settings Changes ===
 Contributors: pyrra
-Tags: settings, history, rollback, configuration, developer
+Tags: settings, configuration, rollback, history, developer tools
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 8.2
-Stable tag: 0.2.0
+Stable tag: 0.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Record WordPress configuration changes, inspect precise nested diffs, and restore only supported values.
+See what a settings save changed and reverse only the values that are still safe to restore.
 
 == Description ==
 
-ConfigOps shows what WordPress actually changed when a setting was saved.
+= The undo button WordPress forgot =
 
-Start a named capture, use the WordPress admin normally, then stop. ConfigOps groups writes by request, collapses consecutive writes by the same component to one option into the original-to-final decision, renders nested changes with plain-language labels, separates likely plugin housekeeping, and attributes the code path that caused the change where possible.
+WordPress shows you the settings form. ConfigOps shows you what the save actually changed.
 
-= Honest by default =
+Change a supported WordPress or plugin setting as usual. ConfigOps automatically opens an isolated observation for that save, groups the resulting writes, and reduces repeated writes to the same option into the original-to-final change.
 
-Probable credentials are removed before mutation history is stored. Undo checks that the current value still matches the capture before writing anything. An interrupted or incomplete capture loses whole-capture undo instead of pretending its evidence is safe.
+A compact evidence card then tells you how many values WordPress wrote, links directly to an understandable review, and offers whole-save Undo only when the complete change is still safe to restore.
+
+One action. The hidden writes behind it. A clear diff. A conflict-checked undo.
+
+= WordPress Change Intelligence =
+
+ConfigOps is not a generic activity log. It does more than report that somebody clicked Save: it records the supported Options API writes caused by the request, separates likely decisions from plugin housekeeping, and attributes the responsible component and code path where possible.
+
+ConfigOps is not a backup. It restores only supported setting values that still match the recorded state, so a later legitimate change is not silently overwritten.
+
+ConfigOps is not plugin-version rollback. It works with configuration values, not plugin or theme code.
+
+= What you get =
+
+* Automatic local evidence for authorized settings changes made through WordPress admin, REST, and WP-CLI requests.
+* Plain-language nested diffs that turn option arrays into recognizable settings.
+* Immediate Review and safe Undo feedback after a settings save.
+* Named Change Sessions for planned maintenance, support cases, and investigations that span several requests.
+* Provenance for the user, request, component, and code path where ConfigOps can determine it.
+* Secret redaction before mutation history is stored.
+* Conflict checks before every restore.
+
+= Safety before convenience =
+
+Probable credentials are removed before mutation history is stored. Undo first checks that the current value still matches the captured value. An interrupted or incomplete observation loses whole-save undo instead of pretending its evidence is safe.
 
 Direct writes to custom plugin tables are recorded as value-free warnings. ConfigOps does not store raw SQL and does not claim it can reverse data it does not understand.
 
@@ -28,7 +52,7 @@ All evidence remains in the website database. ConfigOps does not send capture da
 
 = Tested component contracts =
 
-The first release includes pinned adapters for:
+The current release includes pinned adapters for:
 
 * WordPress Core 7.0
 * WP Mail SMTP Free 4.9.0
@@ -36,23 +60,31 @@ The first release includes pinned adapters for:
 
 The Plugin support screen states exactly which WordPress and plugin capabilities are supported, limited, or not available. An untested component version keeps its capture evidence but disables automatic undo.
 
-= Current scope =
+= Version 0.3 scope =
 
-Version 0.1 is a local technical preview for capture, review, and conflict-checked restore. It is not a staging plugin, backup, content migration, database synchronization, fleet manager, or generic activity log.
+Version 0.3 is a local, single-site undo and evidence layer for supported WordPress settings. It is not a staging plugin, backup, content migration, database synchronization, fleet manager, or generic activity log.
 
 == Installation ==
 
 1. Upload the ConfigOps ZIP through Plugins > Add Plugin > Upload Plugin.
 2. Activate ConfigOps.
-3. Open ConfigOps, name a capture, and start recording.
-4. Change one WordPress or plugin setting as usual.
-5. Stop the capture and review the result before using any undo action.
+3. Change one WordPress or plugin setting as usual.
+4. Use the ConfigOps evidence card to review the hidden writes or undo a fully safe save.
+5. For a multi-request task, open ConfigOps and start a named Change Session.
 
 == Frequently Asked Questions ==
 
 = Does ConfigOps capture custom plugin tables? =
 
 Not generically. ConfigOps records a value-free warning when it observes a direct database write, but understanding or reversing a custom table requires an explicit adapter.
+
+= Is ConfigOps an activity log, backup, or plugin rollback tool? =
+
+No. An activity log records events, a backup restores a broad site state, and plugin rollback replaces code. ConfigOps explains the supported setting writes behind a save and restores only values that still pass its safety checks.
+
+= What does ConfigOps record automatically? =
+
+ConfigOps observes supported Options API mutations in authorized WordPress admin, REST, and WP-CLI requests. It does not record anonymous front-end traffic as settings evidence. Named Change Sessions are available when you want to group several requests into one investigation.
 
 = Are secrets stored in the mutation history? =
 
@@ -78,12 +110,19 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 
 == Screenshots ==
 
-1. A real WP Mail SMTP capture separates the settings a person changed from technical writes and removes the SMTP password before storage.
-2. A Yoast SEO capture explains a nested XML sitemap change as a clear on-to-off decision.
-3. WordPress Core and plugin support are published as explicit capability contracts with tested versions and known limits.
-4. Incomplete evidence is shown prominently and disables whole-capture undo instead of presenting an unsafe action.
+1. One WP Mail SMTP save becomes a clear before-and-after review while the changed SMTP password is removed before storage.
+2. One Yoast SEO toggle becomes one understandable XML sitemaps decision with its safe undo action.
+3. WordPress Core, WP Mail SMTP, and Yoast SEO support are published as explicit capability contracts with tested versions and known limits.
 
 == Changelog ==
+
+= 0.3.0 =
+
+* Records authorized settings saves automatically in isolated request-local observations.
+* Shows immediate evidence with write, decision, technical, and protected-secret counts plus direct Review and safe Undo actions.
+* Keeps named Change Sessions as the focused mode for planned multi-request work.
+* Preserves automatic and named evidence as distinct modes through the schema, review, retention, and uninstall lifecycle.
+* Repositions ConfigOps as the undo and evidence layer for WordPress settings with a new directory title, description, and artwork.
 
 = 0.2.0 =
 

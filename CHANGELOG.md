@@ -2,6 +2,32 @@
 
 ConfigOps follows semantic versioning. While the major version is `0`, adapter contracts and stored evidence may still evolve between minor releases; migrations must always fail closed.
 
+## 0.3.0 — 2026-08-16
+
+The automatic evidence and undo release.
+
+### Shipped
+
+- Request-local automatic observations that begin lazily on the first supported Options API mutation in an authorized admin, REST, or WP-CLI request.
+- Immediate, value-free evidence feedback with write, likely-decision, technical, and protected-secret counts plus direct Review and whole-save Undo actions when the complete change is still safe.
+- Named Change Sessions retained as the explicit multi-request mode for planned maintenance, support cases, and investigations.
+- A versioned capture-mode schema and lifecycle that keeps automatic observations isolated from named sessions, discards technical-only automatic noise, fails incomplete evidence closed, and removes pending feedback on uninstall.
+- Intent correlation that can bind bounded field names and labels to either a named session or the automatic observation created by the same save request without reading configuration values.
+- The WordPress Change Intelligence positioning, “ConfigOps – Undo Settings Changes” directory identity, rewritten listing, and a focused three-screenshot proof sequence.
+
+### Deliberate boundaries
+
+- Automatic recording remains limited to supported local Options API evidence in authorized administrative contexts; anonymous front-end traffic is not treated as a settings change.
+- ConfigOps remains an evidence and compensating-undo layer, not an activity log, backup, code rollback tool, or generic custom-table transaction engine.
+- Branded report exports, Save Autopsies, the WordPress Change Index, a public demo, and AI-agent provenance remain later product and media milestones rather than claims of this release.
+
+### Verified against
+
+- WordPress 7.0 and latest on PHP 8.2, 8.3, 8.4, and 8.5.
+- WP Mail SMTP Free 4.9.0 and Yoast SEO Free 28.2 through real save, explain, secret-protection, and undo browser flows at both ends of the PHP range.
+- The official WordPress readme validator and Plugin Check with no release-blocking findings.
+- 77.69% tracked-production and 79.20% trust-boundary line coverage with all 54 tracked production files in the final release-candidate denominator.
+
 ## 0.2.0 — 2026-08-13
 
 The trust and compatibility release.

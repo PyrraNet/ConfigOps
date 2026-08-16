@@ -1,8 +1,8 @@
 {
   "name": "configops",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "Desired state management for WordPress configuration.",
+  "description": "The undo and evidence layer for WordPress settings.",
   "scripts": {
     "build:ui": "node build/build-ui.mjs",
     "build:wp-assets": "node build/build-wordpress-assets.mjs",

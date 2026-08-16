@@ -15,7 +15,7 @@ function Sessions() {
   const selected = state.selected;
   return /* @__PURE__ */ wp.element.createElement(wp.element.Fragment, null, state.sessions.length > 0 && /* @__PURE__ */ wp.
   element.createElement("div", { className: "configops-session-picker" }, /* @__PURE__ */ wp.element.createElement("labe\
-l", { htmlFor: "configops-session-select" }, __("Selected capture", "configops")), /* @__PURE__ */ wp.element.createElement(
+l", { htmlFor: "configops-session-select" }, __("Selected change", "configops")), /* @__PURE__ */ wp.element.createElement(
     "select",
     {
       id: "configops-session-select",
@@ -29,23 +29,23 @@ l", { htmlFor: "configops-session-select" }, __("Selected capture", "configops")
 configops") : sprintf(__("%d settings", "configops"), selected.reviewChangeCount), selected.technicalChangeCount > 0 && `\
  \xB7 ${sprintf(__("%d technical", "configops"), selected.technicalChangeCount)}`, ` \xB7 ${sprintf(__("%s ago", "config\
 ops"), selected.startedAtLabel)}`)), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-section-hea\
-ding" }, /* @__PURE__ */ wp.element.createElement("h2", null, __("Capture history", "configops")), /* @__PURE__ */ wp.element.
-  createElement("span", { "aria-label": sprintf(__("%d captures", "configops"), state.sessions.length) }, state.sessions.
-  length)), state.sessions.length > 5 && /* @__PURE__ */ wp.element.createElement("div", { className: "configops-session\
--search" }, /* @__PURE__ */ wp.element.createElement("label", { className: "screen-reader-text", htmlFor: "configops-ses\
-sion-search" }, __("Find a capture", "configops")), /* @__PURE__ */ wp.element.createElement(
+ding" }, /* @__PURE__ */ wp.element.createElement("h2", null, __("Change history", "configops")), /* @__PURE__ */ wp.element.
+  createElement("span", { "aria-label": sprintf(__("%d recorded changes", "configops"), state.sessions.length) }, state.
+  sessions.length)), state.sessions.length > 5 && /* @__PURE__ */ wp.element.createElement("div", { className: "configop\
+s-session-search" }, /* @__PURE__ */ wp.element.createElement("label", { className: "screen-reader-text", htmlFor: "conf\
+igops-session-search" }, __("Find a change", "configops")), /* @__PURE__ */ wp.element.createElement(
     "input",
     {
       id: "configops-session-search",
       type: "search",
-      placeholder: __("Find a capture", "configops"),
+      placeholder: __("Find a change", "configops"),
       value: query,
       onChange: (event) => setQuery(event.target.value)
     }
   )), state.sessions.length === 0 ? /* @__PURE__ */ wp.element.createElement("p", { className: "configops-empty-copy" },
-  __("Your captures will appear here.", "configops")) : visibleSessions.length === 0 ? /* @__PURE__ */ wp.element.createElement(
-  "p", { className: "configops-empty-copy" }, __("No captures match this search.", "configops")) : /* @__PURE__ */ wp.element.
-  createElement("ol", { className: "configops-session-list" }, visibleSessions.map((session) => {
+  __("Automatic changes and named sessions will appear here.", "configops")) : visibleSessions.length === 0 ? /* @__PURE__ */ wp.
+  element.createElement("p", { className: "configops-empty-copy" }, __("No captures match this search.", "configops")) :
+  /* @__PURE__ */ wp.element.createElement("ol", { className: "configops-session-list" }, visibleSessions.map((session) => {
     const isSelected = selected?.id === session.id;
     return /* @__PURE__ */ wp.element.createElement("li", { key: session.id }, /* @__PURE__ */ wp.element.createElement(
       "a",
@@ -59,7 +59,8 @@ sion-search" }, __("Find a capture", "configops")), /* @__PURE__ */ wp.element.c
         }
       },
       /* @__PURE__ */ wp.element.createElement("span", { className: "configops-session-head" }, /* @__PURE__ */ wp.element.
-      createElement("span", { className: "configops-session-name" }, session.name), /* @__PURE__ */ wp.element.createElement(
+      createElement("span", { className: "configops-session-name" }, session.mode === "automatic" && /* @__PURE__ */ wp.
+      element.createElement("small", null, __("AUTO", "configops")), session.name), /* @__PURE__ */ wp.element.createElement(
       "time", { dateTime: session.startedAt }, sprintf(__("%s ago", "configops"), session.startedAtLabel))),
       /* @__PURE__ */ wp.element.createElement("span", { className: "configops-session-meta" }, /* @__PURE__ */ wp.element.
       createElement("span", null, session.reviewChangeCount === 1 ? __("1 setting", "configops") : sprintf(__("%d settin\

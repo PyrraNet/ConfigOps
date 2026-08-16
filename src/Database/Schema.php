@@ -15,7 +15,7 @@ use wpdb;
 
 final class Schema
 {
-	private const VERSION = 8;
+	private const VERSION = 9;
 
 	public function __construct(private readonly wpdb $database)
 	{
@@ -60,6 +60,7 @@ final class Schema
 		$sql = "CREATE TABLE {$sessions} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 			name varchar(191) NOT NULL,
+			capture_mode varchar(16) NOT NULL DEFAULT 'manual',
 			status varchar(20) NOT NULL DEFAULT 'active',
 			actor_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			initial_url text NULL,
@@ -170,6 +171,7 @@ final class Schema
 			array(
 				'id',
 				'name',
+				'capture_mode',
 				'status',
 				'actor_id',
 				'initial_url',

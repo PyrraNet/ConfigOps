@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace ConfigOps\Api;
 
 use ConfigOps\Admin\AdminPayloadFactory;
+use ConfigOps\Admin\EvidenceNoticeStore;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\MutationRepository;
 use ConfigOps\Restore\RestoreService;
@@ -27,7 +28,8 @@ final class RestController
 		private readonly CaptureRepository $captures,
 		private readonly MutationRepository $mutations,
 		private readonly RestoreService $restore,
-		private readonly AdminPayloadFactory $payloads
+		private readonly AdminPayloadFactory $payloads,
+		private readonly ?EvidenceNoticeStore $evidenceNotices = null
 	) {
 	}
 
@@ -45,6 +47,15 @@ final class RestController
 			'configops_view',
 			array('session' => array('type' => 'integer', 'minimum' => 1))
 		);
+
+		if (null !== $this->evidenceNotices) {
+			$this->registerRoute(
+				'/evidence',
+				WP_REST_Server::READABLE,
+				'evidence',
+				'configops_view'
+			);
+		}
 
 		$this->registerRoute(
 			'/captures/(?P<id>\d+)/mutations',
@@ -125,6 +136,15 @@ final class RestController
 		return $this->response(
 			$this->payloads->mutationPage($sessionId, (int) $request['after'], (int) $request['limit'])
 		);
+	}
+
+	public function evidence(): WP_REST_Response
+	{
+		$sessionIds = null === $this->evidenceNotices
+			? array()
+			: $this->evidenceNotices->pull(get_current_user_id());
+
+		return $this->response(array('items' => $this->payloads->evidence($sessionIds)));
 	}
 
 	public function startCapture(WP_REST_Request $request): WP_REST_Response|WP_Error

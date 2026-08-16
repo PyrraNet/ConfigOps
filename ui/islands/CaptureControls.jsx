@@ -5,7 +5,7 @@ export default function CaptureControls() {
 	const { __ } = window.wp.i18n;
 	const state = useConfigOpsState();
 	const [name, setName] = window.wp.element.useState('');
-	const [composerOpen, setComposerOpen] = window.wp.element.useState(state.sessions.length === 0);
+	const [composerOpen, setComposerOpen] = window.wp.element.useState(false);
 	const busy = Boolean(state.ui.pending);
 
 	window.wp.element.useEffect(() => {
@@ -76,21 +76,21 @@ export default function CaptureControls() {
 						{state.ui.pending === 'stop-capture' ? __('Stopping…', 'configops') : __('Stop & review', 'configops')}
 					</button>
 				</section>
-			) : !composerOpen && state.sessions.length > 0 ? (
+			) : !composerOpen ? (
 				<section className="configops-capture-command is-compact" aria-labelledby="configops-new-capture-title">
 					<div>
-						<p className="configops-state-label">{__('Capture', 'configops')}</p>
-						<h2 id="configops-new-capture-title">{__('Record another settings task', 'configops')}</h2>
+						<p className="configops-state-label">{__('Automatic recording is on', 'configops')}</p>
+						<h2 id="configops-new-capture-title">{__('Settings changes are recorded as they happen', 'configops')}</h2>
 					</div>
-					<button className="button" type="button" onClick={() => setComposerOpen(true)}>{__('New capture', 'configops')}</button>
+					<button className="button" type="button" onClick={() => setComposerOpen(true)}>{__('Start change session', 'configops')}</button>
 				</section>
 			) : (
 				<section className="configops-capture-command" aria-labelledby="configops-start-title">
 					<form className="configops-capture-form" onSubmit={submit}>
 						<div className="configops-capture-intro">
-							<p className="configops-state-label">{__('New capture', 'configops')}</p>
-							<h2 id="configops-start-title">{__('Record a settings task', 'configops')}</h2>
-							<p>{__('Name it, start recording, then make the change in WordPress.', 'configops')}</p>
+							<p className="configops-state-label">{__('Focused mode', 'configops')}</p>
+							<h2 id="configops-start-title">{__('Start a named change session', 'configops')}</h2>
+							<p>{__('Group a planned maintenance task, support case, or investigation under one name.', 'configops')}</p>
 						</div>
 						<div className="configops-capture-field">
 							<label className="screen-reader-text" htmlFor="configops-capture-name">{__('Capture name', 'configops')}</label>
@@ -105,9 +105,9 @@ export default function CaptureControls() {
 							/>
 						</div>
 						<div className="configops-capture-compose-actions">
-							{state.sessions.length > 0 && <button className="button" type="button" disabled={busy} onClick={() => setComposerOpen(false)}>{__('Cancel', 'configops')}</button>}
+							<button className="button" type="button" disabled={busy} onClick={() => setComposerOpen(false)}>{__('Cancel', 'configops')}</button>
 							<button className="button button-primary button-large" type="submit" disabled={busy}>
-								{state.ui.pending === 'start-capture' ? __('Starting…', 'configops') : __('Start recording', 'configops')}
+								{state.ui.pending === 'start-capture' ? __('Starting…', 'configops') : __('Start session', 'configops')}
 							</button>
 						</div>
 					</form>

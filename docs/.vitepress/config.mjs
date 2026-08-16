@@ -5,7 +5,7 @@ const base = process.env.DOCS_BASE || (process.env.GITHUB_ACTIONS === 'true' ? `
 
 export default defineConfig({
 	title: 'ConfigOps',
-	description: 'Operate the local WordPress settings recorder with explicit safety boundaries.',
+	description: 'See what a WordPress settings save changed and undo only values that are still safe to restore.',
 	lang: 'en-US',
 	base,
 	cleanUrls: true,

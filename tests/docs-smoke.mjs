@@ -25,6 +25,7 @@ const routes = [
 	'/adapters',
 	'/frontend',
 	'/wordpress-org-release',
+	'/releases/0.3.0',
 	'/releases/0.2.0',
 	'/releases/0.1.0',
 ];

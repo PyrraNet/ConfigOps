@@ -86,12 +86,39 @@ try {
 	const captureIsland = page.locator('#configops-capture-island');
 	await captureIsland.waitFor();
 	await page.waitForFunction(() => document.getElementById('configops-capture-island')?.getAttribute('aria-busy') !== 'true');
+	await captureIsland.getByText('Automatic recording is on', { exact: true }).waitFor();
+
+	await page.goto(`${baseUrl}/wp-admin/options-general.php`, { waitUntil: 'networkidle' });
+	const automaticDescription = page.locator('#blogdescription');
+	const automaticBaseline = await automaticDescription.inputValue();
+	await automaticDescription.fill(`Automatic evidence ${String(Date.now()).slice(-6)}`);
+	await page.locator('#submit').click();
+	await page.waitForLoadState('networkidle');
+	const evidenceCard = page.locator('.configops-evidence-card').first();
+	await evidenceCard.waitFor();
+	if (!await evidenceCard.getByText(/ConfigOps observed \d+ write/).isVisible()) {
+		throw new Error('An ordinary settings save did not produce immediate ConfigOps evidence.');
+	}
+	if (!await evidenceCard.getByRole('link', { name: 'Review' }).isVisible()) {
+		throw new Error('Automatic evidence did not expose its review action.');
+	}
+	await page.screenshot({ path: new URL('configops-automatic-evidence.png', artifacts).pathname, fullPage: true });
+	page.once('dialog', (dialog) => dialog.accept());
+	await evidenceCard.getByRole('button', { name: 'Undo' }).click();
+	await page.waitForLoadState('networkidle');
+	await page.getByText('1 option was restored.', { exact: true }).waitFor();
+	await page.goto(`${baseUrl}/wp-admin/options-general.php`, { waitUntil: 'networkidle' });
+	if (await page.locator('#blogdescription').inputValue() !== automaticBaseline) {
+		throw new Error('Direct evidence-card undo did not restore the conflict-checked baseline.');
+	}
+
+	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops`, { waitUntil: 'networkidle' });
 	if (!await page.locator('#configops-capture-name').isVisible()) {
-		await page.getByRole('button', { name: 'New capture' }).click();
+		await page.getByRole('button', { name: 'Start change session' }).click();
 	}
 
 	await page.locator('#configops-capture-name').fill('Core reading settings');
-	const recordButton = page.getByRole('button', { name: 'Start recording' });
+	const recordButton = page.getByRole('button', { name: 'Start session' });
 	const recordButtonBox = await recordButton.boundingBox();
 	if (!recordButtonBox || recordButtonBox.width > 220) {
 		throw new Error(`Desktop record command expanded into a banner: ${recordButtonBox?.width ?? 'missing'} px.`);

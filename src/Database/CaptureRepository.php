@@ -41,12 +41,13 @@ final class CaptureRepository
 			$this->table,
 			array(
 				'name'        => $name,
+				'capture_mode' => 'manual',
 				'status'      => 'starting',
 				'actor_id'    => $actorId,
 				'initial_url' => $initialUrl,
 				'started_at'  => current_time('mysql', true),
 			),
-			array('%s', '%s', '%d', '%s', '%s')
+			array('%s', '%s', '%s', '%d', '%s', '%s')
 		);
 
 		if (false === $inserted) {
@@ -82,6 +83,99 @@ final class CaptureRepository
 		return $id;
 	}
 
+	public function startAutomatic(string $name, int $actorId, string $initialUrl): int
+	{
+		$name = $this->normalizeName($name);
+		$inserted = $this->database->insert(
+			$this->table,
+			array(
+				'name'         => $name,
+				'capture_mode' => 'automatic',
+				'status'       => 'active',
+				'actor_id'     => max(0, $actorId),
+				'initial_url'  => $initialUrl,
+				'started_at'   => current_time('mysql', true),
+			),
+			array('%s', '%s', '%s', '%d', '%s', '%s')
+		);
+		if (false === $inserted) {
+			throw new RuntimeException('The automatic settings observation could not be stored.');
+		}
+
+		return (int) $this->database->insert_id;
+	}
+
+	public function completeAutomatic(int $id): object
+	{
+		$finalizing = $this->database->query(
+			$this->database->prepare(
+				"UPDATE {$this->table} SET status = 'stopping', ended_at = %s
+				WHERE id = %d AND capture_mode = 'automatic' AND status = 'active'",
+				current_time('mysql', true),
+				$id
+			)
+		);
+		if (1 !== $finalizing) {
+			throw new RuntimeException('The automatic settings observation is no longer open.');
+		}
+
+		$summary = $this->verifiedSummary($id);
+		$session = $this->find($id);
+		if (! $session) {
+			throw new RuntimeException('The automatic settings observation could not be verified before finalization.');
+		}
+		$status = (int) ($session->capture_error_count ?? 0) > 0
+			? 'interrupted'
+			: ($summary['review_change_count'] > 0 ? 'completed' : 'discarded');
+		$updated = $this->database->update(
+			$this->table,
+			array(
+				'status'                 => $status,
+				'mutation_count'         => $summary['mutation_count'],
+				'review_change_count'    => $summary['review_change_count'],
+				'technical_change_count' => $summary['technical_change_count'],
+				'write_signal_count'     => $summary['write_signal_count'],
+				'ended_at'               => current_time('mysql', true),
+			),
+			array('id' => $id, 'capture_mode' => 'automatic', 'status' => 'stopping'),
+			array('%s', '%d', '%d', '%d', '%d', '%s'),
+			array('%d', '%s', '%s')
+		);
+		if (1 !== $updated) {
+			throw new RuntimeException('The automatic settings observation could not be finalized.');
+		}
+
+		$session = $this->find($id);
+		if (! $session) {
+			throw new RuntimeException('The finalized automatic settings observation could not be verified.');
+		}
+
+		return $session;
+	}
+
+	public function interruptAutomatic(int $id, string $code): void
+	{
+		$code = substr(sanitize_key($code), 0, 64) ?: 'automatic_capture_interrupted';
+		$updated = $this->database->query(
+			$this->database->prepare(
+				"UPDATE {$this->table}
+				SET status = 'interrupted',
+					capture_error_count = capture_error_count + 1,
+					last_error_code = %s,
+					last_error_at = %s,
+					ended_at = %s
+				WHERE id = %d AND capture_mode = 'automatic' AND status IN ('active', 'stopping')",
+				$code,
+				current_time('mysql', true),
+				current_time('mysql', true),
+				$id
+			)
+		);
+		if (false === $updated) {
+			throw new RuntimeException('The automatic settings observation could not be interrupted safely.');
+		}
+	}
+
 	public function stop(): ?int
 	{
 		$id = $this->activeId();
@@ -104,46 +198,11 @@ final class CaptureRepository
 		}
 
 		try {
-			$mutationTable = $this->database->prefix . 'configops_mutations';
-			$mutationSummary = $this->database->get_row(
-				$this->database->prepare(
-					"SELECT
-						COUNT(*) AS mutation_count,
-						COALESCE(SUM(review_change_count), 0) AS review_change_count,
-						COALESCE(SUM(technical_change_count), 0) AS technical_change_count
-					FROM {$mutationTable} WHERE session_id = %d",
-					$id
-				)
-			);
-			if (! is_object($mutationSummary)) {
-				throw new RuntimeException('The capture mutation summary could not be verified.');
-			}
-			$mutationCount = (int) $mutationSummary->mutation_count;
-			$reviewChangeCount = (int) $mutationSummary->review_change_count;
-			$technicalChangeCount = (int) $mutationSummary->technical_change_count;
-			// Captures started before schema v6 have option counts but no field counts.
-			// Keep those histories useful instead of turning them into an empty review.
-			if ($mutationCount > 0 && 0 === $reviewChangeCount + $technicalChangeCount) {
-				$legacyTechnicalCount = $this->database->get_var(
-					$this->database->prepare(
-						"SELECT COUNT(*) FROM {$mutationTable} WHERE session_id = %d AND classification = 'derived'",
-						$id
-					)
-				);
-				if (null === $legacyTechnicalCount) {
-					throw new RuntimeException('The legacy capture summary could not be verified.');
-				}
-				$technicalChangeCount = (int) $legacyTechnicalCount;
-				$reviewChangeCount = $mutationCount - $technicalChangeCount;
-			}
-			$signalTable = $this->database->prefix . 'configops_write_signals';
-			$writeSignalSummary = $this->database->get_var(
-				$this->database->prepare("SELECT COALESCE(SUM(occurrence_count), 0) FROM {$signalTable} WHERE session_id = %d", $id)
-			);
-			if (null === $writeSignalSummary) {
-				throw new RuntimeException('The unmanaged-write summary could not be verified.');
-			}
-			$writeSignalCount = (int) $writeSignalSummary;
+			$summary = $this->verifiedSummary($id);
+			$mutationCount = $summary['mutation_count'];
+			$reviewChangeCount = $summary['review_change_count'];
+			$technicalChangeCount = $summary['technical_change_count'];
+			$writeSignalCount = $summary['write_signal_count'];
 		} catch (\Throwable $error) {
 			$recovered = $this->recoverFailedStop($id);
 			$message = $recovered
@@ -222,6 +281,34 @@ final class CaptureRepository
 		$session = $this->activeSession();
 
 		return $session ? (int) $session->id : null;
+	}
+
+	public function hasOpenAutomatic(): bool
+	{
+		$cutoff = gmdate('Y-m-d H:i:s', time() - self::STOPPING_TIMEOUT);
+		$this->database->query(
+			$this->database->prepare(
+				"UPDATE {$this->table}
+				SET status = 'interrupted',
+					capture_error_count = capture_error_count + 1,
+					last_error_code = 'automatic_request_timed_out',
+					last_error_at = %s,
+					ended_at = %s
+				WHERE capture_mode = 'automatic'
+					AND status IN ('active', 'stopping')
+					AND started_at < %s",
+				current_time('mysql', true),
+				current_time('mysql', true),
+				$cutoff
+			)
+		);
+
+		$count = $this->database->get_var(
+			"SELECT COUNT(*) FROM {$this->table}
+			WHERE capture_mode = 'automatic' AND status IN ('active', 'stopping')"
+		);
+
+		return null === $count || (int) $count > 0;
 	}
 
 	public function activeSession(): ?object
@@ -635,6 +722,62 @@ final class CaptureRepository
 		}
 
 		return substr($name, 0, 191);
+	}
+
+	/**
+	 * @return array{mutation_count: int, review_change_count: int, technical_change_count: int, write_signal_count: int}
+	 */
+	private function verifiedSummary(int $id): array
+	{
+		$mutationTable = $this->database->prefix . 'configops_mutations';
+		$mutationSummary = $this->database->get_row(
+			$this->database->prepare(
+				"SELECT
+					COUNT(*) AS mutation_count,
+					COALESCE(SUM(review_change_count), 0) AS review_change_count,
+					COALESCE(SUM(technical_change_count), 0) AS technical_change_count
+				FROM {$mutationTable} WHERE session_id = %d",
+				$id
+			)
+		);
+		if (! is_object($mutationSummary)) {
+			throw new RuntimeException('The capture mutation summary could not be verified.');
+		}
+
+		$mutationCount = (int) $mutationSummary->mutation_count;
+		$reviewChangeCount = (int) $mutationSummary->review_change_count;
+		$technicalChangeCount = (int) $mutationSummary->technical_change_count;
+		if ($mutationCount > 0 && 0 === $reviewChangeCount + $technicalChangeCount) {
+			$legacyTechnicalCount = $this->database->get_var(
+				$this->database->prepare(
+					"SELECT COUNT(*) FROM {$mutationTable} WHERE session_id = %d AND classification = 'derived'",
+					$id
+				)
+			);
+			if (null === $legacyTechnicalCount) {
+				throw new RuntimeException('The legacy capture summary could not be verified.');
+			}
+			$technicalChangeCount = (int) $legacyTechnicalCount;
+			$reviewChangeCount = $mutationCount - $technicalChangeCount;
+		}
+
+		$signalTable = $this->database->prefix . 'configops_write_signals';
+		$writeSignalSummary = $this->database->get_var(
+			$this->database->prepare(
+				"SELECT COALESCE(SUM(occurrence_count), 0) FROM {$signalTable} WHERE session_id = %d",
+				$id
+			)
+		);
+		if (null === $writeSignalSummary) {
+			throw new RuntimeException('The unmanaged-write summary could not be verified.');
+		}
+
+		return array(
+			'mutation_count'         => $mutationCount,
+			'review_change_count'    => $reviewChangeCount,
+			'technical_change_count' => $technicalChangeCount,
+			'write_signal_count'     => (int) $writeSignalSummary,
+		);
 	}
 
 	private function runtimeFailure(string $message, \Throwable $previous): RuntimeException

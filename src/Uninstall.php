@@ -59,6 +59,7 @@ final class Uninstall
 
 		$prefixes = array(
 			'configops_operation_lock_',
+			'configops_pending_evidence_',
 			'_transient_configops_flash_',
 			'_transient_timeout_configops_flash_',
 		);
@@ -68,19 +69,6 @@ final class Uninstall
 				"SELECT option_name FROM {$quotedOptions}
 				WHERE SUBSTR(option_name, 1, %d) = %s
 					OR SUBSTR(option_name, 1, %d) = %s
-					OR SUBSTR(option_name, 1, %d) = %s",
-				strlen($prefixes[0]),
-				$prefixes[0],
-				strlen($prefixes[1]),
-				$prefixes[1],
-				strlen($prefixes[2]),
-				$prefixes[2]
-			)
-		);
-		$database->query(
-			$database->prepare(
-				"DELETE FROM {$quotedOptions}
-				WHERE SUBSTR(option_name, 1, %d) = %s
 					OR SUBSTR(option_name, 1, %d) = %s
 					OR SUBSTR(option_name, 1, %d) = %s",
 				strlen($prefixes[0]),
@@ -88,7 +76,26 @@ final class Uninstall
 				strlen($prefixes[1]),
 				$prefixes[1],
 				strlen($prefixes[2]),
-				$prefixes[2]
+				$prefixes[2],
+				strlen($prefixes[3]),
+				$prefixes[3]
+			)
+		);
+		$database->query(
+			$database->prepare(
+				"DELETE FROM {$quotedOptions}
+				WHERE SUBSTR(option_name, 1, %d) = %s
+					OR SUBSTR(option_name, 1, %d) = %s
+					OR SUBSTR(option_name, 1, %d) = %s
+					OR SUBSTR(option_name, 1, %d) = %s",
+				strlen($prefixes[0]),
+				$prefixes[0],
+				strlen($prefixes[1]),
+				$prefixes[1],
+				strlen($prefixes[2]),
+				$prefixes[2],
+				strlen($prefixes[3]),
+				$prefixes[3]
 			)
 		);
 		foreach (is_array($dynamicOptions) ? $dynamicOptions : array() as $option) {

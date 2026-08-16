@@ -23,7 +23,7 @@ final class PrivacyPolicy
 		}
 
 		$content = '<p>' . esc_html__(
-			'While a capture is active, ConfigOps stores configuration-change evidence in this website’s database. This can include option names and values, nested differences, bounded identity for referenced media or content such as a filename or post title, the acting WordPress user ID, the admin screen and request path, and a relative source file and line number. A short-lived, same-site browser cookie may carry the names and visible labels of admin fields the operator changed so ConfigOps can correlate likely intent with the saved option; it does not contain those field values. Probable credentials are removed before the evidence is stored, but other configuration values and reference labels can contain personal data entered into the website.',
+			'ConfigOps automatically stores configuration-change evidence from authorized administrative settings requests and from explicitly named Change Sessions in this website’s database. This can include option names and values, nested differences, bounded identity for referenced media or content such as a filename or post title, the acting WordPress user ID, the admin screen and request path, and a relative source file and line number. A short-lived, same-site browser cookie may carry the names and visible labels of admin fields the operator changed so ConfigOps can correlate likely intent with the saved option; it does not contain those field values. Probable credentials are removed before the evidence is stored, but other configuration values and reference labels can contain personal data entered into the website.',
 			'configops'
 		) . '</p>';
 		$content .= '<p>' . esc_html__(

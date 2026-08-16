@@ -58,7 +58,8 @@ final class MutationObserver
 		private readonly AdapterRegistry $adapters,
 		private readonly SourceAttributor $source,
 		private readonly RequestContext $request,
-		?IntentContext $intent = null
+		?IntentContext $intent = null,
+		private readonly ?AutomaticRecorder $automatic = null
 	) {
 		$this->intent = $intent ?? new IntentContext();
 	}
@@ -82,7 +83,7 @@ final class MutationObserver
 			return;
 		}
 
-		$sessionId = $this->captures->activeId();
+		$sessionId = $this->sessionId();
 		if (null === $sessionId) {
 			unset($this->pendingAdds[$option]);
 			return;
@@ -103,7 +104,7 @@ final class MutationObserver
 			return $value;
 		}
 
-		$sessionId = $this->captures->activeId();
+		$sessionId = $this->sessionId();
 		if (null === $sessionId) {
 			unset($this->pendingUpdates[$option]);
 
@@ -172,7 +173,7 @@ final class MutationObserver
 			return;
 		}
 
-		$sessionId = $this->captures->activeId();
+		$sessionId = $this->sessionId();
 		if (null === $sessionId) {
 			unset($this->pendingDeletes[$option]);
 
@@ -381,7 +382,7 @@ final class MutationObserver
 		$sessionId = $pinnedSessionId ?? 0;
 		if ($sessionId <= 0) {
 			try {
-				$sessionId = $this->captures->activeId() ?? 0;
+				$sessionId = $this->sessionId(false) ?? 0;
 			} catch (Throwable) {
 				$sessionId = 0;
 			}
@@ -404,5 +405,12 @@ final class MutationObserver
 		}
 
 		// Observers must never throw into the host settings request.
+	}
+
+	private function sessionId(bool $createAutomatic = true): ?int
+	{
+		return null !== $this->automatic
+			? $this->automatic->sessionId($createAutomatic)
+			: $this->captures->activeId();
 	}
 }

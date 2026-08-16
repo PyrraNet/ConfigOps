@@ -5,7 +5,7 @@ aside: false
 footer: false
 pageClass: configops-home
 title: ConfigOps documentation
-description: Record WordPress settings changes, inspect bounded evidence, and undo only supported state.
+description: See what a WordPress settings save changed and undo only values that are still safe to restore.
 ---
 
 <DocsHome />

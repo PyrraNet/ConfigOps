@@ -16,10 +16,12 @@ use ConfigOps\Adapter\WpMailSmtpAdapter;
 use ConfigOps\Adapter\YoastSeoAdapter;
 use ConfigOps\Admin\AdminPayloadFactory;
 use ConfigOps\Admin\AdminController;
+use ConfigOps\Admin\EvidenceNoticeStore;
 use ConfigOps\Admin\FlashNoticeStore;
 use ConfigOps\Admin\ReviewPresenter;
 use ConfigOps\Api\RestController;
 use ConfigOps\Capture\InternalOptionPolicy;
+use ConfigOps\Capture\AutomaticRecorder;
 use ConfigOps\Capture\HeuristicSensitiveValueDetector;
 use ConfigOps\Capture\IntentContext;
 use ConfigOps\Capture\MutationObserver;
@@ -78,12 +80,15 @@ final class Plugin
 		$codec     = new ValueCodec($adapters);
 		$source    = new SourceAttributor(CONFIGOPS_PATH);
 		$request   = new RequestContext();
+		$evidenceNotices = new EvidenceNoticeStore();
+		$automatic = new AutomaticRecorder($captures, $evidenceNotices, $request);
+		$automatic->register();
 		$operationLock = new OperationLock($wpdb);
 		$restoreAudits = new RestoreAuditRepository($wpdb);
 		(new HistoryRetention($wpdb, $operationLock))->register();
 		(new PrivacyPolicy())->register();
 
-		(new SqlWriteSentry($wpdb, $captures, $signals, $source, $request, $adapters))->register();
+		(new SqlWriteSentry($wpdb, $captures, $signals, $source, $request, $adapters, $automatic))->register();
 
 		$observer = new MutationObserver(
 			$captures,
@@ -95,7 +100,8 @@ final class Plugin
 			$adapters,
 			$source,
 			$request,
-			new IntentContext()
+			new IntentContext(),
+			$automatic
 		);
 		$observer->register();
 
@@ -118,7 +124,7 @@ final class Plugin
 			$restoreAudits
 		);
 
-		(new RestController($captures, $mutations, $restore, $payloads))->register();
+		(new RestController($captures, $mutations, $restore, $payloads, $evidenceNotices))->register();
 		(new AdminController($captures, $restore, new FlashNoticeStore(), $payloads))->register();
 	}
 

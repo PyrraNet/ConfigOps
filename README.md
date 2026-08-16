@@ -5,10 +5,10 @@
   </picture>
 </p>
 
-<p align="center"><strong>Know what WordPress changed. Undo only what ConfigOps can prove.</strong></p>
+<p align="center"><strong>The undo layer for WordPress settings.</strong></p>
 
 <p align="center">
-  v0.2.0
+  v0.3.0
   &nbsp;·&nbsp; Local recorder
   &nbsp;·&nbsp; No account required
 </p>
@@ -25,9 +25,15 @@
 
 <p align="center"><sub>An actual WP Mail SMTP capture. The password is removed before storage; seven supported settings remain undoable.</sub></p>
 
-## One settings save, explained
+## The undo button WordPress forgot
 
-Start a named capture, use WordPress normally, then stop. ConfigOps groups the writes caused by each request, collapses consecutive same-owner writes to one option into its baseline-to-final decision, and separates the settings you chose from plugin housekeeping, secrets, and changes it cannot safely interpret.
+WordPress shows you the settings form. ConfigOps shows you what the save actually changed.
+
+Change a supported WordPress or plugin setting as usual. ConfigOps opens one isolated observation for that request, groups its writes, collapses repeated same-owner writes to one option into the original-to-final decision, and separates the settings you chose from plugin housekeeping, secrets, and changes it cannot safely interpret. The resulting evidence card links to Review and offers whole-save Undo only when the complete change is safe.
+
+**One action → hidden writes → a clear diff → conflict-checked undo.**
+
+Named Change Sessions remain the focused mode for planned maintenance, support cases, and investigations that span several requests.
 
 ```diff
 WP Mail SMTP → Sender email
@@ -52,16 +58,16 @@ Every undo is checked against the current value first. If the website changed ag
 
 The exact field coverage and limitations are available inside **ConfigOps → Plugin support**. Versions outside a tested adapter range keep their evidence, but automatic undo is disabled.
 
-## First capture
+## First change
 
-1. Install ConfigOps from WordPress.org once it is listed, or use a release ZIP provided by pyrra.
+1. Install ConfigOps from WordPress.org, or use a release ZIP provided by pyrra.
 2. In WordPress, open **Plugins → Add Plugin**. Use **Upload Plugin** when installing a ZIP.
-3. Activate ConfigOps and open **ConfigOps** in the admin menu.
-4. Name the capture, record one settings change, then stop and review it.
+3. Activate ConfigOps, change one WordPress or plugin setting, and save it.
+4. Use the ConfigOps evidence card to review the writes or undo a fully safe save. Open **ConfigOps** to start a named Change Session for wider work.
 
 Requires WordPress 7.0 or newer and PHP 8.2 or newer. PHP 8.2 is the oldest supported runtime; production sites should prefer a newer actively supported PHP branch.
 
-> **Technical preview:** v0.2 is a local, single-site configuration recorder—not a backup or a promise of transactional rollback. It does not deploy content, synchronize databases, manage fleets, or generically understand custom plugin tables.
+> **Version 0.3 scope:** ConfigOps is a local, single-site undo and evidence layer for supported settings—not a backup or a promise of transactional rollback. It does not deploy content, synchronize databases, manage fleets, or generically understand custom plugin tables.
 
 ## Safety model
 

@@ -1,11 +1,11 @@
 # Architecture decision: Recorder first
 
-Status: accepted for Iteration 0; runtime contract amended for 0.2.0
+Status: accepted for Iteration 0; automatic-observation contract amended for 0.3.0
 Date: 2026-08-13
 
 ## Decision
 
-ConfigOps starts as a native WordPress plugin whose supported floor is PHP 8.2. The first product boundary is one local WordPress site, one explicit capture session, Options API mutations, semantic nested diffs, provenance, and compensating restore.
+ConfigOps starts as a native WordPress plugin whose supported floor is PHP 8.2. The product boundary is one local WordPress site, request-local automatic observations plus optional named Change Sessions, Options API mutations, semantic nested diffs, provenance, and compensating restore.
 
 JavaScript is the interaction layer and may later observe labels, field names, tabs, and client-side requests, but only the PHP observer can assert that WordPress actually persisted a mutation. The wp-admin interface uses code-split React islands over a capability-gated REST boundary. There is no Node service, monolithic SPA, cloud account, or remote control plane in the recorder.
 
@@ -13,14 +13,14 @@ JavaScript is the interaction layer and may later observe labels, field names, t
 
 `update_option()` and its hooks execute inside PHP. Capturing old and new typed values, the current actor, request metadata, and the responsible call path is both more precise and cheaper in that same process. Reconstructing this from browser requests or database polling would lose internal writes, invent correlations, and complicate deployment.
 
-PHP 8.2 is the oldest branch in the 0.2.0 runtime contract. The full parser, unit, hostile-input, and integration path is exercised from PHP 8.2 through 8.5, and an automated lifecycle gate forces the minimum to be reviewed when its upstream security support ends. This keeps the compatibility claim explicit instead of letting an end-of-life runtime remain supported by inertia.
+PHP 8.2 is the oldest branch in the 0.3.0 runtime contract. The full parser, unit, hostile-input, and integration path is exercised from PHP 8.2 through 8.5, and an automated lifecycle gate forces the minimum to be reviewed when its upstream security support ends. This keeps the compatibility claim explicit instead of letting an end-of-life runtime remain supported by inertia.
 
 ## Boundaries
 
 | Concern | Recorder authority | Later extension |
 | --- | --- | --- |
 | Persisted mutation | WordPress Options API hooks; value-free signal for unmanaged writes | Adapter-owned custom tables and APIs |
-| Human intent | Explicit session name, request context, and value-free admin-field correlation | Deeper fetch/REST correlation and reviewed adapter suggestions |
+| Human intent | Request-local automatic observation, optional session name, request context, and value-free admin-field correlation | Deeper fetch/REST correlation and reviewed adapter suggestions |
 | Value semantics | Type-preserving codec, JSON Pointer diff, versioned field schemas, and bounded local media/content references | Cross-site semantic resolution and release transforms |
 | Noise | Conservative built-in rules plus pinned WP Mail SMTP and Yoast contracts | Registry fixtures and adapter normalization |
 | Secrets | Redact before persistence; preserve during field-level undo | Secret references and target-local resolution |
@@ -45,7 +45,8 @@ PHP 8.2 is the oldest branch in the 0.2.0 runtime contract. The full parser, uni
 
 ## Hardening decisions
 
-- **Capture ownership is atomic.** The active-session option is acquired with `add_option()`, so two concurrent start requests cannot silently replace one another. Stale pointers self-heal.
+- **The automatic boundary is request-local.** An authorized administrative request creates no row until its first Options API mutation. It then owns an independent automatic session, so concurrent saves cannot replace or absorb one another. Technical-only automatic observations are discarded from operator history.
+- **Named-session ownership is atomic.** The active-session option is acquired with `add_option()`, so two concurrent named-session starts cannot silently replace one another. Stale pointers self-heal.
 - **Capture completion is verified.** Stop-time mutation and unmanaged-write summaries must be readable before a session can become completed. Storage failure leaves the capture active for a safe retry; deactivation closes it as interrupted and permanently incomplete.
 - **Capture finalization is explicit.** Stop first moves the session through an atomic `stopping` state. Evidence that finishes after that boundary marks the capture incomplete; an abandoned stop self-recovers to interrupted after five minutes so it cannot strand the recorder or masquerade as complete.
 - **Absence is not memoized.** Positive active-session lookups are cached, but another integration may start or stop a capture later in the same request.
@@ -69,10 +70,10 @@ PHP 8.2 is the oldest branch in the 0.2.0 runtime contract. The full parser, uni
 - **Adapter meaning is pinned at capture time.** Mutations retain adapter ID, schema version, and installed component version. Historical fields are enriched only when the matching schema is still available; newer adapters cannot silently reinterpret old evidence.
 - **Derived state stays out of rollback.** Cache, migration, tracking, version, and other adapter-declared runtime values remain visible under Technical. When they share an option with real settings, undo patches only the adapter-backed settings instead of reconstructing the whole option.
 - **Protected options are patched, never reconstructed.** When a supported option also contains a secret, ConfigOps checks and reverses only adapter-backed non-secret paths against the current value. Credentials and plugin housekeeping remain byte-for-byte under the owning plugin’s control.
-- **Direct writes fail visibly, not magically.** During an active capture, the SQL Sentry recognizes common write statements, ignores ConfigOps-owned tables and Options API duplicates, and stores only operation, table, count, provenance, and safe request metadata. Raw SQL and values never enter persistence. Fifty unique signals per request form a hard ceiling; repeated signals collapse by source.
+- **Direct writes fail visibly, not magically.** During a named session, or after an automatic request has established a configuration mutation, the SQL Sentry recognizes common write statements, ignores ConfigOps-owned tables and Options API duplicates, and stores only operation, table, count, provenance, and safe request metadata. Raw SQL and values never enter persistence. Fifty unique signals per request form a hard ceiling; repeated signals collapse by source.
 - **Uncorrelated core cron stays out of an admin task.** Anonymous `/wp-cron.php` writes are not attributed to an explicit operator capture. Synchronous plugin side effects in the user’s Save request remain visible; future async correlation requires an adapter-owned job token instead of timing guesses.
 - **Unknown effects limit rollback.** Any unmanaged database write disables full-session restore in the review contract. Individually supported Options API mutations remain conflict-checkable and restorable.
-- **Intent is evidence, never authority.** During an active capture, a small admin observer records only the names, visible labels, sections, and submit action of fields the operator touches. A short-lived same-site cookie makes that metadata available to the same save request without sending a configuration value or adding a remote service. PHP accepts only bounded, current-session field names whose option and JSON Pointer match the persisted diff. The result can explain an unknown field and summarize likely intent, but it cannot change classification, adapter compatibility, redaction, or restore eligibility.
+- **Intent is evidence, never authority.** A small admin observer records only the names, visible labels, sections, and submit action of fields the operator touches. A short-lived same-site cookie can bind that metadata either to a named session or to the next lazily created automatic observation, without sending a configuration value or adding a remote service. PHP accepts only bounded, current evidence whose option and JSON Pointer match the persisted diff. The result can explain an unknown field and summarize likely intent, but it cannot change classification, adapter compatibility, redaction, or restore eligibility.
 
 ## Admin direction
 
@@ -94,4 +95,4 @@ Every tracked PHP file under `src/` is also part of a reproducible Xdebug line-c
 
 ## Next boundary
 
-Version 0.2.0 runs exact-release contract and browser checks against WP Mail SMTP Free 4.9.0 and Yoast SEO Free 28.2 at both ends of the supported PHP range. The next product boundary should be based on repeated design-partner evidence across real settings screens—not a speculative fleet interface.
+Version 0.3.0 runs exact-release contract and browser checks against WP Mail SMTP Free 4.9.0 and Yoast SEO Free 28.2 at both ends of the supported PHP range. The next product boundary should be based on repeated design-partner evidence across real settings screens—not a speculative fleet interface.

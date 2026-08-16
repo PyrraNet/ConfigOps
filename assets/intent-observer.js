@@ -2,7 +2,7 @@
 	'use strict';
 
 	const settings = window.configOpsIntent;
-	if (!settings || !Number.isInteger(settings.sessionId) || settings.sessionId < 1) {
+	if (!settings || !Number.isInteger(settings.sessionId) || settings.sessionId < 0) {
 		return;
 	}
 

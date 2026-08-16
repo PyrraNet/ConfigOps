@@ -367,7 +367,8 @@ function ReviewLedger() {
   const review = state.review;
   const selectedStatus = selected?.status === "active" ? { className: "is-live", label: __("Recording", "configops") } :
   ["interrupted", "stopping"].includes(selected?.status) ? { className: "is-incomplete", label: __("Interrupted", "confi\
-gops") } : { className: "is-recorded", label: __("Recorded", "configops") };
+gops") } : { className: "is-recorded", label: selected?.mode === "automatic" ? __("Observed", "configops") : __("Recorde\
+d", "configops") };
   const sessionUndo = review.summary.lastSessionRestore;
   const sessionUndoSucceeded = sessionUndo?.status === "succeeded";
   const sessionUndoUncertain = ["running", "compensation_failed"].includes(sessionUndo?.status);
@@ -416,27 +417,28 @@ n", null));
   if (!selected) {
     return /* @__PURE__ */ wp.element.createElement("section", { className: "configops-empty-state" }, /* @__PURE__ */ wp.
     element.createElement("h2", null, __("No capture selected", "configops")), /* @__PURE__ */ wp.element.createElement(
-    "p", null, __("Record changes or choose an existing capture.", "configops")));
+    "p", null, __("Save a setting or choose an existing change.", "configops")));
   }
   return /* @__PURE__ */ wp.element.createElement(wp.element.Fragment, null, /* @__PURE__ */ wp.element.createElement("h\
 eader", { className: "configops-review-header" }, /* @__PURE__ */ wp.element.createElement("div", { className: "configop\
 s-review-heading" }, /* @__PURE__ */ wp.element.createElement("div", { className: "configops-capture-reference" }, /* @__PURE__ */ wp.
   element.createElement("span", { className: selectedStatus.className }, selectedStatus.label), /* @__PURE__ */ wp.element.
-  createElement("span", null, __("Capture", "configops"), " ", /* @__PURE__ */ wp.element.createElement("code", null, "#",
-  selected.id))), /* @__PURE__ */ wp.element.createElement("h2", null, selected.name), /* @__PURE__ */ wp.element.createElement(
-  "p", null, selected.actorName, /* @__PURE__ */ wp.element.createElement("span", { "aria-hidden": "true" }, " \xB7 "), /* @__PURE__ */ wp.
-  element.createElement("time", { dateTime: selected.startedAt }, selected.startedDisplay))), /* @__PURE__ */ wp.element.
-  createElement("div", { className: "configops-capture-action" }, sessionUndoSucceeded && /* @__PURE__ */ wp.element.createElement(
-  "span", { className: "configops-restore-state configops-restore-state--session is-succeeded" }, /* @__PURE__ */ wp.element.
-  createElement("strong", null, __("Capture undone", "configops")), /* @__PURE__ */ wp.element.createElement("span", null,
-  sessionUndo.actorName, " \xB7 ", sessionUndo.finishedAtLabel)), sessionUndoUncertain && /* @__PURE__ */ wp.element.createElement(
-  "span", { className: "configops-restore-state configops-restore-state--session is-uncertain" }, /* @__PURE__ */ wp.element.
-  createElement("strong", null, __("Undo needs inspection", "configops")), /* @__PURE__ */ wp.element.createElement("spa\
-n", null, __("Check the current settings before continuing.", "configops"))), canRestoreSession && !visibleMissingRestoreReference &&
-  /* @__PURE__ */ wp.element.createElement(wp.element.Fragment, null, /* @__PURE__ */ wp.element.createElement("span", {
-  className: "configops-capture-undo-ready" }, /* @__PURE__ */ wp.element.createElement("strong", null, __("Capture undo\
- ready", "configops")), /* @__PURE__ */ wp.element.createElement("span", null, __("Current values are checked first.", "\
-configops"))), /* @__PURE__ */ wp.element.createElement(
+  createElement("span", null, selected.mode === "automatic" ? __("Automatic change", "configops") : __("Change session",
+  "configops"), " ", /* @__PURE__ */ wp.element.createElement("code", null, "#", selected.id))), /* @__PURE__ */ wp.element.
+  createElement("h2", null, selected.name), /* @__PURE__ */ wp.element.createElement("p", null, selected.actorName, /* @__PURE__ */ wp.
+  element.createElement("span", { "aria-hidden": "true" }, " \xB7 "), /* @__PURE__ */ wp.element.createElement("time", {
+  dateTime: selected.startedAt }, selected.startedDisplay))), /* @__PURE__ */ wp.element.createElement("div", { className: "\
+configops-capture-action" }, sessionUndoSucceeded && /* @__PURE__ */ wp.element.createElement("span", { className: "conf\
+igops-restore-state configops-restore-state--session is-succeeded" }, /* @__PURE__ */ wp.element.createElement("strong",
+  null, __("Capture undone", "configops")), /* @__PURE__ */ wp.element.createElement("span", null, sessionUndo.actorName,
+  " \xB7 ", sessionUndo.finishedAtLabel)), sessionUndoUncertain && /* @__PURE__ */ wp.element.createElement("span", { className: "\
+configops-restore-state configops-restore-state--session is-uncertain" }, /* @__PURE__ */ wp.element.createElement("stro\
+ng", null, __("Undo needs inspection", "configops")), /* @__PURE__ */ wp.element.createElement("span", null, __("Check t\
+he current settings before continuing.", "configops"))), canRestoreSession && !visibleMissingRestoreReference && /* @__PURE__ */ wp.
+  element.createElement(wp.element.Fragment, null, /* @__PURE__ */ wp.element.createElement("span", { className: "config\
+ops-capture-undo-ready" }, /* @__PURE__ */ wp.element.createElement("strong", null, __("Capture undo ready", "configops")),
+  /* @__PURE__ */ wp.element.createElement("span", null, __("Current values are checked first.", "configops"))), /* @__PURE__ */ wp.
+  element.createElement(
     "button",
     {
       className: "button",

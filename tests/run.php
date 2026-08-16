@@ -103,6 +103,31 @@ $mismatchedIntentChanges = (new IntentContext())->enrich(
 	array(array('op' => 'replace', 'path' => '/mail/retry'))
 );
 $assert(! isset($mismatchedIntentChanges[0]['intent']), 'Intent evidence from another capture session must be ignored.');
+$_COOKIE[IntentContext::COOKIE_NAME] = $encodeIntent(
+	array(
+		'v'          => 1,
+		'session'    => 0,
+		'capturedAt' => time(),
+		'screen'     => 'Automatic settings',
+		'action'     => 'Save changes',
+		'fields'     => array(
+			array(
+				'name'  => 'fixture_settings[mail][retry]',
+				'label' => 'Automatic retry attempts',
+				'group' => 'Delivery',
+			),
+		),
+	)
+);
+$automaticIntentChanges = (new IntentContext())->enrich(
+	99,
+	'fixture_settings',
+	array(array('op' => 'replace', 'path' => '/mail/retry', 'before' => 3, 'after' => 5))
+);
+$assert(
+	'Automatic retry attempts' === ($automaticIntentChanges[0]['label'] ?? ''),
+	'Unbound same-request browser evidence should attach to a lazily created automatic session.'
+);
 if (null === $previousIntentCookie) {
 	unset($_COOKIE[IntentContext::COOKIE_NAME]);
 } else {

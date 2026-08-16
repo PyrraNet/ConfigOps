@@ -1,15 +1,15 @@
 ---
 title: Get started
-description: Install ConfigOps 0.2.0 and record a bounded WordPress settings task.
+description: Install ConfigOps 0.3.0 and review an automatically recorded WordPress settings change.
 ---
 
 # Get started
 
-ConfigOps records the option changes caused while one explicit capture is active. Start with a small, reversible settings task so the first review is easy to verify against the screen you just used.
+ConfigOps automatically records configuration mutations made by authorized administrators. Start with a small, reversible settings change so the first review is easy to verify against the screen you just used. Evidence stays local to WordPress.
 
 ## Requirements
 
-| Contract | Supported in 0.2.0 |
+| Contract | Supported in 0.3.0 |
 | --- | --- |
 | WordPress | 7.0 or newer, single-site |
 | PHP | 8.2, 8.3, 8.4, or 8.5 |
@@ -17,32 +17,31 @@ ConfigOps records the option changes caused while one explicit capture is active
 | Access | A user with the ConfigOps view and capture capabilities; administrators receive them on activation |
 | Browser | A current browser with JavaScript enabled for the review interface |
 
-::: warning Technical preview
+::: warning Scope
 ConfigOps is a local configuration recorder. It is not a database backup, a deployment system, or a transactional rollback engine. Keep a tested site backup and rehearse consequential changes in staging.
 :::
 
 ## Install
 
-1. Obtain `configops-0.2.0.zip` from a trusted release channel.
+1. Obtain `configops-0.3.0.zip` from a trusted release channel.
 2. In WordPress, open **Plugins → Add Plugin → Upload Plugin**.
 3. Select the archive, install it, and activate **ConfigOps**.
 4. Open **ConfigOps** in the WordPress admin menu.
 
 Activation creates the local evidence tables and grants the versioned ConfigOps capabilities to the administrator role. It does not create an account or send evidence to pyrra.
 
-## Record one bounded task
+## Record one settings save
 
-1. Give the capture a concrete name, such as `Change transactional sender`.
-2. Select **Start recording**.
-3. Open the intended WordPress or plugin settings screen and make only that change.
-4. Return to ConfigOps and select **Stop recording**.
-5. Review the recorded request, redacted entries, technical changes, and undo eligibility.
+1. Open the intended WordPress or plugin settings screen.
+2. Make one small settings change and save it.
+3. Use the ConfigOps evidence card to select **Review** or, when the complete save is safe, **Undo**.
+4. Inspect the likely decision, technical writes, protected secrets, provenance, and undo eligibility.
 
-A narrow capture is easier to explain and safer to undo. Do not leave recording active across unrelated admin work, automated maintenance, or a deployment.
+Automatic observations are request-local: concurrent admin requests do not share a recording window. For a planned task that spans several requests, start a named **Change Session** in ConfigOps, perform only that task, then stop and review it.
 
 ## What success looks like
 
-A completed capture shows:
+A completed change shows:
 
 - the request groups that persisted option mutations;
 - human-readable fields when a tested adapter knows them;
@@ -50,4 +49,4 @@ A completed capture shows:
 - technical or unknown writes separated from the decision set;
 - an undo control only where the stored evidence and current site state permit it.
 
-Continue with [Record a task](/guide/first-capture) for the exact capture boundary, or jump to [Read the evidence](/guide/read-change) to understand a review.
+Continue with [Record a change](/guide/first-capture) for the exact automatic and named-session boundaries, or jump to [Read the evidence](/guide/read-change) to understand a review.

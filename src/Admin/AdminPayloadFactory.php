@@ -42,6 +42,67 @@ final class AdminPayloadFactory
 	}
 
 	/**
+	 * Build compact, value-free feedback for completed automatic observations.
+	 *
+	 * @param list<int> $sessionIds Automatic session IDs queued for the current actor.
+	 * @return list<array<string, mixed>>
+	 */
+	public function evidence(array $sessionIds): array
+	{
+		$actorId = get_current_user_id();
+		$items   = array();
+		foreach (array_slice(array_values(array_unique(array_map('absint', $sessionIds))), -5) as $sessionId) {
+			$session = $this->captures->find($sessionId);
+			if (
+				! $session
+				|| 'automatic' !== (string) ($session->capture_mode ?? 'manual')
+				|| ! in_array((string) $session->status, array('completed', 'interrupted'), true)
+				|| $actorId !== (int) $session->actor_id
+			) {
+				continue;
+			}
+
+			$summary = $this->mutations->summaryForSession($sessionId);
+			$signalCount = $this->writeSignals->occurrenceCountForSession($sessionId);
+			$errorCount = $this->captureErrorCount($session);
+			$blockingMutations = $this->restoreAudits->blockingMutationCountForSession($sessionId);
+			$sessionRestore = $this->restoreAudits->latestSessionRun($sessionId);
+			$sessionRestoreBlocked = $sessionRestore && in_array(
+				(string) $sessionRestore->status,
+				array('succeeded', 'running', 'compensation_failed'),
+				true
+			);
+			$undoAvailable = $summary['total'] > 0
+				&& 0 === $summary['not_restorable']
+				&& 0 === $signalCount
+				&& 0 === $errorCount
+				&& 0 === $blockingMutations
+				&& ! $sessionRestoreBlocked;
+
+			$items[] = array(
+				'id'             => $sessionId,
+				'incomplete'     => $errorCount > 0 || 'interrupted' === (string) $session->status,
+				'writeCount'     => $summary['total'],
+				'decisionCount'  => max(0, $summary['total'] - $summary['derived']),
+				'technicalCount' => $summary['derived'],
+				'secretCount'    => $summary['redacted'],
+				'reviewUrl'      => add_query_arg(
+					array('page' => 'configops', 'session' => $sessionId),
+					admin_url('admin.php')
+				),
+				'undo'           => $undoAvailable ? array(
+					'actionUrl' => admin_url('admin-post.php'),
+					'action'    => 'configops_restore_session',
+					'sessionId' => $sessionId,
+					'nonce'     => wp_create_nonce('configops_restore_session'),
+				) : null,
+			);
+		}
+
+		return $items;
+	}
+
+	/**
 	 * @return array<string, mixed>
 	 */
 	public function state(
@@ -340,6 +401,7 @@ final class AdminPayloadFactory
 		return array(
 			'id'               => (int) $session->id,
 			'name'             => (string) $session->name,
+			'mode'             => (string) ($session->capture_mode ?? 'manual'),
 			'status'           => (string) $session->status,
 			'mutationCount'    => $mutationCount,
 			'reviewChangeCount' => $reviewChangeCount,

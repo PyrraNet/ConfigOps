@@ -17,7 +17,7 @@ export default function Sessions() {
 		<>
 		{state.sessions.length > 0 && (
 			<div className="configops-session-picker">
-				<label htmlFor="configops-session-select">{__('Selected capture', 'configops')}</label>
+				<label htmlFor="configops-session-select">{__('Selected change', 'configops')}</label>
 				<select
 					id="configops-session-select"
 					value={selected?.id || ''}
@@ -38,23 +38,23 @@ export default function Sessions() {
 			</div>
 		)}
 			<div className="configops-section-heading">
-				<h2>{__('Capture history', 'configops')}</h2>
-				<span aria-label={sprintf(__('%d captures', 'configops'), state.sessions.length)}>{state.sessions.length}</span>
+				<h2>{__('Change history', 'configops')}</h2>
+				<span aria-label={sprintf(__('%d recorded changes', 'configops'), state.sessions.length)}>{state.sessions.length}</span>
 			</div>
 			{state.sessions.length > 5 && (
 				<div className="configops-session-search">
-					<label className="screen-reader-text" htmlFor="configops-session-search">{__('Find a capture', 'configops')}</label>
+					<label className="screen-reader-text" htmlFor="configops-session-search">{__('Find a change', 'configops')}</label>
 					<input
 						id="configops-session-search"
 						type="search"
-						placeholder={__('Find a capture', 'configops')}
+						placeholder={__('Find a change', 'configops')}
 						value={query}
 						onChange={(event) => setQuery(event.target.value)}
 					/>
 				</div>
 			)}
 			{state.sessions.length === 0 ? (
-				<p className="configops-empty-copy">{__('Your captures will appear here.', 'configops')}</p>
+				<p className="configops-empty-copy">{__('Automatic changes and named sessions will appear here.', 'configops')}</p>
 			) : visibleSessions.length === 0 ? (
 				<p className="configops-empty-copy">{__('No captures match this search.', 'configops')}</p>
 			) : (
@@ -73,7 +73,10 @@ export default function Sessions() {
 									}}
 								>
 									<span className="configops-session-head">
-										<span className="configops-session-name">{session.name}</span>
+										<span className="configops-session-name">
+											{session.mode === 'automatic' && <small>{__('AUTO', 'configops')}</small>}
+											{session.name}
+										</span>
 										<time dateTime={session.startedAt}>{sprintf(__('%s ago', 'configops'), session.startedAtLabel)}</time>
 									</span>
 									<span className="configops-session-meta">

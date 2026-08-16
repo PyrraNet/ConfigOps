@@ -14,20 +14,20 @@ import wordmarkDark from '../../../../assets/brand/configops-wordmark-dark.svg';
 					<img :src="wordmarkLight" width="232" height="52" alt="ConfigOps">
 				</picture>
 				<span aria-hidden="true"></span>
-				<p>Documentation · 0.2.0</p>
+				<p>Documentation · 0.3.0</p>
 			</div>
-			<p class="co-kicker">Configuration evidence for WordPress</p>
-			<h1 id="co-home-title">Know what changed.<br>Undo only what is proven.</h1>
-			<p class="co-hero__dek">ConfigOps records one explicit settings task, separates decisions from technical side effects, removes probable credentials before storage, and refuses unsafe undo.</p>
+			<p class="co-kicker">Change intelligence for WordPress</p>
+			<h1 id="co-home-title">The undo button<br>WordPress forgot.</h1>
+			<p class="co-hero__dek">ConfigOps records supported settings saves automatically, reveals their hidden writes, removes probable credentials before storage, and reverses only state it can still prove safe.</p>
 			<div class="co-actions" aria-label="Start reading">
-				<a class="co-action co-action--primary" :href="withBase('/guide/getting-started')">Make a first capture</a>
+				<a class="co-action co-action--primary" :href="withBase('/guide/getting-started')">Review a first change</a>
 				<a class="co-action" :href="withBase('/security/failure-model')">Read the failure model</a>
 			</div>
 			<dl class="co-release-facts" aria-label="Release facts">
-				<div><dt>Release</dt><dd>0.2.0 technical preview</dd></div>
+				<div><dt>Release</dt><dd>0.3.0 automatic recorder</dd></div>
 				<div><dt>Runtime</dt><dd>WordPress 7.0+ · PHP 8.2–8.5</dd></div>
 				<div><dt>Storage</dt><dd>Local database · no account</dd></div>
-				<div><dt>Evidence</dt><dd>77.30% production · 79.02% trust boundaries</dd></div>
+				<div><dt>Evidence</dt><dd>77.69% production · 79.20% trust boundaries</dd></div>
 			</dl>
 		</section>
 
@@ -60,7 +60,7 @@ import wordmarkDark from '../../../../assets/brand/configops-wordmark-dark.svg';
 			<ol>
 				<li>
 					<span>01</span>
-					<div><h3>Record one task</h3><p>Name a bounded settings job, start recording, then use wp-admin normally.</p><a :href="withBase('/guide/first-capture')">Capture boundaries →</a></div>
+					<div><h3>Save one setting</h3><p>Use wp-admin normally. ConfigOps opens an isolated observation when WordPress first writes configuration.</p><a :href="withBase('/guide/first-capture')">Recording boundaries →</a></div>
 				</li>
 				<li>
 					<span>02</span>

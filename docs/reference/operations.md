@@ -9,20 +9,21 @@ ConfigOps is suitable for production observation only when it sits inside ordina
 
 ## Recommended production posture
 
-- Keep active captures short and name one operator task.
+- Let automatic request-local observations cover ordinary settings saves.
+- Keep named Change Sessions short and scoped to one operator task.
 - Avoid upgrades, imports, bulk jobs, and deployments during recording.
 - Give `configops_rollback` to fewer people than `configops_view`.
 - Treat mail, authentication, URL, indexing, cache, and integration settings as staging-first changes.
 - Monitor WordPress/PHP logs and database write health.
 - Verify behavior after undo; do not rely on a success badge alone.
 
-ConfigOps observes all site option writes while the capture is active. High traffic is not itself a problem, but a long capture creates more unrelated evidence and more ambiguity. Capture duration and operational scope matter more than visitor count.
+Automatic recording is limited to authorized administrative, REST, and WP-CLI contexts and begins lazily on the first Options API mutation. Named Change Sessions observe site option writes across their active window. High traffic is not itself a problem, but a long named session creates more unrelated evidence and more ambiguity. Duration and operational scope matter more than visitor count.
 
 ## Local storage
 
 The recorder uses dedicated WordPress tables for capture sessions, mutations, value-free write signals, and restore audit runs. Table names receive the site’s configured WordPress prefix. Evidence remains in the site database.
 
-The REST interface is local to WordPress, capability-gated, and returns private `no-store` responses. There is no ConfigOps account, cloud collector, or remote control plane in 0.2.0.
+The REST interface is local to WordPress, capability-gated, and returns private `no-store` responses. There is no ConfigOps account, cloud collector, or remote control plane in 0.3.0.
 
 ## Retention
 
@@ -42,11 +43,12 @@ The value is bounded by the plugin. A failed dependent delete preserves the capt
 After installation or an incident, verify:
 
 1. ConfigOps loads for an authorized administrator.
-2. A small test capture can start, stop, and reach **completed**.
-3. A known setting appears with the expected actor and request path.
-4. A harmless conflict test refuses undo after the setting is changed again.
-5. WordPress and PHP logs contain no ConfigOps warnings, notices, or deprecations.
-6. The daily `configops_history_retention` event is scheduled.
+2. A small settings save creates one completed automatic change and an evidence card.
+3. A named Change Session can start, stop, and reach **completed**.
+4. A known setting appears with the expected actor and request path.
+5. A harmless conflict test refuses undo after the setting is changed again.
+6. WordPress and PHP logs contain no ConfigOps warnings, notices, or deprecations.
+7. The daily `configops_history_retention` event is scheduled.
 
 ## Incident response
 

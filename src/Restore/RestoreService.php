@@ -298,8 +298,8 @@ final class RestoreService
 
 	private function assertNoActiveCapture(): void
 	{
-		if (null !== $this->captures->activeId()) {
-			throw new RuntimeException('Stop the active capture before restoring values.');
+		if (null !== $this->captures->activeId() || $this->captures->hasOpenAutomatic()) {
+			throw new RuntimeException('Stop the active capture or wait for the current automatic observation before restoring values.');
 		}
 	}
 

@@ -1,11 +1,11 @@
 ---
 title: Support contracts
-description: Exact WordPress, PHP, database, and plugin-adapter support for ConfigOps 0.2.0.
+description: Exact WordPress, PHP, database, and plugin-adapter support for ConfigOps 0.3.0.
 ---
 
 # Support contracts
 
-Support means a tested contract, not a best-effort badge. Version 0.2.0 fails its release checks if its runtime metadata, adapter fixtures, compatibility scan, browser flows, or coverage boundaries drift.
+Support means a tested contract, not a best-effort badge. Version 0.3.0 fails its release checks if its runtime metadata, adapter fixtures, compatibility scan, browser flows, or coverage boundaries drift.
 
 ## Runtime matrix
 
@@ -15,7 +15,7 @@ Support means a tested contract, not a best-effort badge. Version 0.2.0 fails it
 | PHP | 8.2–8.5 | Parser, unit, hostile-input, and WordPress integration paths across the matrix |
 | Database | WordPress-supported MySQL/MariaDB | Native MySQL 8.4 and MariaDB 11.4 integration lanes |
 | Browser UI | Current JavaScript-capable admin browser | Real Chromium settings, review, and undo flows |
-| Site model | Single-site only | Multisite is outside the 0.2 contract |
+| Site model | Single-site only | Multisite is outside the 0.3 contract |
 
 PHP 8.2 is the oldest supported branch. A lifecycle check expires that claim after upstream security support ends on 2026-12-31 instead of silently keeping an unsafe floor.
 

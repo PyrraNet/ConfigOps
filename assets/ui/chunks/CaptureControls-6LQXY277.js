@@ -25,7 +25,7 @@ function CaptureControls() {
   const { __ } = window.wp.i18n;
   const state = useConfigOpsState();
   const [name, setName] = window.wp.element.useState("");
-  const [composerOpen, setComposerOpen] = window.wp.element.useState(state.sessions.length === 0);
+  const [composerOpen, setComposerOpen] = window.wp.element.useState(false);
   const busy = Boolean(state.ui.pending);
   window.wp.element.useEffect(() => {
     const id = "wp-admin-bar-configops-recording";
@@ -78,20 +78,21 @@ igops-recording-primary-count" }, /* @__PURE__ */ wp.element.createElement("stro
   active.writeSignalCount > 0 && " \xB7 ", state.active.writeSignalCount > 0 && `${state.active.writeSignalCount} ${__("\
 outside API", "configops")}`)), /* @__PURE__ */ wp.element.createElement("button", { className: "button button-primary b\
 utton-large", type: "button", disabled: busy, onClick: stopCapture }, state.ui.pending === "stop-capture" ? __("Stopping\
-\u2026", "configops") : __("Stop & review", "configops"))) : !composerOpen && state.sessions.length > 0 ? /* @__PURE__ */ wp.
-  element.createElement("section", { className: "configops-capture-command is-compact", "aria-labelledby": "configops-ne\
-w-capture-title" }, /* @__PURE__ */ wp.element.createElement("div", null, /* @__PURE__ */ wp.element.createElement("p", {
-  className: "configops-state-label" }, __("Capture", "configops")), /* @__PURE__ */ wp.element.createElement("h2", { id: "\
-configops-new-capture-title" }, __("Record another settings task", "configops"))), /* @__PURE__ */ wp.element.createElement(
-  "button", { className: "button", type: "button", onClick: () => setComposerOpen(true) }, __("New capture", "configops"))) :
-  /* @__PURE__ */ wp.element.createElement("section", { className: "configops-capture-command", "aria-labelledby": "conf\
-igops-start-title" }, /* @__PURE__ */ wp.element.createElement("form", { className: "configops-capture-form", onSubmit: submit },
-  /* @__PURE__ */ wp.element.createElement("div", { className: "configops-capture-intro" }, /* @__PURE__ */ wp.element.createElement(
-  "p", { className: "configops-state-label" }, __("New capture", "configops")), /* @__PURE__ */ wp.element.createElement(
-  "h2", { id: "configops-start-title" }, __("Record a settings task", "configops")), /* @__PURE__ */ wp.element.createElement(
-  "p", null, __("Name it, start recording, then make the change in WordPress.", "configops"))), /* @__PURE__ */ wp.element.
-  createElement("div", { className: "configops-capture-field" }, /* @__PURE__ */ wp.element.createElement("label", { className: "\
-screen-reader-text", htmlFor: "configops-capture-name" }, __("Capture name", "configops")), /* @__PURE__ */ wp.element.createElement(
+\u2026", "configops") : __("Stop & review", "configops"))) : !composerOpen ? /* @__PURE__ */ wp.element.createElement("s\
+ection", { className: "configops-capture-command is-compact", "aria-labelledby": "configops-new-capture-title" }, /* @__PURE__ */ wp.
+  element.createElement("div", null, /* @__PURE__ */ wp.element.createElement("p", { className: "configops-state-label" },
+  __("Automatic recording is on", "configops")), /* @__PURE__ */ wp.element.createElement("h2", { id: "configops-new-cap\
+ture-title" }, __("Settings changes are recorded as they happen", "configops"))), /* @__PURE__ */ wp.element.createElement(
+  "button", { className: "button", type: "button", onClick: () => setComposerOpen(true) }, __("Start change session", "c\
+onfigops"))) : /* @__PURE__ */ wp.element.createElement("section", { className: "configops-capture-command", "aria-label\
+ledby": "configops-start-title" }, /* @__PURE__ */ wp.element.createElement("form", { className: "configops-capture-form",
+  onSubmit: submit }, /* @__PURE__ */ wp.element.createElement("div", { className: "configops-capture-intro" }, /* @__PURE__ */ wp.
+  element.createElement("p", { className: "configops-state-label" }, __("Focused mode", "configops")), /* @__PURE__ */ wp.
+  element.createElement("h2", { id: "configops-start-title" }, __("Start a named change session", "configops")), /* @__PURE__ */ wp.
+  element.createElement("p", null, __("Group a planned maintenance task, support case, or investigation under one name.",
+  "configops"))), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-capture-field" }, /* @__PURE__ */ wp.
+  element.createElement("label", { className: "screen-reader-text", htmlFor: "configops-capture-name" }, __("Capture nam\
+e", "configops")), /* @__PURE__ */ wp.element.createElement(
     "input",
     {
       id: "configops-capture-name",
@@ -102,11 +103,11 @@ screen-reader-text", htmlFor: "configops-capture-name" }, __("Capture name", "co
       value: name,
       onChange: (event) => setName(event.target.value)
     }
-  )), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-capture-compose-actions" }, state.sessions.
-  length > 0 && /* @__PURE__ */ wp.element.createElement("button", { className: "button", type: "button", disabled: busy,
-  onClick: () => setComposerOpen(false) }, __("Cancel", "configops")), /* @__PURE__ */ wp.element.createElement("button",
-  { className: "button button-primary button-large", type: "submit", disabled: busy }, state.ui.pending === "start-captu\
-re" ? __("Starting\u2026", "configops") : __("Start recording", "configops"))))));
+  )), /* @__PURE__ */ wp.element.createElement("div", { className: "configops-capture-compose-actions" }, /* @__PURE__ */ wp.
+  element.createElement("button", { className: "button", type: "button", disabled: busy, onClick: () => setComposerOpen(
+  false) }, __("Cancel", "configops")), /* @__PURE__ */ wp.element.createElement("button", { className: "button button-p\
+rimary button-large", type: "submit", disabled: busy }, state.ui.pending === "start-capture" ? __("Starting\u2026", "con\
+figops") : __("Start session", "configops"))))));
 }
 __name(CaptureControls, "CaptureControls");
 export {

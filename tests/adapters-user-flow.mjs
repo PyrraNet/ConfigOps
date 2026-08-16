@@ -9,6 +9,7 @@ const executablePath = process.env.CONFIGOPS_CHROME_PATH || (
 		: '/usr/bin/google-chrome'
 );
 const artifacts = new URL('../artifacts/adapter-user-flows/', import.meta.url);
+const focusViewport = { width: 1800, height: 1100 };
 
 await mkdir(artifacts, { recursive: true });
 
@@ -17,16 +18,38 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 1100 }, de
 page.setDefaultTimeout(30_000);
 page.setDefaultNavigationTimeout(45_000);
 
+const captureFocus = async (locator, filename, maxHeight = 900) => {
+	const previousViewport = page.viewportSize();
+	await page.setViewportSize(focusViewport);
+
+	try {
+		await locator.waitFor();
+		const box = await locator.boundingBox();
+		assert.ok(box, `Could not measure ${filename} for its focused screenshot.`);
+		await page.screenshot({
+			path: new URL(filename, artifacts).pathname,
+			clip: {
+				x: Math.max(0, Math.floor(box.x)),
+				y: Math.max(0, Math.floor(box.y)),
+				width: Math.ceil(box.width),
+				height: Math.min(Math.ceil(box.height), maxHeight),
+			},
+		});
+	} finally {
+		if (previousViewport) await page.setViewportSize(previousViewport);
+	}
+};
+
 const startCapture = async (name) => {
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops`, { waitUntil: 'domcontentloaded' });
 	const captureIsland = page.locator('#configops-capture-island');
 	await captureIsland.waitFor();
 	await page.waitForFunction(() => document.getElementById('configops-capture-island')?.getAttribute('aria-busy') !== 'true');
 	if (!await page.locator('#configops-capture-name').isVisible()) {
-		await page.getByRole('button', { name: 'New capture' }).click();
+		await page.getByRole('button', { name: 'Start change session' }).click();
 	}
 	await page.locator('#configops-capture-name').fill(name);
-	await page.getByRole('button', { name: 'Start recording' }).click();
+	await page.getByRole('button', { name: 'Start session' }).click();
 	await page.getByText('Recording now', { exact: true }).first().waitFor();
 };
 
@@ -82,6 +105,7 @@ try {
 	const readyPlugins = page.getByText('Active', { exact: true });
 	await readyPlugins.first().waitFor();
 	assert.equal(await readyPlugins.count(), 3, 'WordPress Core and both exact plugin releases should be active before user-flow testing.');
+	await captureFocus(page.locator('#configops-support-island'), 'support-focus.png');
 
 	await startCapture('Configure SMTP delivery');
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wp-mail-smtp`, { waitUntil: 'domcontentloaded' });
@@ -113,6 +137,7 @@ try {
 	assert.equal(await mailReview.locator('.configops-option > span').getByText('WP Mail SMTP', { exact: true }).count(), 1, 'A user should see the responsible plugin before its technical source path.');
 	assert.equal(await page.locator('#wp-admin-bar-configops-recording').count(), 0, 'Stopping from the React control should remove the recording badge immediately.');
 	assert.equal(await mailReview.locator('.configops-request-index').first().innerText(), 'SAVE ACTION 01', 'Filtered request groups should begin at one.');
+	await captureFocus(mailReview, 'wp-mail-smtp-review-focus.png', 840);
 	await page.screenshot({ path: new URL('wp-mail-smtp-review.png', artifacts).pathname, fullPage: true });
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.screenshot({ path: new URL('wp-mail-smtp-review-mobile.png', artifacts).pathname, fullPage: true });
@@ -157,6 +182,7 @@ try {
 	assert.equal(await page.getByRole('button', { name: 'Why can’t I undo the whole capture?' }).count(), 1, 'Undo limits should say they affect the whole capture, not the visible per-setting action.');
 	assert.equal(await page.locator('#wp-admin-bar-configops-recording').count(), 0, 'The recording badge should not survive a completed Yoast capture.');
 	assert.equal(await yoastReview.locator('.configops-request-index').first().innerText(), 'SAVE ACTION 01', 'Technical requests hidden by the Review filter must not create a confusing numbering gap.');
+	await captureFocus(yoastReview, 'yoast-review-focus.png', 605);
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.screenshot({ path: new URL('yoast-review-mobile.png', artifacts).pathname, fullPage: true });
 	await page.setViewportSize({ width: 1440, height: 1100 });

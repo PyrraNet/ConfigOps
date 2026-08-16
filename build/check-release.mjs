@@ -107,13 +107,24 @@ if (!fs.existsSync(iconSvg) || !fs.readFileSync(iconSvg, 'utf8').includes('aria-
 	fail('accessible WordPress.org SVG icon is missing');
 }
 
-for (let screenshot = 1; screenshot <= 4; screenshot += 1) {
-	const filename = new URL(`../.wordpress-org/screenshot-${screenshot}.png`, import.meta.url);
-	if (!fs.existsSync(filename)) fail(`WordPress.org screenshot is missing: screenshot-${screenshot}.png`);
+const directoryScreenshots = new Map([
+	['screenshot-1.png', { minWidth: 1200, minHeight: 800 }],
+	['screenshot-2.png', { minWidth: 1200, minHeight: 600 }],
+	['screenshot-3.png', { minWidth: 1200, minHeight: 400 }],
+]);
+
+for (const [requiredScreenshot, expected] of directoryScreenshots) {
+	const filename = new URL(`../.wordpress-org/${requiredScreenshot}`, import.meta.url);
+	if (!fs.existsSync(filename)) fail(`WordPress.org screenshot is missing: ${requiredScreenshot}`);
 	const actual = pngDimensions(filename);
-	if (actual.width < 1200 || actual.height < 700) fail(`screenshot-${screenshot}.png is too small for a clear directory preview`);
-	if (actual.bytes > 10 * 1024 * 1024) fail(`screenshot-${screenshot}.png exceeds the WordPress.org file-size limit`);
+	if (actual.width < expected.minWidth || actual.height < expected.minHeight) {
+		fail(`${requiredScreenshot} is too small for its focused directory preview`);
+	}
+	if (actual.bytes > 10 * 1024 * 1024) fail(`${requiredScreenshot} exceeds the WordPress.org file-size limit`);
 }
+
+const staleScreenshot = new URL('../.wordpress-org/screenshot-4.png', import.meta.url);
+if (fs.existsSync(staleScreenshot)) fail('stale WordPress.org screenshot must be removed: screenshot-4.png');
 if (!read('LICENSE').includes('GNU GENERAL PUBLIC LICENSE\n                       Version 2')) {
 	fail('LICENSE does not contain the GPL version 2 text');
 }

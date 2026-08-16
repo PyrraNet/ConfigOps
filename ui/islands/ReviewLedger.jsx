@@ -458,7 +458,7 @@ export default function ReviewLedger() {
 		? { className: 'is-live', label: __('Recording', 'configops') }
 		: ['interrupted', 'stopping'].includes(selected?.status)
 			? { className: 'is-incomplete', label: __('Interrupted', 'configops') }
-			: { className: 'is-recorded', label: __('Recorded', 'configops') };
+			: { className: 'is-recorded', label: selected?.mode === 'automatic' ? __('Observed', 'configops') : __('Recorded', 'configops') };
 	const sessionUndo = review.summary.lastSessionRestore;
 	const sessionUndoSucceeded = sessionUndo?.status === 'succeeded';
 	const sessionUndoUncertain = ['running', 'compensation_failed'].includes(sessionUndo?.status);
@@ -526,7 +526,7 @@ export default function ReviewLedger() {
 		return (
 			<section className="configops-empty-state">
 				<h2>{__('No capture selected', 'configops')}</h2>
-				<p>{__('Record changes or choose an existing capture.', 'configops')}</p>
+				<p>{__('Save a setting or choose an existing change.', 'configops')}</p>
 			</section>
 		);
 	}
@@ -539,7 +539,7 @@ export default function ReviewLedger() {
 						<span className={selectedStatus.className}>
 							{selectedStatus.label}
 						</span>
-						<span>{__('Capture', 'configops')} <code>#{selected.id}</code></span>
+						<span>{selected.mode === 'automatic' ? __('Automatic change', 'configops') : __('Change session', 'configops')} <code>#{selected.id}</code></span>
 					</div>
 					<h2>{selected.name}</h2>
 					<p>{selected.actorName}<span aria-hidden="true"> · </span><time dateTime={selected.startedAt}>{selected.startedDisplay}</time></p>
