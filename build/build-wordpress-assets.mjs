@@ -28,26 +28,18 @@ const nestedSvg = ({ viewBox, body }, attributes) => `<svg ${attributes} viewBox
 const wordmark = extractSvg('configops-wordmark-dark.svg');
 const mark = extractSvg('configops-mark-dark.svg', path.join('build', 'brand'));
 const evidenceBuffer = readFileSync(
-	path.join(repositoryRoot, 'artifacts', 'adapter-user-flows', 'wp-mail-smtp-review-focus.png')
+	path.join(repositoryRoot, 'artifacts', 'configops-evidence-card-focus.png')
 );
 const evidence = evidenceBuffer.toString('base64');
-const evidenceWidth = evidenceBuffer.readUInt32BE(16);
-const evidenceHeight = evidenceBuffer.readUInt32BE(20);
 
 const banner = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1544" height="500" viewBox="0 0 1544 500" role="img" aria-label="ConfigOps">
-	<defs>
-		<clipPath id="evidence-window">
-			<rect x="96" y="325" width="1352" height="125"/>
-		</clipPath>
-	</defs>
 	<rect width="1544" height="500" fill="${colors.ink}"/>
-	${nestedSvg(wordmark, 'x="360" y="48" width="824" height="184" preserveAspectRatio="xMidYMid meet"')}
-	<g clip-path="url(#evidence-window)">
-		<svg x="96" y="325" width="1352" height="125" viewBox="0 698 ${evidenceWidth} 96" preserveAspectRatio="none">
-			<image href="data:image/png;base64,${evidence}" width="${evidenceWidth}" height="${evidenceHeight}"/>
-		</svg>
-	</g>
+	<text x="98" y="90" fill="#AEB9CB" font-family="Avenir Next, Avenir, Segoe UI, sans-serif" font-size="20" font-weight="700" letter-spacing="2.6">WORDPRESS CHANGE INTELLIGENCE</text>
+	${nestedSvg(wordmark, 'x="96" y="112" width="628" height="140" preserveAspectRatio="xMidYMid meet"')}
+	<text x="98" y="342" fill="#FBFBFB" font-family="Avenir Next, Avenir, Segoe UI, sans-serif" font-size="38" font-weight="700" letter-spacing="0.8">SAVE → SEE → SAFE UNDO</text>
+	<text x="100" y="389" fill="#AEB9CB" font-family="Avenir Next, Avenir, Segoe UI, sans-serif" font-size="21">Automatic evidence after every supported settings save.</text>
+	<image href="data:image/png;base64,${evidence}" x="820" y="110" width="628" height="264" preserveAspectRatio="xMidYMid meet"/>
 </svg>`;
 
 const icon = `<?xml version="1.0" encoding="UTF-8"?>
@@ -103,9 +95,9 @@ try {
 	await renderPng('icon-256x256.png', 'icon-128x128.png', 128, 128);
 
 	const screenshots = [
-		['artifacts/adapter-user-flows/wp-mail-smtp-review-focus.png', 'screenshot-1.png'],
-		['artifacts/adapter-user-flows/yoast-review-focus.png', 'screenshot-2.png'],
-		['artifacts/adapter-user-flows/support-focus.png', 'screenshot-3.png'],
+		['artifacts/configops-automatic-evidence-focus.png', 'screenshot-1.png'],
+		['artifacts/adapter-user-flows/wp-mail-smtp-observation-focus.png', 'screenshot-2.png'],
+		['artifacts/adapter-user-flows/yoast-observation-focus.png', 'screenshot-3.png'],
 	];
 
 	for (const filename of ['screenshot-1.png', 'screenshot-2.png', 'screenshot-3.png', 'screenshot-4.png']) {

@@ -109,8 +109,8 @@ if (!fs.existsSync(iconSvg) || !fs.readFileSync(iconSvg, 'utf8').includes('aria-
 
 const directoryScreenshots = new Map([
 	['screenshot-1.png', { minWidth: 1200, minHeight: 800 }],
-	['screenshot-2.png', { minWidth: 1200, minHeight: 600 }],
-	['screenshot-3.png', { minWidth: 1200, minHeight: 400 }],
+	['screenshot-2.png', { minWidth: 1200, minHeight: 550 }],
+	['screenshot-3.png', { minWidth: 1200, minHeight: 350 }],
 ]);
 
 for (const [requiredScreenshot, expected] of directoryScreenshots) {

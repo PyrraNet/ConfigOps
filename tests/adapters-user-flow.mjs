@@ -138,6 +138,7 @@ try {
 	assert.equal(await page.locator('#wp-admin-bar-configops-recording').count(), 0, 'Stopping from the React control should remove the recording badge immediately.');
 	assert.equal(await mailReview.locator('.configops-request-index').first().innerText(), 'SAVE ACTION 01', 'Filtered request groups should begin at one.');
 	await captureFocus(mailReview, 'wp-mail-smtp-review-focus.png', 840);
+	await captureFocus(mailReview.locator('.configops-request-group').first(), 'wp-mail-smtp-observation-focus.png', 660);
 	await page.screenshot({ path: new URL('wp-mail-smtp-review.png', artifacts).pathname, fullPage: true });
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.screenshot({ path: new URL('wp-mail-smtp-review-mobile.png', artifacts).pathname, fullPage: true });
@@ -183,6 +184,7 @@ try {
 	assert.equal(await page.locator('#wp-admin-bar-configops-recording').count(), 0, 'The recording badge should not survive a completed Yoast capture.');
 	assert.equal(await yoastReview.locator('.configops-request-index').first().innerText(), 'SAVE ACTION 01', 'Technical requests hidden by the Review filter must not create a confusing numbering gap.');
 	await captureFocus(yoastReview, 'yoast-review-focus.png', 605);
+	await captureFocus(yoastReview.locator('.configops-request-group').first(), 'yoast-observation-focus.png', 470);
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.screenshot({ path: new URL('yoast-review-mobile.png', artifacts).pathname, fullPage: true });
 	await page.setViewportSize({ width: 1440, height: 1100 });

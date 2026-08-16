@@ -9,7 +9,7 @@
 
 <p align="center">
   v0.3.0
-  &nbsp;·&nbsp; Local recorder
+  &nbsp;·&nbsp; Automatic observation
   &nbsp;·&nbsp; No account required
 </p>
 
@@ -20,10 +20,10 @@
 <br>
 
 <p align="center">
-  <img src=".wordpress-org/screenshot-1.png" width="1120" alt="ConfigOps reviewing real WP Mail SMTP setting changes while protecting the SMTP password">
+  <img src=".wordpress-org/screenshot-1.png" width="1120" alt="ConfigOps automatically showing observed writes, one likely decision, housekeeping, Review, and Undo after a normal WordPress settings save">
 </p>
 
-<p align="center"><sub>An actual WP Mail SMTP capture. The password is removed before storage; seven supported settings remain undoable.</sub></p>
+<p align="center"><sub>Save normally. ConfigOps appears with the evidence: observed writes, the likely decision, housekeeping, Review, and safe Undo.</sub></p>
 
 ## The undo button WordPress forgot
 
@@ -45,11 +45,11 @@ WP Mail SMTP → SMTP password
 + [removed before storage]
 ```
 
-Every undo is checked against the current value first. If the website changed again, ConfigOps refuses to overwrite it. If capture evidence is incomplete, whole-capture undo is disabled rather than presented as safe.
+Every undo is checked against the current value first. If the website changed again, ConfigOps refuses to overwrite it. If observation evidence is incomplete, whole-save undo is disabled rather than presented as safe.
 
 ## Support is a contract
 
-| Integration | Tested release | Capture | Explain | Secrets | Undo |
+| Integration | Tested release | Observe | Explain | Secrets | Undo |
 |---|---:|:---:|:---:|:---:|:---:|
 | WordPress Core | WordPress 7.0 | Supported | Field map + local references | Redacted | With limits |
 | WP Mail SMTP Free | 4.9.0 | Supported | Supported | Removed | With limits |
@@ -73,13 +73,13 @@ Requires WordPress 7.0 or newer and PHP 8.2 or newer. PHP 8.2 is the oldest supp
 
 - probable credentials are redacted before mutation history is written;
 - touched admin fields are correlated locally using names and visible labels only; the observer never reads their configuration values and its evidence never expands undo permissions;
-- capture evidence stays in the website database and is not sent to pyrra or another service;
+- observation evidence stays in the website database and is not sent to pyrra or another service;
 - direct custom-table writes produce value-free warnings, never stored SQL;
 - site icons, site logos, every supported Yoast social-image ID, publisher-policy page, content-ignore entry, LLMs.txt page, and represented-person selector retain bounded local identity; referenced objects are never copied or deleted;
 - restore operations are serialized, audited, conflict-checked, and compensated when possible;
 - interrupted, incomplete, or version-uncertain evidence fails closed;
 - while ConfigOps is active, completed local history is retained for 30 days by default;
-- uninstalling ConfigOps removes its capture history, installation options, scheduled cleanup, and capabilities.
+- uninstalling ConfigOps removes its observation history, installation options, scheduled cleanup, and capabilities.
 
 Release Packs, Plans, Policies, and Drift are the direction after the recorder earns trust.
 
@@ -133,6 +133,6 @@ npm run dev
 
 The recorder is PHP because it observes the WordPress hook lifecycle. The review interface is made of route-specific React islands, with React supplied by WordPress. ConfigOps-owned JavaScript is held below a 24 KiB gzip release budget and shipped in human-readable form.
 
-Documentation: [operations & safety](https://pyrranet.github.io/ConfigOps/) · [capture and storage](docs/architecture.md) · [test and coverage evidence](docs/testing.md) · [React islands](docs/frontend.md) · [adapter contracts](docs/adapters.md)
+Documentation: [operations & safety](https://pyrranet.github.io/ConfigOps/) · [observation and storage](docs/architecture.md) · [test and coverage evidence](docs/testing.md) · [React islands](docs/frontend.md) · [adapter contracts](docs/adapters.md)
 
 Created by **pyrra**. Licensed under [GPL-2.0-or-later](LICENSE).

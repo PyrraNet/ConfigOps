@@ -88,13 +88,13 @@ try {
 	await page.waitForFunction(() => document.getElementById('configops-capture-island')?.getAttribute('aria-busy') !== 'true');
 	await captureIsland.getByText('Automatic recording is on', { exact: true }).waitFor();
 
-	await page.goto(`${baseUrl}/wp-admin/options-general.php`, { waitUntil: 'networkidle' });
-	const automaticDescription = page.locator('#blogdescription');
-	const automaticBaseline = await automaticDescription.inputValue();
-	await automaticDescription.fill(`Automatic evidence ${String(Date.now()).slice(-6)}`);
+	await page.goto(`${baseUrl}/wp-admin/options-reading.php`, { waitUntil: 'networkidle' });
+	const automaticPageSize = page.locator('#posts_per_page');
+	const automaticBaseline = await automaticPageSize.inputValue();
+	await automaticPageSize.fill(automaticBaseline === '10' ? '11' : '10');
 	await page.locator('#submit').click();
 	await page.waitForLoadState('networkidle');
-	const evidenceCard = page.locator('.configops-evidence-card').first();
+	const evidenceCard = page.locator('.configops-evidence-card').last();
 	await evidenceCard.waitFor();
 	if (!await evidenceCard.getByText(/ConfigOps observed \d+ write/).isVisible()) {
 		throw new Error('An ordinary settings save did not produce immediate ConfigOps evidence.');
@@ -103,12 +103,26 @@ try {
 		throw new Error('Automatic evidence did not expose its review action.');
 	}
 	await page.screenshot({ path: new URL('configops-automatic-evidence.png', artifacts).pathname, fullPage: true });
+	await page.screenshot({ path: new URL('configops-automatic-evidence-focus.png', artifacts).pathname, fullPage: false });
+	const evidenceStack = page.locator('#configops-evidence-stack');
+	const evidenceStackStyle = await evidenceStack.getAttribute('style');
+	await evidenceStack.evaluate((element) => {
+		element.style.setProperty('width', '390px');
+		element.style.setProperty('right', '0');
+		element.style.setProperty('bottom', '0');
+		element.style.setProperty('zoom', '2');
+	});
+	await evidenceCard.screenshot({ path: new URL('configops-evidence-card-focus.png', artifacts).pathname });
+	await evidenceStack.evaluate((element, previousStyle) => {
+		if (previousStyle === null) element.removeAttribute('style');
+		else element.setAttribute('style', previousStyle);
+	}, evidenceStackStyle);
 	page.once('dialog', (dialog) => dialog.accept());
 	await evidenceCard.getByRole('button', { name: 'Undo' }).click();
 	await page.waitForLoadState('networkidle');
-	await page.getByText('1 option was restored.', { exact: true }).waitFor();
-	await page.goto(`${baseUrl}/wp-admin/options-general.php`, { waitUntil: 'networkidle' });
-	if (await page.locator('#blogdescription').inputValue() !== automaticBaseline) {
+	await page.getByText(/\d+ options? (?:was|were) restored\./).waitFor();
+	await page.goto(`${baseUrl}/wp-admin/options-reading.php`, { waitUntil: 'networkidle' });
+	if (await page.locator('#posts_per_page').inputValue() !== automaticBaseline) {
 		throw new Error('Direct evidence-card undo did not restore the conflict-checked baseline.');
 	}
 

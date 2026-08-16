@@ -42,13 +42,13 @@ ConfigOps is not plugin-version rollback. It works with configuration values, no
 
 = Safety before convenience =
 
-Probable credentials are removed before mutation history is stored. Undo first checks that the current value still matches the captured value. An interrupted or incomplete observation loses whole-save undo instead of pretending its evidence is safe.
+Probable credentials are removed before mutation history is stored. Undo first checks that the current value still matches the observed value. An interrupted or incomplete observation loses whole-save undo instead of pretending its evidence is safe.
 
 Direct writes to custom plugin tables are recorded as value-free warnings. ConfigOps does not store raw SQL and does not claim it can reverse data it does not understand.
 
 Site icons, site logos, and supported Yoast logo and social-image settings show the referenced attachment name, file type, dimensions, thumbnail, and missing state. Yoast publisher-policy, content-ignore, and LLMs.txt page IDs show bounded page identity instead of a bare database ID. ConfigOps never copies or deletes referenced media or content.
 
-All evidence remains in the website database. ConfigOps does not send capture data to pyrra or another external service. Suggested disclosure text is added to WordPress's privacy-policy guide.
+All evidence remains in the website database. ConfigOps does not send observation data to pyrra or another external service. Suggested disclosure text is added to WordPress's privacy-policy guide.
 
 = Tested component contracts =
 
@@ -58,7 +58,7 @@ The current release includes pinned adapters for:
 * WP Mail SMTP Free 4.9.0
 * Yoast SEO Free 28.2
 
-The Plugin support screen states exactly which WordPress and plugin capabilities are supported, limited, or not available. An untested component version keeps its capture evidence but disables automatic undo.
+The Plugin support screen states exactly which WordPress and plugin capabilities are supported, limited, or not available. An untested component version keeps its observed evidence but disables automatic undo.
 
 = Version 0.3 scope =
 
@@ -74,7 +74,7 @@ Version 0.3 is a local, single-site undo and evidence layer for supported WordPr
 
 == Frequently Asked Questions ==
 
-= Does ConfigOps capture custom plugin tables? =
+= Does ConfigOps observe custom plugin tables? =
 
 Not generically. ConfigOps records a value-free warning when it observes a direct database write, but understanding or reversing a custom table requires an explicit adapter.
 
@@ -96,13 +96,13 @@ No. ConfigOps restores supported Options API values after a conflict check. Side
 
 If earlier referenced media or content has since been deleted or moved to the trash, ConfigOps refuses to restore its local ID.
 
-= What happens when capture storage fails? =
+= What happens when observation storage fails? =
 
-The host settings request is allowed to finish. ConfigOps marks the recording incomplete through a value-free emergency marker and disables whole-capture undo after storage recovers.
+The host settings request is allowed to finish. ConfigOps marks the observation incomplete through a value-free emergency marker and disables whole-save undo after storage recovers.
 
 = How long is local history kept? =
 
-While ConfigOps is active, completed and interrupted captures are kept for 30 days by default. Cleanup is bounded and never selects an active capture. Developers may change the window with the `configops_retention_days` filter. Uninstalling ConfigOps removes its capture history, installation options, scheduled cleanup, and capabilities.
+While ConfigOps is active, completed and interrupted observations are kept for 30 days by default. Cleanup is bounded and never selects an active Change Session. Developers may change the window with the `configops_retention_days` filter. Uninstalling ConfigOps removes its observation history, installation options, scheduled cleanup, and capabilities.
 
 = How do I report a security issue? =
 
@@ -110,9 +110,9 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 
 == Screenshots ==
 
-1. One WP Mail SMTP save becomes a clear before-and-after review while the changed SMTP password is removed before storage.
-2. One Yoast SEO toggle becomes one understandable XML sitemaps decision with its safe undo action.
-3. WordPress Core, WP Mail SMTP, and Yoast SEO support are published as explicit capability contracts with tested versions and known limits.
+1. Save a supported setting normally and ConfigOps immediately shows the observed writes, likely decision, housekeeping, Review, and safe Undo.
+2. See the supported WP Mail SMTP decisions behind one save while the changed SMTP password is removed before storage.
+3. See one Yoast SEO toggle as one understandable XML sitemaps decision with its conflict-checked Undo action.
 
 == Changelog ==
 
@@ -121,7 +121,7 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 * Records authorized settings saves automatically in isolated request-local observations.
 * Shows immediate evidence with write, decision, technical, and protected-secret counts plus direct Review and safe Undo actions.
 * Keeps named Change Sessions as the focused mode for planned multi-request work.
-* Preserves automatic and named evidence as distinct modes through the schema, review, retention, and uninstall lifecycle.
+* Preserves automatic observations and named Change Sessions as distinct modes through the schema, review, retention, and uninstall lifecycle.
 * Repositions ConfigOps as the undo and evidence layer for WordPress settings with a new directory title, description, and artwork.
 
 = 0.2.0 =
