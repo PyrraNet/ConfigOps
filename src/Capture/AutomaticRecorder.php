@@ -104,7 +104,7 @@ final class AutomaticRecorder
 		if (str_starts_with($action, 'configops_')) {
 			return false;
 		}
-		if (str_contains($this->request->uri(), '/configops/v1/')) {
+		if ($this->isConfigOpsRestRequest()) {
 			return false;
 		}
 
@@ -130,6 +130,21 @@ final class AutomaticRecorder
 			true,
 			$context
 		);
+	}
+
+	private function isConfigOpsRestRequest(): bool
+	{
+		$route = trim($this->request->uri(), '/');
+		if (str_starts_with($route, 'configops/v1/') || str_contains($route, '/configops/v1/')) {
+			return true;
+		}
+
+		$queryRoute = '';
+		if (isset($_GET['rest_route']) && is_string($_GET['rest_route'])) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Routing check only; no state is changed here.
+			$queryRoute = sanitize_text_field(wp_unslash($_GET['rest_route'])); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		}
+
+		return str_starts_with(trim($queryRoute, '/'), 'configops/v1/');
 	}
 
 	private function automaticName(): string

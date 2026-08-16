@@ -1278,6 +1278,22 @@ $automaticRecorder = new \ConfigOps\Capture\AutomaticRecorder(
 	$automaticNotices,
 	new \ConfigOps\Capture\RequestContext()
 );
+$originalRestRoute = $_GET['rest_route'] ?? null;
+$_GET['rest_route'] = '/configops/v1/captures/123/restore';
+$internalAutomaticRecorder = new \ConfigOps\Capture\AutomaticRecorder(
+	$freshCaptures,
+	$automaticNotices,
+	new \ConfigOps\Capture\RequestContext()
+);
+$assert(
+	null === $internalAutomaticRecorder->sessionId(),
+	'ConfigOps REST requests routed through the non-pretty rest_route query must never observe their own writes.'
+);
+if (null === $originalRestRoute) {
+	unset($_GET['rest_route']);
+} else {
+	$_GET['rest_route'] = $originalRestRoute;
+}
 $allowAutomaticContext = static fn (): bool => true;
 add_filter('configops_automatic_recording_context_allowed', $allowAutomaticContext, 10, 2);
 $automaticSession = $automaticRecorder->sessionId();
