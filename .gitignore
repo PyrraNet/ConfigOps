@@ -26,6 +26,9 @@
 /dist/
 /*.zip
 
+# Generated application bundles
+/assets/ui/
+
 # Logs and temporary files
 *.log
 npm-debug.log*

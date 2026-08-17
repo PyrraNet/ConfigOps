@@ -16,6 +16,7 @@
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
     "test:docs": "npm run docs:build && node tests/docs-smoke.mjs",
+    "prewp:start": "npm run build:ui",
     "wp:start": "bash .dev/start.sh",
     "wp:stop": "docker compose stop",
     "wp:down": "docker compose down",

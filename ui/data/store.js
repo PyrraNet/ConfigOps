@@ -24,6 +24,11 @@ const withPending = (pending) => {
 	});
 };
 
+const withoutPending = (next) => ({
+	...next,
+	ui: { ...next.ui, pending: null },
+});
+
 const errorMessage = (error) => {
 	if (error && typeof error.message === 'string' && error.message.length > 0) {
 		return error.message;
@@ -37,21 +42,23 @@ const publishError = (error, overrides = {}) => {
 		...snapshot,
 		...overrides,
 		notice: { code: 'error', kind: 'error', text: errorMessage(error) },
-		ui: { pending: null },
+		ui: { ...snapshot.ui, pending: null },
 	});
 };
 
-const command = async (pending, operation) => {
+const runPending = async (pending, operation, createNext = (result) => result, errorOverrides = {}) => {
 	if (snapshot.ui.pending) {
-		return;
+		return false;
 	}
 
 	withPending(pending);
 	try {
-		const next = await operation();
-		publish({ ...next, ui: { pending: null } });
+		const result = await operation();
+		publish(withoutPending(createNext(result)));
+		return true;
 	} catch (error) {
-		publishError(error);
+		publishError(error, errorOverrides);
+		return false;
 	}
 };
 
@@ -100,26 +107,22 @@ export const dismissNotice = () => {
 	publish({ ...snapshot, notice: { code: '', kind: 'success', text: '' } });
 };
 
-export const startCapture = (name) => command('start-capture', () => createCapture(name));
-export const stopCapture = () => command('stop-capture', stopActiveCapture);
-export const restoreMutation = (id) => command(`restore-mutation-${id}`, () => restoreMutationRequest(id));
-export const restoreSession = (id) => command(`restore-session-${id}`, () => restoreSessionRequest(id));
+export const startCapture = (name) => runPending('start-capture', () => createCapture(name));
+export const stopCapture = () => runPending('stop-capture', stopActiveCapture);
+export const restoreMutation = (id) => runPending(`restore-mutation-${id}`, () => restoreMutationRequest(id));
+export const restoreSession = (id) => runPending(`restore-session-${id}`, () => restoreSessionRequest(id));
 
 export const selectSession = async (id) => {
 	if (snapshot.ui.pending || snapshot.selected?.id === id) {
 		return;
 	}
 
-	withPending(`select-session-${id}`);
-	try {
-		const next = await fetchState(id);
-		publish({ ...next, ui: { pending: null } });
+	const selected = await runPending(`select-session-${id}`, () => fetchState(id));
+	if (selected) {
 		const url = new URL(window.location.href);
 		url.searchParams.set('page', 'configops');
 		url.searchParams.set('session', String(id));
 		window.history.replaceState({}, '', url);
-	} catch (error) {
-		publishError(error);
 	}
 };
 
@@ -130,21 +133,18 @@ export const loadMoreMutations = async () => {
 		return;
 	}
 
-	withPending('load-more');
-	try {
-		const page = await fetchMutationPage(selectedId, cursor);
-		publish({
+	await runPending(
+		'load-more',
+		() => fetchMutationPage(selectedId, cursor),
+		(page) => ({
 			...snapshot,
 			review: {
 				...snapshot.review,
 				groups: mergeGroups(snapshot.review.groups, page.groups),
 				pageInfo: page.pageInfo,
 			},
-			ui: { pending: null },
-		});
-	} catch (error) {
-		publishError(error);
-	}
+		}),
+	);
 };
 
 export const hydrateReview = async () => {
@@ -153,11 +153,10 @@ export const hydrateReview = async () => {
 		return;
 	}
 
-	withPending('hydrate-review');
-	try {
-		const review = await fetchMutationPage(selectedId, 0);
-		publish({ ...snapshot, review, ui: { pending: null } });
-	} catch (error) {
-		publishError(error, { review: { ...snapshot.review, deferred: false } });
-	}
+	await runPending(
+		'hydrate-review',
+		() => fetchMutationPage(selectedId, 0),
+		(review) => ({ ...snapshot, review }),
+		{ review: { ...snapshot.review, deferred: false } },
+	);
 };

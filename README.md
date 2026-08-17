@@ -95,7 +95,9 @@ npm run wp:start
 
 Open `http://localhost:8888/wp-admin/` and sign in with `admin` / `password`.
 The repository is mounted directly as the active `configops` plugin, so PHP changes
-are available immediately. Rebuild UI changes with `npm run build:ui`.
+are available immediately. Rebuild UI changes with `npm run build:ui`. The generated
+`assets/ui/` bundles are intentionally not tracked by Git; release builds create them
+from the sources in `ui/`.
 
 Useful commands:
 

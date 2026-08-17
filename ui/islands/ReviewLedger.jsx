@@ -34,19 +34,35 @@ const formatFileSize = (bytes) => {
 	return `${Math.round(bytes / 1024 / 102.4) / 10} MB`;
 };
 
-const MediaReferenceValue = ({ dataLabel, snapshot }) => {
-	const { __, sprintf } = window.wp.i18n;
+const referenceState = (snapshot) => {
 	const id = Number(snapshot?.id || 0);
 	const status = snapshot?.current_status || snapshot?.status || (id > 0 ? 'missing' : 'unset');
-	if (id <= 0 || status === 'unset') {
-		return (
-			<div className="configops-reference-value is-unset" data-label={dataLabel}>
-				<span>{__('Not set', 'configops')}</span>
-			</div>
-		);
-	}
 
-	const missing = status === 'missing';
+	return { id, missing: status === 'missing', unset: id <= 0 || status === 'unset' };
+};
+
+const UnsetReferenceValue = ({ dataLabel }) => (
+	<div className="configops-reference-value is-unset" data-label={dataLabel}>
+		<span>{window.wp.i18n.__('Not set', 'configops')}</span>
+	</div>
+);
+
+const ReferenceIdentity = ({ name, details = [], referenceLabel, missing }) => (
+	<div className="configops-reference-identity">
+		<strong>{name}</strong>
+		{details.filter(Boolean).map((detail) => <span key={detail}>{detail}</span>)}
+		<span className="configops-reference-id">
+			{referenceLabel}
+			{missing && <em>{window.wp.i18n.__('Missing', 'configops')}</em>}
+		</span>
+	</div>
+);
+
+const MediaReferenceValue = ({ dataLabel, snapshot }) => {
+	const { __, sprintf } = window.wp.i18n;
+	const { id, missing, unset } = referenceState(snapshot);
+	if (unset) return <UnsetReferenceValue dataLabel={dataLabel} />;
+
 	const attachmentLabel = sprintf(__('Attachment #%d', 'configops'), id);
 	const name = snapshot.title || snapshot.filename || attachmentLabel;
 	const metadata = [
@@ -64,32 +80,21 @@ const MediaReferenceValue = ({ dataLabel, snapshot }) => {
 					? <img src={snapshot.preview_url} alt="" loading="lazy" decoding="async" />
 					: <span>{missing ? '×' : __('File', 'configops')}</span>}
 			</div>
-			<div className="configops-reference-identity">
-				<strong>{name}</strong>
-				{snapshot.title && snapshot.filename && <span>{snapshot.filename}</span>}
-				{metadata.length > 0 && <span>{metadata.join(' · ')}</span>}
-				<span className="configops-reference-id">
-					{attachmentLabel}
-					{missing && <em>{__('Missing', 'configops')}</em>}
-				</span>
-			</div>
+			<ReferenceIdentity
+				name={name}
+				details={[snapshot.title && snapshot.filename ? snapshot.filename : '', metadata.join(' · ')]}
+				referenceLabel={attachmentLabel}
+				missing={missing}
+			/>
 		</div>
 	);
 };
 
 const ContentReferenceValue = ({ dataLabel, snapshot }) => {
 	const { __, sprintf } = window.wp.i18n;
-	const id = Number(snapshot?.id || 0);
-	const status = snapshot?.current_status || snapshot?.status || (id > 0 ? 'missing' : 'unset');
-	if (id <= 0 || status === 'unset') {
-		return (
-			<div className="configops-reference-value is-unset" data-label={dataLabel}>
-				<span>{__('Not set', 'configops')}</span>
-			</div>
-		);
-	}
+	const { id, missing, unset } = referenceState(snapshot);
+	if (unset) return <UnsetReferenceValue dataLabel={dataLabel} />;
 
-	const missing = status === 'missing';
 	const contentLabel = sprintf(__('Content #%d', 'configops'), id);
 	const name = snapshot.title || contentLabel;
 	const typeLabel = snapshot.type_label || snapshot.post_type || __('Content', 'configops');
@@ -100,43 +105,22 @@ const ContentReferenceValue = ({ dataLabel, snapshot }) => {
 			<div className="configops-reference-mark configops-content-mark" aria-hidden="true">
 				<span>{missing ? '×' : typeLabel}</span>
 			</div>
-			<div className="configops-reference-identity">
-				<strong>{name}</strong>
-				{metadata && <span>{metadata}</span>}
-				<span className="configops-reference-id">
-					{contentLabel}
-					{missing && <em>{__('Missing', 'configops')}</em>}
-				</span>
-			</div>
+			<ReferenceIdentity name={name} details={[metadata]} referenceLabel={contentLabel} missing={missing} />
 		</div>
 	);
 };
 
 const UserReferenceValue = ({ dataLabel, snapshot }) => {
 	const { __, sprintf } = window.wp.i18n;
-	const id = Number(snapshot?.id || 0);
-	const status = snapshot?.current_status || snapshot?.status || (id > 0 ? 'missing' : 'unset');
-	if (id <= 0 || status === 'unset') {
-		return (
-			<div className="configops-reference-value is-unset" data-label={dataLabel}>
-				<span>{__('Not set', 'configops')}</span>
-			</div>
-		);
-	}
+	const { id, missing, unset } = referenceState(snapshot);
+	if (unset) return <UnsetReferenceValue dataLabel={dataLabel} />;
 
-	const missing = status === 'missing';
 	const userLabel = sprintf(__('User #%d', 'configops'), id);
 
 	return (
 		<div className={`configops-reference-value ${missing ? 'is-missing' : ''}`} data-label={dataLabel}>
 			<div className="configops-reference-mark" aria-hidden="true"><span>{missing ? '×' : __('User', 'configops')}</span></div>
-			<div className="configops-reference-identity">
-				<strong>{snapshot.display_name || userLabel}</strong>
-				<span className="configops-reference-id">
-					{userLabel}
-					{missing && <em>{__('Missing', 'configops')}</em>}
-				</span>
-			</div>
+			<ReferenceIdentity name={snapshot.display_name || userLabel} referenceLabel={userLabel} missing={missing} />
 		</div>
 	);
 };
