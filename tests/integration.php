@@ -94,7 +94,7 @@ $captures  = new \ConfigOps\Database\CaptureRepository($wpdb);
 $mutations = new \ConfigOps\Database\MutationRepository($wpdb);
 $writeSignals = new \ConfigOps\Database\DatabaseWriteSignalRepository($wpdb);
 $adapters = new \ConfigOps\Adapter\AdapterRegistry(
-	array(new \ConfigOps\Adapter\WordPressCoreAdapter(), new \ConfigOps\Adapter\WpMailSmtpAdapter(), new \ConfigOps\Adapter\YoastSeoAdapter()),
+	\ConfigOps\Adapter\BuiltInAdapters::create(),
 	new \ConfigOps\Noise\NoiseClassifier(),
 	new \ConfigOps\Capture\HeuristicSensitiveValueDetector()
 );
@@ -1433,8 +1433,55 @@ $assert(
 	200 === $evidenceResponse->get_status()
 	&& is_array($evidenceData)
 	&& isset($evidenceData['items']),
-	'The local feedback endpoint should expose a private one-shot evidence collection.'
+	'The local feedback endpoint should expose a private pending evidence collection.'
 );
+$automaticNotices->push(1, (int) $automaticSession);
+$deliveredEvidence = $restServer->dispatch(new WP_REST_Request('GET', '/configops/v1/evidence'))->get_data();
+$assert(
+	(int) $automaticSession === (int) ($deliveredEvidence['items'][0]['id'] ?? 0)
+	&& array((int) $automaticSession) === $automaticNotices->pending(1),
+	'Reading automatic evidence must not consume it before the browser confirms that it rendered.'
+);
+$acknowledgeEvidenceRequest = new WP_REST_Request('POST', '/configops/v1/evidence/acknowledge');
+$acknowledgeEvidenceRequest->set_body_params(array('ids' => array((int) $automaticSession)));
+$acknowledgeEvidenceResponse = $restServer->dispatch($acknowledgeEvidenceRequest);
+$assert(
+	200 === $acknowledgeEvidenceResponse->get_status()
+	&& array() === $automaticNotices->pending(1),
+	'Automatic evidence should be consumed only by an explicit browser acknowledgement.'
+);
+$notReadySession = 9999999;
+$automaticNotices->push(1, $notReadySession);
+$notReadyEvidence = $restServer->dispatch(new WP_REST_Request('GET', '/configops/v1/evidence'))->get_data();
+$assert(
+	is_array($notReadyEvidence)
+	&& array() === ($notReadyEvidence['items'] ?? null)
+	&& array($notReadySession) === $automaticNotices->pending(1),
+	'Feedback polling must retain a pointer until the finalized session is visible to its reading worker.'
+);
+$automaticNotices->acknowledge(1, array($notReadySession));
+
+$crossWorkerActor = 4242;
+$crossWorkerOption = 'configops_pending_evidence_' . $crossWorkerActor;
+delete_option($crossWorkerOption);
+get_option($crossWorkerOption, array());
+$crossWorkerSession = 9999998;
+$wpdb->insert(
+	$wpdb->options,
+	array(
+		'option_name'  => $crossWorkerOption,
+		'option_value' => maybe_serialize(
+			array(array('session_id' => $crossWorkerSession, 'recorded_at' => time()))
+		),
+		'autoload'     => 'no',
+	),
+	array('%s', '%s', '%s')
+);
+$assert(
+	array($crossWorkerSession) === $automaticNotices->pending($crossWorkerActor),
+	'Evidence polling must invalidate a worker-local notoptions miss before reading a pointer written elsewhere.'
+);
+delete_option($crossWorkerOption);
 
 $firstBulkMutationId = (int) $bulkFirstPage[array_key_last($bulkFirstPage)]->id;
 $pageRequest = new WP_REST_Request('GET', "/configops/v1/captures/{$bulkSession}/mutations");
@@ -1470,6 +1517,17 @@ $stopRequest = new WP_REST_Request('POST', '/configops/v1/captures/active/stop')
 $stopResponse = $restServer->dispatch($stopRequest);
 $stopData = $stopResponse->get_data();
 $assert(200 === $stopResponse->get_status() && is_array($stopData) && null === $stopData['active'], 'The REST command layer should return the refreshed state after stopping.');
+$defaultStartRequest = new WP_REST_Request('POST', '/configops/v1/captures');
+$defaultStartResponse = $restServer->dispatch($defaultStartRequest);
+$defaultStartData = $defaultStartResponse->get_data();
+$assert(
+	200 === $defaultStartResponse->get_status()
+	&& is_array($defaultStartData)
+	&& 1 === preg_match('/^Capture \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', (string) ($defaultStartData['active']['name'] ?? '')),
+	'Every command transport should use the same bounded default capture name.'
+);
+$defaultStopResponse = $restServer->dispatch(new WP_REST_Request('POST', '/configops/v1/captures/active/stop'));
+$assert(200 === $defaultStopResponse->get_status(), 'A default-named capture should stop through the shared command service.');
 
 $viewerId = wp_create_user('configops-viewer', wp_generate_password(32), 'configops-viewer@example.test');
 $assert(! is_wp_error($viewerId), 'The capability-boundary fixture user should be created.');
@@ -1522,7 +1580,7 @@ wp_dequeue_script('configops-automatic-feedback');
 wp_dequeue_script('configops-runtime');
 $adminController = new \ConfigOps\Admin\AdminController(
 	$freshCaptures,
-	$restore,
+	new \ConfigOps\Command\CaptureCommands($freshCaptures, $restore),
 	new \ConfigOps\Admin\FlashNoticeStore(),
 	$payloadFactory
 );

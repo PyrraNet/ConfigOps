@@ -11,6 +11,30 @@ const browser = await chromium.launch({ executablePath, headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1100 }, deviceScaleFactor: 1 });
 const runtimeErrors = [];
 
+const interceptMutationPayload = (transform) => async (route) => {
+	const url = decodeURIComponent(route.request().url());
+	if (route.request().method() !== 'GET' || !url.includes('/configops/v1/captures/') || !url.includes('/mutations')) {
+		await route.continue();
+
+		return;
+	}
+
+	const response = await route.fetch();
+	const payload = await response.json();
+	await transform(payload);
+	await route.fulfill({ response, json: payload });
+};
+
+const assertNoHorizontalOverflow = async (context) => {
+	const viewport = await page.evaluate(() => ({
+		clientWidth: document.documentElement.clientWidth,
+		scrollWidth: document.documentElement.scrollWidth,
+	}));
+	if (viewport.scrollWidth > viewport.clientWidth) {
+		throw new Error(`${context} caused page-level horizontal overflow on mobile: ${JSON.stringify(viewport)}.`);
+	}
+};
+
 page.on('pageerror', (error) => runtimeErrors.push(error.message));
 
 try {
@@ -200,24 +224,14 @@ try {
 		throw new Error('The captured string value is not rendered with explicit type-preserving quotes.');
 	}
 
-	const injectEmptyBeforeValue = async (route) => {
-		const url = decodeURIComponent(route.request().url());
-		if (route.request().method() !== 'GET' || !url.includes('/configops/v1/captures/') || !url.includes('/mutations')) {
-			await route.continue();
-
-			return;
-		}
-
-		const response = await route.fetch();
-		const payload = await response.json();
+	const injectEmptyBeforeValue = interceptMutationPayload((payload) => {
 		const taglineMutation = payload.groups
 			?.flatMap((group) => group.mutations || [])
 			.find((mutation) => mutation.optionName === 'blogdescription');
 		if (taglineMutation?.diff?.[0]) {
 			taglineMutation.diff[0].before = null;
 		}
-		await route.fulfill({ response, json: payload });
-	};
+	});
 	await page.route('**/*', injectEmptyBeforeValue);
 	await page.reload({ waitUntil: 'networkidle' });
 	const emptyBeforeValue = page.locator('.configops-mutation', { hasText: 'blogdescription' }).first()
@@ -267,13 +281,7 @@ try {
 	if (await page.locator('.configops-session-list').isVisible()) {
 		throw new Error('The long capture history stayed visible beside the mobile chooser.');
 	}
-	const mobileViewport = await page.evaluate(() => ({
-		clientWidth: document.documentElement.clientWidth,
-		scrollWidth: document.documentElement.scrollWidth,
-	}));
-	if (mobileViewport.scrollWidth > mobileViewport.clientWidth) {
-		throw new Error(`ConfigOps caused page-level horizontal overflow on mobile: ${JSON.stringify(mobileViewport)}.`);
-	}
+	await assertNoHorizontalOverflow('ConfigOps review');
 	const mobileTransition = await blogDescriptionRow.locator('.configops-diff-row').first().evaluate((element) => ({
 		display: getComputedStyle(element).display,
 		direction: getComputedStyle(element).flexDirection,
@@ -285,16 +293,7 @@ try {
 	}
 	await page.screenshot({ path: new URL('configops-review-mobile.png', artifacts).pathname, fullPage: true });
 
-	const injectMediaReference = async (route) => {
-		const url = decodeURIComponent(route.request().url());
-		if (route.request().method() !== 'GET' || !url.includes('/configops/v1/captures/') || !url.includes('/mutations')) {
-			await route.continue();
-
-			return;
-		}
-
-		const response = await route.fetch();
-		const payload = await response.json();
+	const injectMediaReference = interceptMutationPayload((payload) => {
 		const firstMutation = payload.groups
 			?.flatMap((group) => group.mutations || [])
 			.find((mutation) => mutation.classification !== 'derived');
@@ -335,8 +334,7 @@ try {
 				preview_url: `${baseUrl}/wp-includes/images/w-logo-blue-white-bg.png`,
 			};
 		}
-		await route.fulfill({ response, json: payload });
-	};
+	});
 	await page.route('**/*', injectMediaReference);
 	await page.setViewportSize({ width: 1440, height: 1100 });
 	await page.reload({ waitUntil: 'networkidle' });
@@ -357,26 +355,11 @@ try {
 	await page.screenshot({ path: new URL('configops-media-review-desktop.png', artifacts).pathname, fullPage: true });
 
 	await page.setViewportSize({ width: 390, height: 844 });
-	const mediaMobileViewport = await page.evaluate(() => ({
-		clientWidth: document.documentElement.clientWidth,
-		scrollWidth: document.documentElement.scrollWidth,
-	}));
-	if (mediaMobileViewport.scrollWidth > mediaMobileViewport.clientWidth) {
-		throw new Error(`Media reference review caused page-level mobile overflow: ${JSON.stringify(mediaMobileViewport)}.`);
-	}
+	await assertNoHorizontalOverflow('Media reference review');
 	await page.screenshot({ path: new URL('configops-media-review-mobile.png', artifacts).pathname, fullPage: true });
 	await page.unroute('**/*', injectMediaReference);
 
-	const injectContentReference = async (route) => {
-		const url = decodeURIComponent(route.request().url());
-		if (route.request().method() !== 'GET' || !url.includes('/configops/v1/captures/') || !url.includes('/mutations')) {
-			await route.continue();
-
-			return;
-		}
-
-		const response = await route.fetch();
-		const payload = await response.json();
+	const injectContentReference = interceptMutationPayload((payload) => {
 		const firstMutation = payload.groups?.flatMap((group) => group.mutations || [])[0];
 		const firstChange = firstMutation?.diff?.[0];
 		if (firstMutation && firstChange) {
@@ -409,8 +392,7 @@ try {
 				post_status: 'publish',
 			};
 		}
-		await route.fulfill({ response, json: payload });
-	};
+	});
 	await page.route('**/*', injectContentReference);
 	await page.setViewportSize({ width: 1440, height: 1100 });
 	await page.reload({ waitUntil: 'networkidle' });
@@ -425,26 +407,11 @@ try {
 	await page.screenshot({ path: new URL('configops-content-review-desktop.png', artifacts).pathname, fullPage: true });
 
 	await page.setViewportSize({ width: 390, height: 844 });
-	const contentMobileViewport = await page.evaluate(() => ({
-		clientWidth: document.documentElement.clientWidth,
-		scrollWidth: document.documentElement.scrollWidth,
-	}));
-	if (contentMobileViewport.scrollWidth > contentMobileViewport.clientWidth) {
-		throw new Error(`Content reference review caused page-level mobile overflow: ${JSON.stringify(contentMobileViewport)}.`);
-	}
+	await assertNoHorizontalOverflow('Content reference review');
 	await page.screenshot({ path: new URL('configops-content-review-mobile.png', artifacts).pathname, fullPage: true });
 	await page.unroute('**/*', injectContentReference);
 
-	const injectIncompleteCapture = async (route) => {
-		const url = decodeURIComponent(route.request().url());
-		if (route.request().method() !== 'GET' || !url.includes('/configops/v1/captures/') || !url.includes('/mutations')) {
-			await route.continue();
-
-			return;
-		}
-
-		const response = await route.fetch();
-		const payload = await response.json();
+	const injectIncompleteCapture = interceptMutationPayload((payload) => {
 		payload.summary.captureErrors = 2;
 		payload.summary.allRestorable = false;
 		const firstMutation = payload.groups
@@ -461,8 +428,7 @@ try {
 				finishedAtLabel: '2026-08-12 12:00:00',
 			};
 		}
-		await route.fulfill({ response, json: payload });
-	};
+	});
 	await page.route('**/*', injectIncompleteCapture);
 	await page.setViewportSize({ width: 1440, height: 1100 });
 	await page.reload({ waitUntil: 'networkidle' });
@@ -482,13 +448,7 @@ try {
 	await page.screenshot({ path: new URL('configops-incomplete-capture-desktop.png', artifacts).pathname, fullPage: true });
 
 	await page.setViewportSize({ width: 390, height: 844 });
-	const incompleteMobileViewport = await page.evaluate(() => ({
-		clientWidth: document.documentElement.clientWidth,
-		scrollWidth: document.documentElement.scrollWidth,
-	}));
-	if (incompleteMobileViewport.scrollWidth > incompleteMobileViewport.clientWidth) {
-		throw new Error(`Capture integrity warning caused page-level mobile overflow: ${JSON.stringify(incompleteMobileViewport)}.`);
-	}
+	await assertNoHorizontalOverflow('Capture integrity warning');
 	await page.screenshot({ path: new URL('configops-incomplete-capture-mobile.png', artifacts).pathname, fullPage: true });
 	await page.unroute('**/*', injectIncompleteCapture);
 
@@ -509,13 +469,7 @@ try {
 	await page.screenshot({ path: new URL('configops-support-desktop.png', artifacts).pathname, fullPage: true });
 
 	await page.setViewportSize({ width: 390, height: 844 });
-	const supportViewport = await page.evaluate(() => ({
-		clientWidth: document.documentElement.clientWidth,
-		scrollWidth: document.documentElement.scrollWidth,
-	}));
-	if (supportViewport.scrollWidth > supportViewport.clientWidth) {
-		throw new Error(`Supported plugins caused page-level horizontal overflow on mobile: ${JSON.stringify(supportViewport)}.`);
-	}
+	await assertNoHorizontalOverflow('Supported plugins');
 	await page.screenshot({ path: new URL('configops-support-mobile.png', artifacts).pathname, fullPage: true });
 
 	await page.goto(`${baseUrl}/wp-admin/options-general.php`, { waitUntil: 'networkidle' });

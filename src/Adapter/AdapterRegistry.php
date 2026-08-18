@@ -155,21 +155,19 @@ final class AdapterRegistry implements SensitiveValueDetector, OptionValueNormal
 				0
 			);
 		}
-		$version       = $this->installedVersion($manifest);
+		$runtime       = $this->runtimeCompatibility($manifest);
+		$version       = $runtime['version'];
 		$reason        = $analysis->reason;
 		$allowsRestore = $analysis->allowsGenericRestore;
-		$compatible    = false;
 		if (null === $version) {
 			$reason = 'The owning plugin version is unavailable. ' . $reason;
 			$allowsRestore = false;
-		} elseif (! $this->versionMatches($version, $manifest->testedVersion)) {
+		} elseif (! $runtime['compatible']) {
 			$reason = sprintf('Version %s is outside the adapter’s tested range %s. %s', $version, $manifest->testedVersion, $reason);
 			$allowsRestore = false;
-		} else {
-			$compatible = true;
 		}
 
-		$safeRestoreCount = $compatible && $this->manifestSupportsRestore($manifest)
+		$safeRestoreCount = $runtime['compatible'] && $this->manifestSupportsRestore($manifest)
 			? count(array_filter($changes, $this->isSafePatchChange(...)))
 			: 0;
 
@@ -204,12 +202,7 @@ final class AdapterRegistry implements SensitiveValueDetector, OptionValueNormal
 			return array();
 		}
 
-		$version = $this->installedVersion($manifest);
-		if (
-			null === $version
-			|| ! $this->versionMatches($version, $manifest->testedVersion)
-			|| ! $this->manifestSupportsRestore($manifest)
-		) {
+		if (! $this->runtimeCompatibility($manifest)['compatible'] || ! $this->manifestSupportsRestore($manifest)) {
 			return array();
 		}
 
@@ -252,8 +245,7 @@ final class AdapterRegistry implements SensitiveValueDetector, OptionValueNormal
 		if (null === $manifest) {
 			return $value;
 		}
-		$version = $this->installedVersion($manifest);
-		if (null === $version || ! $this->versionMatches($version, $manifest->testedVersion)) {
+		if (! $this->runtimeCompatibility($manifest)['compatible']) {
 			return $value;
 		}
 
@@ -275,12 +267,7 @@ final class AdapterRegistry implements SensitiveValueDetector, OptionValueNormal
 			}
 
 			$manifest = $this->manifests[$adapterId] ?? null;
-			$version  = null === $manifest ? null : $this->installedVersion($manifest);
-			if (
-				null === $manifest
-				|| null === $version
-				|| ! $this->versionMatches($version, $manifest->testedVersion)
-			) {
+			if (null === $manifest || ! $this->runtimeCompatibility($manifest)['compatible']) {
 				continue;
 			}
 
@@ -496,19 +483,17 @@ final class AdapterRegistry implements SensitiveValueDetector, OptionValueNormal
 	public function supportPayload(): array
 	{
 		$result = array();
-		foreach ($this->manifests as $adapterId => $manifest) {
-			$version    = $this->installedVersion($manifest);
-			$active     = $this->isActive($manifest);
-			$compatible = null !== $version && $this->versionMatches($version, $manifest->testedVersion);
+		foreach ($this->manifests as $manifest) {
+			$runtime = $this->runtimeCompatibility($manifest);
 
 			$result[] = array(
 				'id'            => $manifest->id,
 				'name'          => $manifest->name,
-				'installed'     => null !== $version,
-				'active'        => $active,
-				'version'       => $version,
+				'installed'     => null !== $runtime['version'],
+				'active'        => $this->isActive($manifest),
+				'version'       => $runtime['version'],
 				'testedVersion' => $manifest->testedVersion,
-				'compatible'    => $compatible,
+				'compatible'    => $runtime['compatible'],
 				'schemaVersion' => $manifest->schemaVersion,
 				'componentType' => $manifest->componentType,
 				'capabilities'  => $manifest->capabilities,
@@ -658,6 +643,21 @@ final class AdapterRegistry implements SensitiveValueDetector, OptionValueNormal
 		$this->versions[$manifest->id] = $version;
 
 		return '' === $version ? null : $version;
+	}
+
+	/**
+	 * Resolve the one version compatibility policy used by every adapter path.
+	 *
+	 * @return array{version: ?string, compatible: bool}
+	 */
+	private function runtimeCompatibility(AdapterManifest $manifest): array
+	{
+		$version = $this->installedVersion($manifest);
+
+		return array(
+			'version'    => $version,
+			'compatible' => null !== $version && $this->versionMatches($version, $manifest->testedVersion),
+		);
 	}
 
 	private function isActive(AdapterManifest $manifest): bool

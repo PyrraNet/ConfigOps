@@ -22,6 +22,7 @@ use ConfigOps\Adapter\YoastSeoAdapter;
 use ConfigOps\Adapter\AdapterRegistry;
 use ConfigOps\Adapter\AdapterAnalysis;
 use ConfigOps\Adapter\AdapterManifest;
+use ConfigOps\Adapter\BuiltInAdapters;
 use ConfigOps\Adapter\ConfigAdapter;
 use ConfigOps\Adapter\FieldDefinition;
 use ConfigOps\Capture\HeuristicSensitiveValueDetector;
@@ -418,7 +419,15 @@ $commentMigrationFinished = $noise->classify('finished_updating_comment_type');
 $assert('derived' === $commentMigrationLock['classification'], 'A WordPress comment-type migration lock must not appear as a user setting.');
 $assert('derived' === $commentMigrationFinished['classification'], 'WordPress comment-type migration completion state must stay in the technical filter.');
 
-$registry = new AdapterRegistry(array($coreAdapter, $mailAdapter, $yoastAdapter), new NoiseClassifier(), new HeuristicSensitiveValueDetector());
+$builtInAdapters = BuiltInAdapters::create();
+$assert(
+	array('wordpress-core', 'wp-mail-smtp', 'yoast-seo') === array_map(
+		static fn (ConfigAdapter $adapter): string => $adapter->manifest()->id,
+		$builtInAdapters
+	),
+	'The canonical built-in adapter set should retain every shipped integration in stable order.'
+);
+$registry = new AdapterRegistry($builtInAdapters, new NoiseClassifier(), new HeuristicSensitiveValueDetector());
 $coreMedia = $registry->analyze(
 	'site_icon',
 	array(array('op' => 'replace', 'path' => '/', 'before' => 0, 'after' => 99999999))

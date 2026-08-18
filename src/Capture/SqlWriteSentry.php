@@ -171,21 +171,14 @@ final class SqlWriteSentry
 		}
 
 		$id = $this->signals->insert(
-			array(
-				'session_id'       => $sessionId,
-				'request_id'        => $this->request->id(),
-				'operation'         => $operation,
-				'table_name'        => $table,
-				'occurrence_count'  => 1,
-				'source_type'       => $source['type'],
-				'source_component'  => $source['component'],
-				'source_file'       => $source['file'],
-				'source_line'       => $source['line'],
-				'request_method'    => $this->request->method(),
-				'request_uri'       => $this->request->uri(),
-				'admin_screen'      => $this->request->adminScreen(),
-				'actor_id'          => $this->request->actorId(),
-				'occurred_at'       => current_time('mysql', true),
+			array_merge(
+				array(
+					'session_id'      => $sessionId,
+					'operation'        => $operation,
+					'table_name'       => $table,
+					'occurrence_count' => 1,
+				),
+				$this->request->evidenceMetadata($source)
 			)
 		);
 		$this->signalIds[$signature] = $id;

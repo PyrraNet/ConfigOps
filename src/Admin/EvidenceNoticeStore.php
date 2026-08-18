@@ -37,17 +37,56 @@ final class EvidenceNoticeStore
 	/**
 	 * @return list<int>
 	 */
-	public function pull(int $actorId): array
+	public function pending(int $actorId): array
 	{
 		if ($actorId <= 0) {
 			return array();
 		}
 
-		$option = $this->optionName($actorId);
-		$items  = $this->read($actorId);
-		delete_option($option);
+		return array_values(array_map(static fn (array $item): int => $item['session_id'], $this->read($actorId)));
+	}
 
-		return array_values(array_map(static fn (array $item): int => $item['session_id'], $items));
+	/**
+	 * @param list<int> $sessionIds Materialized evidence IDs.
+	 */
+	public function acknowledge(int $actorId, array $sessionIds): void
+	{
+		$sessionIds = array_fill_keys(
+			array_filter(array_map('absint', $sessionIds), static fn (int $sessionId): bool => $sessionId > 0),
+			true
+		);
+		if ($actorId <= 0 || empty($sessionIds)) {
+			return;
+		}
+
+		$items = $this->read($actorId);
+		$remaining = array_values(
+			array_filter(
+				$items,
+				static fn (array $item): bool => ! isset($sessionIds[$item['session_id']])
+			)
+		);
+		if (count($remaining) === count($items)) {
+			return;
+		}
+
+		$option = $this->optionName($actorId);
+		if (empty($remaining)) {
+			delete_option($option);
+		} else {
+			update_option($option, $remaining, false);
+		}
+	}
+
+	/**
+	 * @return list<int>
+	 */
+	public function pull(int $actorId): array
+	{
+		$sessionIds = $this->pending($actorId);
+		$this->acknowledge($actorId, $sessionIds);
+
+		return $sessionIds;
 	}
 
 	/**
@@ -55,7 +94,13 @@ final class EvidenceNoticeStore
 	 */
 	private function read(int $actorId): array
 	{
-		$stored = get_option($this->optionName($actorId), array());
+		$option = $this->optionName($actorId);
+		// Long-running workers can retain both a stale option value and a stale
+		// `notoptions` miss. Evidence polling must observe a pointer finalized by
+		// another request worker without waiting for either local cache to expire.
+		wp_cache_delete($option, 'options');
+		wp_cache_delete('notoptions', 'options');
+		$stored = get_option($option, array());
 		if (! is_array($stored)) {
 			return array();
 		}

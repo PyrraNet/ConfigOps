@@ -11,9 +11,7 @@ namespace ConfigOps;
 
 use ConfigOps\Access\CapabilityManager;
 use ConfigOps\Adapter\AdapterRegistry;
-use ConfigOps\Adapter\WordPressCoreAdapter;
-use ConfigOps\Adapter\WpMailSmtpAdapter;
-use ConfigOps\Adapter\YoastSeoAdapter;
+use ConfigOps\Adapter\BuiltInAdapters;
 use ConfigOps\Admin\AdminPayloadFactory;
 use ConfigOps\Admin\AdminController;
 use ConfigOps\Admin\EvidenceNoticeStore;
@@ -29,6 +27,7 @@ use ConfigOps\Capture\RequestContext;
 use ConfigOps\Capture\SqlWriteSentry;
 use ConfigOps\Capture\SourceAttributor;
 use ConfigOps\Capture\ValueCodec;
+use ConfigOps\Command\CaptureCommands;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\DatabaseWriteSignalRepository;
 use ConfigOps\Database\MutationRepository;
@@ -61,7 +60,7 @@ final class Plugin
 		$mutations = new MutationRepository($wpdb);
 		$signals   = new DatabaseWriteSignalRepository($wpdb);
 		$metadata  = new OptionMetadataRepository($wpdb);
-		$builtInAdapters = array(new WordPressCoreAdapter(), new WpMailSmtpAdapter(), new YoastSeoAdapter());
+		$builtInAdapters = BuiltInAdapters::create();
 		try {
 			$adapterList = apply_filters('configops_adapters', $builtInAdapters);
 		} catch (\Throwable $error) {
@@ -114,6 +113,7 @@ final class Plugin
 			$adapters,
 			$restoreAudits
 		);
+		$commands  = new CaptureCommands($captures, $restore, $automatic);
 		$presenter = new ReviewPresenter($adapters);
 		$payloads  = new AdminPayloadFactory(
 			$captures,
@@ -124,8 +124,8 @@ final class Plugin
 			$restoreAudits
 		);
 
-		(new RestController($captures, $mutations, $restore, $payloads, $evidenceNotices, $automatic))->register();
-		(new AdminController($captures, $restore, new FlashNoticeStore(), $payloads, $automatic))->register();
+		(new RestController($captures, $mutations, $commands, $payloads, $evidenceNotices))->register();
+		(new AdminController($captures, $commands, new FlashNoticeStore(), $payloads))->register();
 	}
 
 	public static function boot(): void

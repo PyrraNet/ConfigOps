@@ -11,10 +11,9 @@ namespace ConfigOps\Api;
 
 use ConfigOps\Admin\AdminPayloadFactory;
 use ConfigOps\Admin\EvidenceNoticeStore;
-use ConfigOps\Capture\AutomaticRecorder;
+use ConfigOps\Command\CaptureCommands;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\MutationRepository;
-use ConfigOps\Restore\RestoreService;
 use Throwable;
 use WP_Error;
 use WP_REST_Request;
@@ -26,10 +25,9 @@ final class RestController
 	public function __construct(
 		private readonly CaptureRepository $captures,
 		private readonly MutationRepository $mutations,
-		private readonly RestoreService $restore,
+		private readonly CaptureCommands $commands,
 		private readonly AdminPayloadFactory $payloads,
-		private readonly ?EvidenceNoticeStore $evidenceNotices = null,
-		private readonly ?AutomaticRecorder $automatic = null
+		private readonly ?EvidenceNoticeStore $evidenceNotices = null
 	) {
 	}
 
@@ -54,6 +52,21 @@ final class RestController
 				WP_REST_Server::READABLE,
 				'evidence',
 				'configops_view'
+			);
+			$this->registerRoute(
+				'/evidence/acknowledge',
+				WP_REST_Server::CREATABLE,
+				'acknowledgeEvidence',
+				'configops_view',
+				array(
+					'ids' => array(
+						'type'     => 'array',
+						'required' => true,
+						'minItems' => 1,
+						'maxItems' => 5,
+						'items'    => array('type' => 'integer', 'minimum' => 1),
+					),
+				)
 			);
 		}
 
@@ -107,7 +120,7 @@ final class RestController
 	}
 
 	/**
-	 * @param array<string, array<string, bool|int|string>> $args
+	 * @param array<string, array<string, mixed>> $args
 	 */
 	private function registerRoute(string $path, string $methods, string $callback, string $capability, array $args = array()): void
 	{
@@ -145,27 +158,30 @@ final class RestController
 
 	public function evidence(): WP_REST_Response
 	{
+		$actorId = get_current_user_id();
 		$sessionIds = null === $this->evidenceNotices
 			? array()
-			: $this->evidenceNotices->pull(get_current_user_id());
+			: $this->evidenceNotices->pending($actorId);
+		$items = $this->payloads->evidence($sessionIds);
 
-		return $this->response(array('items' => $this->payloads->evidence($sessionIds)));
+		return $this->response(array('items' => $items));
+	}
+
+	public function acknowledgeEvidence(WP_REST_Request $request): WP_REST_Response
+	{
+		$sessionIds = array_values(array_map('absint', (array) $request['ids']));
+		$this->evidenceNotices?->acknowledge(get_current_user_id(), $sessionIds);
+
+		return $this->response(array('acknowledged' => $sessionIds));
 	}
 
 	public function startCapture(WP_REST_Request $request): WP_REST_Response|WP_Error
 	{
 		$name = sanitize_text_field((string) $request['name']);
-		if ('' === $name) {
-			$name = sprintf(
-				/* translators: %s: UTC date and time. */
-				__('Capture %s', 'configops'),
-				gmdate('Y-m-d H:i')
-			);
-		}
 
 		return $this->command(
 			function () use ($name): array {
-				$id = $this->captures->start($name, get_current_user_id(), wp_get_referer() ?: admin_url());
+				$id = $this->commands->start($name);
 
 				return $this->payloads->state($id, 'started');
 			}
@@ -176,7 +192,7 @@ final class RestController
 	{
 		return $this->command(
 			function (): array {
-				$id = $this->captures->stop();
+				$id = $this->commands->stop();
 
 				return $this->payloads->state($id, null === $id ? 'nothing-to-stop' : 'stopped');
 			}
@@ -192,7 +208,7 @@ final class RestController
 
 		return $this->command(
 			function () use ($mutation): array {
-				$this->restore->restoreMutation((int) $mutation->id);
+				$this->commands->restoreMutation((int) $mutation->id);
 
 				return $this->payloads->state((int) $mutation->session_id, 'mutation-restored');
 			}
@@ -205,7 +221,7 @@ final class RestController
 
 		return $this->command(
 			function () use ($sessionId): array {
-				$count = $this->restore->restoreSession($sessionId);
+				$count = $this->commands->restoreSession($sessionId);
 
 				return $this->payloads->state($sessionId, 'session-restored', (string) $count);
 			}
@@ -217,8 +233,6 @@ final class RestController
 	 */
 	private function command(callable $operation): WP_REST_Response|WP_Error
 	{
-		$this->automatic?->suppress();
-
 		try {
 			return $this->response($operation());
 		} catch (Throwable $error) {

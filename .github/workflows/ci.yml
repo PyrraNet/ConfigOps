@@ -264,15 +264,10 @@ jobs:
             --login > /tmp/configops-adapter-ui.log 2>&1 &
           playground_pid=$!
           trap 'kill "$playground_pid" 2>/dev/null || true' EXIT
-          for attempt in {1..60}; do
-            if curl --fail --silent --location http://127.0.0.1:9401/wp-login.php > /dev/null; then
-              npm run test:adapter-ui
-              exit $?
-            fi
-            sleep 1
-          done
-          cat /tmp/configops-adapter-ui.log
-          exit 1
+          bash tests/wait-for-http.sh \
+            http://127.0.0.1:9401/wp-login.php \
+            /tmp/configops-adapter-ui.log \
+            npm run test:adapter-ui
 
       - name: Upload browser evidence on failure
         if: failure()
@@ -352,15 +347,10 @@ jobs:
           PHP_CLI_SERVER_WORKERS=6 php -S 127.0.0.1:9402 -t "${{ runner.temp }}/configops-native-wordpress" > /tmp/configops-native-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-          for attempt in {1..60}; do
-            if curl --fail --silent http://127.0.0.1:9402/wp-login.php > /dev/null; then
-              npm run test:adapter-ui
-              exit $?
-            fi
-            sleep 1
-          done
-          cat /tmp/configops-native-server.log
-          exit 1
+          bash tests/wait-for-http.sh \
+            http://127.0.0.1:9402/wp-login.php \
+            /tmp/configops-native-server.log \
+            npm run test:adapter-ui
 
       - name: Run exact adapter contracts on the native database
         env:

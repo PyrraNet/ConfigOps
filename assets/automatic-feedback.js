@@ -2,13 +2,21 @@
 	'use strict';
 
 	const settings = window.configOpsFeedback;
-	if (!settings || typeof settings.endpoint !== 'string' || typeof settings.nonce !== 'string') {
+	if (
+		!settings
+		|| typeof settings.endpoint !== 'string'
+		|| typeof settings.acknowledgeEndpoint !== 'string'
+		|| typeof settings.nonce !== 'string'
+	) {
 		return;
 	}
 
 	const { __, _n, sprintf } = window.wp.i18n;
 	let request = null;
 	let timers = [];
+	let suspended = false;
+	let acknowledgementTimer = null;
+	let acknowledgementRequest = null;
 
 	const container = () => {
 		let node = document.getElementById('configops-evidence-stack');
@@ -38,7 +46,7 @@
 
 	const render = (item) => {
 		if (!item || !Number.isInteger(item.id) || document.querySelector(`[data-configops-evidence="${item.id}"]`)) {
-			return;
+			return false;
 		}
 
 		const card = document.createElement('section');
@@ -109,52 +117,131 @@
 
 		card.append(close, eyebrow, title, metrics, actions);
 		container().append(card);
+
+		return true;
 	};
 
 	const poll = async () => {
-		if (request || document.visibilityState === 'hidden') {
+		if (request || suspended || document.visibilityState === 'hidden') {
 			return;
 		}
 
-		request = fetch(settings.endpoint, {
-			credentials: 'same-origin',
-			headers: { 'X-WP-Nonce': settings.nonce },
-		});
+		const controller = new AbortController();
+		request = controller;
 		try {
-			const response = await request;
+			const response = await fetch(settings.endpoint, {
+				credentials: 'same-origin',
+				headers: { 'X-WP-Nonce': settings.nonce },
+				signal: controller.signal,
+			});
 			if (!response.ok) {
 				return;
 			}
 			const payload = await response.json();
-			for (const item of Array.isArray(payload.items) ? payload.items : []) {
-				render(item);
+			const items = Array.isArray(payload.items) ? payload.items : [];
+			const renderedIds = [];
+			for (const item of items) {
+				if (render(item)) {
+					renderedIds.push(item.id);
+				}
 			}
+			queueAcknowledgement(renderedIds);
 		} catch (error) {
 			// Feedback is progressive enhancement; settings saves must stay untouched.
 		} finally {
-			request = null;
+			if (request === controller) {
+				request = null;
+			}
 		}
 	};
 
 	const schedule = () => {
+		if (suspended) {
+			return;
+		}
 		for (const timer of timers) {
 			window.clearTimeout(timer);
 		}
 		timers = [1200, 3000, 7000, 15000].map((delay) => window.setTimeout(poll, delay));
 	};
 
+	const acknowledge = async (ids) => {
+		if (ids.length === 0 || suspended || acknowledgementRequest) {
+			return;
+		}
+
+		const controller = new AbortController();
+		const timeout = window.setTimeout(() => controller.abort(), 5000);
+		acknowledgementRequest = controller;
+		try {
+			const response = await fetch(settings.acknowledgeEndpoint, {
+				method: 'POST',
+				credentials: 'same-origin',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-WP-Nonce': settings.nonce,
+				},
+				body: JSON.stringify({ ids }),
+				signal: controller.signal,
+			});
+			await response.json();
+		} catch (error) {
+			// A later poll can acknowledge evidence that is already visible.
+		} finally {
+			window.clearTimeout(timeout);
+			if (acknowledgementRequest === controller) {
+				acknowledgementRequest = null;
+			}
+		}
+	};
+
+	const queueAcknowledgement = (ids) => {
+		if (ids.length === 0 || suspended) {
+			return;
+		}
+
+		window.clearTimeout(acknowledgementTimer);
+		acknowledgementTimer = window.setTimeout(() => {
+			acknowledgementTimer = null;
+			acknowledge(ids);
+		}, 1500);
+	};
+
+	const suspend = () => {
+		suspended = true;
+		for (const timer of timers) {
+			window.clearTimeout(timer);
+		}
+		timers = [];
+		request?.abort();
+		window.clearTimeout(acknowledgementTimer);
+		acknowledgementTimer = null;
+		acknowledgementRequest?.abort();
+	};
+
 	document.addEventListener('input', schedule, true);
 	document.addEventListener('change', schedule, true);
-	document.addEventListener('submit', schedule, true);
+	document.addEventListener('submit', suspend, true);
 	document.addEventListener('click', (event) => {
-		if (event.target instanceof Element && event.target.closest('button, input[type="button"], input[type="submit"]')) {
+		if (event.target instanceof Element && event.target.closest('button[type="button"], input[type="button"]')) {
 			schedule();
 		}
 	}, true);
+	window.addEventListener('pagehide', suspend);
+	window.addEventListener('pageshow', (event) => {
+		if (event.persisted) {
+			suspended = false;
+			schedule();
+			poll();
+		}
+	});
 	document.addEventListener('visibilitychange', () => {
 		if (document.visibilityState === 'visible') {
 			poll();
 		}
 	});
+	// The automatic session is finalized by a shutdown hook, which can complete
+	// just after the next admin page starts loading.
+	schedule();
 	poll();
 })();

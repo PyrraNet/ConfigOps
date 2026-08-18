@@ -116,24 +116,17 @@ final class MutationRepository
 	 */
 	public function iterateForSession(int $sessionId, int $batchSize = 500): Generator
 	{
-		$batchSize = max(1, min(1000, $batchSize));
-		$lastId    = 0;
-
-		do {
-			$rows = $this->database->get_results(
+		yield from $this->iterateBatches(
+			$batchSize,
+			fn (int $lastId, int $limit): ?array => $this->database->get_results(
 				$this->database->prepare(
 					"SELECT * FROM {$this->table} WHERE session_id = %d AND id > %d ORDER BY id ASC LIMIT %d",
 					$sessionId,
 					$lastId,
-					$batchSize
+					$limit
 				)
-			);
-			$rows = is_array($rows) ? $rows : array();
-			foreach ($rows as $row) {
-				$lastId = (int) $row->id;
-				yield $row;
-			}
-		} while (count($rows) === $batchSize);
+			)
+		);
 	}
 
 	/**
@@ -143,11 +136,9 @@ final class MutationRepository
 	 */
 	public function iterateRestoreForSession(int $sessionId, int $batchSize = 500): Generator
 	{
-		$batchSize = max(1, min(1000, $batchSize));
-		$lastId    = 0;
-
-		do {
-			$rows = $this->database->get_results(
+		yield from $this->iterateBatches(
+			$batchSize,
+			fn (int $lastId, int $limit): ?array => $this->database->get_results(
 				$this->database->prepare(
 					"SELECT id, option_name, old_value, new_value, diff, old_autoload, new_autoload, restorable, restore_mode, classification, adapter_id, adapter_schema_version
 					FROM {$this->table}
@@ -156,9 +147,23 @@ final class MutationRepository
 					LIMIT %d",
 					$sessionId,
 					$lastId,
-					$batchSize
+					$limit
 				)
-			);
+			)
+		);
+	}
+
+	/**
+	 * @param callable(int, int): array<int, object>|null $loadBatch Keyset page loader.
+	 * @return Generator<int, object>
+	 */
+	private function iterateBatches(int $batchSize, callable $loadBatch): Generator
+	{
+		$batchSize = max(1, min(1000, $batchSize));
+		$lastId    = 0;
+
+		do {
+			$rows = $loadBatch($lastId, $batchSize);
 			$rows = is_array($rows) ? $rows : array();
 			foreach ($rows as $row) {
 				$lastId = (int) $row->id;

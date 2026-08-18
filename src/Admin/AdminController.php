@@ -10,10 +10,9 @@ declare(strict_types=1);
 namespace ConfigOps\Admin;
 
 use ConfigOps\Api\RestRoutes;
-use ConfigOps\Capture\AutomaticRecorder;
 use ConfigOps\Capture\IntentContext;
+use ConfigOps\Command\CaptureCommands;
 use ConfigOps\Database\CaptureRepository;
-use ConfigOps\Restore\RestoreService;
 use Throwable;
 use WP_Admin_Bar;
 
@@ -23,10 +22,9 @@ final class AdminController
 
 	public function __construct(
 		private readonly CaptureRepository $captures,
-		private readonly RestoreService $restore,
+		private readonly CaptureCommands $commands,
 		private readonly FlashNoticeStore $notices,
-		private readonly AdminPayloadFactory $payloads,
-		private readonly ?AutomaticRecorder $automatic = null
+		private readonly AdminPayloadFactory $payloads
 	) {
 	}
 
@@ -94,8 +92,9 @@ final class AdminController
 			wp_set_script_translations('configops-automatic-feedback', 'configops');
 			$feedback = wp_json_encode(
 				array(
-					'endpoint' => rest_url(RestRoutes::NAMESPACE . '/evidence'),
-					'nonce'    => wp_create_nonce('wp_rest'),
+					'endpoint'            => rest_url(RestRoutes::NAMESPACE . '/evidence'),
+					'acknowledgeEndpoint' => rest_url(RestRoutes::NAMESPACE . '/evidence/acknowledge'),
+					'nonce'               => wp_create_nonce('wp_rest'),
 				)
 			);
 			if (is_string($feedback)) {
@@ -202,19 +201,11 @@ final class AdminController
 	{
 		$this->authorize('configops_capture');
 		check_admin_referer('configops_start_capture');
-		$this->automatic?->suppress();
 
 		$name = isset($_POST['capture_name']) ? sanitize_text_field(wp_unslash($_POST['capture_name'])) : '';
-		if ('' === $name) {
-			$name = sprintf(
-				/* translators: %s: UTC date and time. */
-				__('Capture %s', 'configops'),
-				gmdate('Y-m-d H:i')
-			);
-		}
 
 		try {
-			$id = $this->captures->start($name, get_current_user_id(), wp_get_referer() ?: admin_url());
+			$id = $this->commands->start($name);
 			$this->redirect('started', '', $id);
 		} catch (Throwable $error) {
 			$this->redirect('error', $error->getMessage());
@@ -225,10 +216,9 @@ final class AdminController
 	{
 		$this->authorize('configops_capture');
 		check_admin_referer('configops_stop_capture');
-		$this->automatic?->suppress();
 
 		try {
-			$id = $this->captures->stop();
+			$id = $this->commands->stop();
 			$this->redirect(null === $id ? 'nothing-to-stop' : 'stopped', '', $id);
 		} catch (Throwable $error) {
 			$this->redirect('error', $error->getMessage());
@@ -239,11 +229,10 @@ final class AdminController
 	{
 		$this->authorize('configops_rollback');
 		check_admin_referer('configops_restore_mutation');
-		$this->automatic?->suppress();
 		$id = isset($_POST['mutation_id']) ? absint($_POST['mutation_id']) : 0;
 
 		try {
-			$this->restore->restoreMutation($id);
+			$this->commands->restoreMutation($id);
 			$this->redirect('mutation-restored');
 		} catch (Throwable $error) {
 			$this->redirect('error', $error->getMessage());
@@ -254,11 +243,10 @@ final class AdminController
 	{
 		$this->authorize('configops_rollback');
 		check_admin_referer('configops_restore_session');
-		$this->automatic?->suppress();
 		$id = isset($_POST['session_id']) ? absint($_POST['session_id']) : 0;
 
 		try {
-			$count = $this->restore->restoreSession($id);
+			$count = $this->commands->restoreSession($id);
 			$this->redirect('session-restored', (string) $count, $id);
 		} catch (Throwable $error) {
 			$this->redirect('error', $error->getMessage(), $id);

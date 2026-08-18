@@ -42,7 +42,7 @@ $captures  = new \ConfigOps\Database\CaptureRepository($wpdb);
 $mutations = new \ConfigOps\Database\MutationRepository($wpdb);
 $signals   = new \ConfigOps\Database\DatabaseWriteSignalRepository($wpdb);
 $adapters  = new \ConfigOps\Adapter\AdapterRegistry(
-	array(new \ConfigOps\Adapter\WordPressCoreAdapter(), new \ConfigOps\Adapter\WpMailSmtpAdapter(), new \ConfigOps\Adapter\YoastSeoAdapter()),
+	\ConfigOps\Adapter\BuiltInAdapters::create(),
 	new \ConfigOps\Noise\NoiseClassifier(),
 	new \ConfigOps\Capture\HeuristicSensitiveValueDetector()
 );
