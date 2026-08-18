@@ -19,6 +19,7 @@ const githubReadme = read('README.md');
 const readme = read('readme.txt');
 const changelog = read('CHANGELOG.md');
 const security = read('SECURITY.md');
+const docsConfig = read('docs/.vitepress/config.mjs');
 const docsHome = read('docs/.vitepress/theme/components/DocsHome.vue');
 const docsRelease = read(`docs/releases/${packageJson.version}.md`);
 
@@ -54,11 +55,17 @@ if (!docsHome.includes(`Documentation · ${headerVersion}`) || !docsRelease.incl
 if (/github\.com\/PyrraNet(?:\/ConfigOps)?/i.test(`${plugin}\n${githubReadme}\n${readme}`)) {
 	fail('public plugin metadata must not link to the private GitHub repository or organization page');
 }
-if (!/^ \* Author URI:\s+https:\/\/www\.pyrra\.net\/$/m.test(plugin)) {
-	fail('plugin author URI must use the public pyrra website');
+if (!/^ \* Plugin URI:\s+https:\/\/configops\.pyrra\.net\/$/m.test(plugin)) {
+	fail('plugin URI must use the public ConfigOps website');
+}
+if (!/^ \* Author URI:\s+https:\/\/configops\.pyrra\.net\/$/m.test(plugin)) {
+	fail('plugin author URI must use the public ConfigOps website');
 }
 if (!/^ \* Author:\s+pyrra$/m.test(plugin)) {
 	fail('plugin author must be pyrra');
+}
+if (!githubReadme.includes('https://configops.pyrra.net/docs/') || !docsConfig.includes("hostname: 'https://configops.pyrra.net/docs/'")) {
+	fail('public documentation URLs must use the ConfigOps /docs/ site');
 }
 if (!/^Contributors:\s+pyrra$/m.test(readme)) {
 	fail('WordPress contributor must be pyrra');

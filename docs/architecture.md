@@ -1,6 +1,6 @@
 # Architecture decision: Observer first
 
-Status: accepted for Iteration 0; automatic-observation contract amended for 0.3.0
+Status: accepted for Iteration 0; automatic-observation delivery amended for 0.3.1
 Date: 2026-08-13
 
 ## Decision
@@ -13,7 +13,7 @@ JavaScript is the interaction layer and may later observe labels, field names, t
 
 `update_option()` and its hooks execute inside PHP. Capturing old and new typed values, the current actor, request metadata, and the responsible call path is both more precise and cheaper in that same process. Reconstructing this from browser requests or database polling would lose internal writes, invent correlations, and complicate deployment.
 
-PHP 8.2 is the oldest branch in the 0.3.0 runtime contract. The full parser, unit, hostile-input, and integration path is exercised from PHP 8.2 through 8.5, and an automated lifecycle gate forces the minimum to be reviewed when its upstream security support ends. This keeps the compatibility claim explicit instead of letting an end-of-life runtime remain supported by inertia.
+PHP 8.2 is the oldest branch in the 0.3.1 runtime contract. The full parser, unit, hostile-input, and integration path is exercised from PHP 8.2 through 8.5, and an automated lifecycle gate forces the minimum to be reviewed when its upstream security support ends. This keeps the compatibility claim explicit instead of letting an end-of-life runtime remain supported by inertia.
 
 ## Boundaries
 
@@ -95,4 +95,4 @@ Every tracked PHP file under `src/` is also part of a reproducible Xdebug line-c
 
 ## Next boundary
 
-Version 0.3.0 runs exact-release contract and browser checks against WP Mail SMTP Free 4.9.0 and Yoast SEO Free 28.2 at both ends of the supported PHP range. The next product boundary should be based on repeated design-partner evidence across real settings screens—not a speculative fleet interface.
+Version 0.3.1 runs exact-release contract and browser checks against WP Mail SMTP Free 4.9.0 and Yoast SEO Free 28.2 at both ends of the supported PHP range. The next product boundary should be based on repeated design-partner evidence across real settings screens—not a speculative fleet interface.

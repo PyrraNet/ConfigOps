@@ -1,12 +1,13 @@
 <?php
 /**
  * Plugin Name:       ConfigOps – Undo Settings Changes
+ * Plugin URI:        https://configops.pyrra.net/
  * Description:       See what a settings save changed and reverse only the values that are still safe to restore.
- * Version:           0.3.0
+ * Version:           0.3.1
  * Requires at least: 7.0
  * Requires PHP:      8.2
  * Author:            pyrra
- * Author URI:        https://www.pyrra.net/
+ * Author URI:        https://configops.pyrra.net/
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       configops
@@ -20,7 +21,7 @@ if (! defined('ABSPATH')) {
 	exit;
 }
 
-define('CONFIGOPS_VERSION', '0.3.0');
+define('CONFIGOPS_VERSION', '0.3.1');
 define('CONFIGOPS_FILE', __FILE__);
 define('CONFIGOPS_PATH', __DIR__);
 define('CONFIGOPS_URL', plugin_dir_url(__FILE__));

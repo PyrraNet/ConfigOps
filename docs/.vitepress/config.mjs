@@ -1,7 +1,6 @@
 import { defineConfig } from 'vitepress';
 
-const repository = process.env.GITHUB_REPOSITORY?.split('/')[1] || 'ConfigOps';
-const base = process.env.DOCS_BASE || (process.env.GITHUB_ACTIONS === 'true' ? `/${repository}/` : '/');
+const base = process.env.DOCS_BASE || (process.env.GITHUB_ACTIONS === 'true' ? '/docs/' : '/');
 
 export default defineConfig({
 	title: 'ConfigOps',
@@ -11,7 +10,7 @@ export default defineConfig({
 	cleanUrls: true,
 	lastUpdated: true,
 	sitemap: {
-		hostname: 'https://pyrranet.github.io/ConfigOps/',
+		hostname: 'https://configops.pyrra.net/docs/',
 	},
 	head: [
 		['meta', { name: 'theme-color', content: '#0b1424' }],
@@ -27,7 +26,7 @@ export default defineConfig({
 			{ text: 'Operate', link: '/guide/getting-started' },
 			{ text: 'Safety', link: '/security/secrets-privacy' },
 			{ text: 'Reference', link: '/reference/support' },
-			{ text: 'v0.3.0', link: '/releases/0.3.0' },
+			{ text: 'v0.3.1', link: '/releases/0.3.1' },
 		],
 		sidebar: [
 			{
@@ -67,6 +66,7 @@ export default defineConfig({
 			{
 				text: 'Releases',
 				items: [
+					{ text: '0.3.1', link: '/releases/0.3.1' },
 					{ text: '0.3.0', link: '/releases/0.3.0' },
 					{ text: '0.2.0', link: '/releases/0.2.0' },
 					{ text: '0.1.0', link: '/releases/0.1.0' },

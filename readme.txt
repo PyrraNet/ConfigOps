@@ -4,7 +4,7 @@ Tags: settings, configuration, rollback, history, developer tools
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 8.2
-Stable tag: 0.3.0
+Stable tag: 0.3.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -115,6 +115,12 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 3. See one Yoast SEO toggle as one understandable XML sitemaps decision with its conflict-checked Undo action.
 
 == Changelog ==
+
+= 0.3.1 =
+
+* Prevents automatic evidence cards from being lost when a settings save navigates between admin requests.
+* Consolidates shared command, adapter, request-evidence, pagination, browser-test, and CI workflows.
+* Moves the public plugin website to configops.pyrra.net and documentation to configops.pyrra.net/docs/.
 
 = 0.3.0 =
 

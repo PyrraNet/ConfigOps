@@ -14,7 +14,7 @@ import wordmarkDark from '../../../../assets/brand/configops-wordmark-dark.svg';
 					<img :src="wordmarkLight" width="232" height="52" alt="ConfigOps">
 				</picture>
 				<span aria-hidden="true"></span>
-				<p>Documentation · 0.3.0</p>
+				<p>Documentation · 0.3.1</p>
 			</div>
 			<p class="co-kicker">Change intelligence for WordPress</p>
 			<h1 id="co-home-title">The undo button<br>WordPress forgot.</h1>
@@ -24,7 +24,7 @@ import wordmarkDark from '../../../../assets/brand/configops-wordmark-dark.svg';
 				<a class="co-action" :href="withBase('/security/failure-model')">Read the failure model</a>
 			</div>
 			<dl class="co-release-facts" aria-label="Release facts">
-				<div><dt>Release</dt><dd>0.3.0 automatic observation</dd></div>
+				<div><dt>Release</dt><dd>0.3.1 delivery hardening</dd></div>
 				<div><dt>Runtime</dt><dd>WordPress 7.0+ · PHP 8.2–8.5</dd></div>
 				<div><dt>Storage</dt><dd>Local database · no account</dd></div>
 				<div><dt>Evidence</dt><dd>77.69% production · 79.20% trust boundaries</dd></div>

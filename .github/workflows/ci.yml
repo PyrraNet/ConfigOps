@@ -35,7 +35,7 @@ jobs:
 
       - name: Build and exercise every documentation route
         env:
-          DOCS_BASE: /ConfigOps/
+          DOCS_BASE: /docs/
         run: npm run test:docs
 
   release-compliance:

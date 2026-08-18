@@ -25,6 +25,7 @@ const routes = [
 	'/adapters',
 	'/frontend',
 	'/wordpress-org-release',
+	'/releases/0.3.1',
 	'/releases/0.3.0',
 	'/releases/0.2.0',
 	'/releases/0.1.0',
@@ -102,13 +103,13 @@ try {
 					const home = await page.evaluate(() => ({
 						text: document.body.textContent || '',
 						hasCurrentReleaseLink: [...document.querySelectorAll('a')].some((link) => (
-							'v0.3.0' === link.textContent?.trim()
-							&& link.getAttribute('href')?.includes('/releases/0.3.0')
+							'v0.3.1' === link.textContent?.trim()
+							&& link.getAttribute('href')?.includes('/releases/0.3.1')
 						)),
 						proofAlt: document.querySelector('.co-proof__figure img')?.getAttribute('alt') || '',
 					}));
 					if (!home.hasCurrentReleaseLink) {
-						throw new Error(`${profile.name} home does not link the current 0.3.0 release`);
+						throw new Error(`${profile.name} home does not link the current 0.3.1 release`);
 					}
 					if (!home.text.includes('Save normally. ConfigOps appears with the evidence.')) {
 						throw new Error(`${profile.name} home does not lead with the automatic evidence proof`);

@@ -23,7 +23,7 @@ Automatic observation is limited to authorized administrative, REST, and WP-CLI 
 
 ConfigOps uses dedicated WordPress tables for observation sessions, mutations, value-free write signals, and restore audit runs. The internal table identifiers retain `capture` for schema compatibility. Table names receive the site’s configured WordPress prefix. Evidence remains in the site database.
 
-The REST interface is local to WordPress, capability-gated, and returns private `no-store` responses. There is no ConfigOps account, cloud collector, or remote control plane in 0.3.0.
+The REST interface is local to WordPress, capability-gated, and returns private `no-store` responses. There is no ConfigOps account, cloud collector, or remote control plane in 0.3.1.
 
 ## Retention
 

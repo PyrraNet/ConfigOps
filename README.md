@@ -8,13 +8,13 @@
 <p align="center"><strong>The undo layer for WordPress settings.</strong></p>
 
 <p align="center">
-  v0.3.0
+  v0.3.1
   &nbsp;·&nbsp; Automatic observation
   &nbsp;·&nbsp; No account required
 </p>
 
 <p align="center">
-  <a href="https://pyrranet.github.io/ConfigOps/">Read the operations &amp; safety docs</a>
+  <a href="https://configops.pyrra.net/docs/">Read the operations &amp; safety docs</a>
 </p>
 
 <br>
@@ -135,6 +135,6 @@ npm run dev
 
 The recorder is PHP because it observes the WordPress hook lifecycle. The review interface is made of route-specific React islands, with React supplied by WordPress. ConfigOps-owned JavaScript is held below a 24 KiB gzip release budget and shipped in human-readable form.
 
-Documentation: [operations & safety](https://pyrranet.github.io/ConfigOps/) · [observation and storage](docs/architecture.md) · [test and coverage evidence](docs/testing.md) · [React islands](docs/frontend.md) · [adapter contracts](docs/adapters.md)
+Documentation: [operations & safety](https://configops.pyrra.net/docs/) · [observation and storage](docs/architecture.md) · [test and coverage evidence](docs/testing.md) · [React islands](docs/frontend.md) · [adapter contracts](docs/adapters.md)
 
 Created by **pyrra**. Licensed under [GPL-2.0-or-later](LICENSE).

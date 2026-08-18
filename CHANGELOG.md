@@ -2,6 +2,24 @@
 
 ConfigOps follows semantic versioning. While the major version is `0`, adapter contracts and stored evidence may still evolve between minor releases; migrations must always fail closed.
 
+## 0.3.1 — 2026-08-18
+
+The delivery and maintainability hardening release.
+
+### Shipped
+
+- Lossless automatic-evidence delivery across admin navigation: reading remains non-destructive, the browser acknowledges only evidence it rendered, and worker-local option-cache misses are invalidated before polling.
+- One transport-neutral command service for capture start, stop, mutation undo, and whole-session undo across wp-admin and REST.
+- Shared built-in adapter construction, runtime compatibility resolution, request evidence metadata, and database batch iteration in place of repeated implementations.
+- Reusable browser-test interception and overflow assertions plus one bounded CI HTTP readiness helper for all browser lanes.
+- Public plugin metadata at `https://configops.pyrra.net/` and versioned documentation at `https://configops.pyrra.net/docs/`.
+
+### Verified against
+
+- WordPress 7.0 and latest on PHP 8.2 and PHP 8.3 release lanes.
+- 232 WordPress integration assertions, 51 exact adapter assertions, and the complete responsive settings, evidence, review, support, and undo browser flow.
+- Release metadata, deterministic packaging, runtime policy, UI budget, PHP parsing, hostile inputs, and strict duplicate-code scanning.
+
 ## 0.3.0 — 2026-08-16
 
 The automatic evidence and undo release.

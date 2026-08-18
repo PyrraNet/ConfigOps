@@ -1,11 +1,11 @@
 ---
 title: Support contracts
-description: Exact WordPress, PHP, database, and plugin-adapter support for ConfigOps 0.3.0.
+description: Exact WordPress, PHP, database, and plugin-adapter support for ConfigOps 0.3.1.
 ---
 
 # Support contracts
 
-Support means a tested contract, not a best-effort badge. Version 0.3.0 fails its release checks if its runtime metadata, adapter fixtures, compatibility scan, browser flows, or coverage boundaries drift.
+Support means a tested contract, not a best-effort badge. Version 0.3.1 fails its release checks if its runtime metadata, adapter fixtures, compatibility scan, browser flows, or coverage boundaries drift.
 
 ## Runtime matrix
 

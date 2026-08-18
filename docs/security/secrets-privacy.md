@@ -32,7 +32,7 @@ Intent evidence may improve a label for review. It cannot change classification,
 
 ## Access control
 
-Version 0.3.0 uses separate WordPress capabilities for its active observation surface. The identifiers retain `capture` for API compatibility:
+Version 0.3.1 uses separate WordPress capabilities for its active observation surface. The identifiers retain `capture` for API compatibility:
 
 | Capability | Grants |
 | --- | --- |
@@ -40,7 +40,7 @@ Version 0.3.0 uses separate WordPress capabilities for its active observation su
 | `configops_capture` | Start and stop named Change Sessions |
 | `configops_rollback` | Attempt mutation or whole-change undo |
 
-These are the capabilities used by the shipped observation REST routes. The versioned capability set also reserves names for future product boundaries, but 0.3.0 exposes no endpoint through them. Administrators receive the set on activation. Sites with custom roles should grant only the minimum active capabilities needed. REST responses are capability-gated, private, and marked `no-store`.
+These are the capabilities used by the shipped observation REST routes. The versioned capability set also reserves names for future product boundaries, but 0.3.1 exposes no endpoint through them. Administrators receive the set on activation. Sites with custom roles should grant only the minimum active capabilities needed. REST responses are capability-gated, private, and marked `no-store`.
 
 ## Retention and removal
 

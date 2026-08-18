@@ -50,6 +50,8 @@ jobs:
 
       - name: Build documentation
         run: npm run docs:build
+        env:
+          DOCS_BASE: /docs/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -60,7 +62,7 @@ jobs:
     name: Deploy GitHub Pages
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: https://configops.pyrra.net/docs/
     needs: build
     runs-on: ubuntu-latest
 

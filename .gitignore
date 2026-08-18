@@ -14,6 +14,7 @@
 /artifacts/
 /.design-review/
 /.release-check/
+/.vitepress/cache/
 /coverage/
 /docs/.vitepress/cache/
 /docs/.vitepress/dist/
