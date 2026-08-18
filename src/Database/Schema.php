@@ -9,13 +9,12 @@ declare(strict_types=1);
 
 namespace ConfigOps\Database;
 
-use ConfigOps\Execution\OperationLock;
 use RuntimeException;
 use wpdb;
 
 final class Schema
 {
-	private const VERSION = 9;
+	private const VERSION = 10;
 
 	public function __construct(private readonly wpdb $database)
 	{
@@ -42,7 +41,7 @@ final class Schema
 
 	public function install(): void
 	{
-		(new OperationLock($this->database))->run('schema-upgrade', function (): void {
+		(new SharedStorageLock($this->database))->run(function (): void {
 			$this->installUnlocked();
 		});
 	}
@@ -51,14 +50,18 @@ final class Schema
 	{
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
+		$storage        = new StorageContext($this->database);
 		$charsetCollate = $this->database->get_charset_collate();
-		$sessions       = $this->database->prefix . 'configops_capture_sessions';
-		$mutations      = $this->database->prefix . 'configops_mutations';
-		$writeSignals   = $this->database->prefix . 'configops_write_signals';
-		$restoreRuns    = $this->database->prefix . 'configops_restore_runs';
+		$sessions       = $storage->table('configops_capture_sessions');
+		$mutations      = $storage->table('configops_mutations');
+		$writeSignals   = $storage->table('configops_write_signals');
+		$restoreRuns    = $storage->table('configops_restore_runs');
 
 		$sql = "CREATE TABLE {$sessions} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			network_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			blog_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			legacy_id bigint(20) unsigned NULL,
 			name varchar(191) NOT NULL,
 			capture_mode varchar(16) NOT NULL DEFAULT 'manual',
 			status varchar(20) NOT NULL DEFAULT 'active',
@@ -74,11 +77,15 @@ final class Schema
 			started_at datetime NOT NULL,
 			ended_at datetime NULL,
 			PRIMARY KEY  (id),
-			KEY status_started (status, started_at)
+			UNIQUE KEY site_legacy (network_id, blog_id, legacy_id),
+			KEY site_status_started (network_id, blog_id, status, started_at)
 		) {$charsetCollate};
 
 		CREATE TABLE {$mutations} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			network_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			blog_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			legacy_id bigint(20) unsigned NULL,
 			session_id bigint(20) unsigned NOT NULL,
 			request_id char(36) NOT NULL,
 			mutation_type varchar(16) NOT NULL,
@@ -110,14 +117,18 @@ final class Schema
 			actor_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			occurred_at datetime NOT NULL,
 			PRIMARY KEY  (id),
-			KEY session_order (session_id, id),
-			KEY session_request (session_id, request_id),
-			KEY option_occurred (option_name, occurred_at),
-			KEY occurred_at (occurred_at)
+			UNIQUE KEY site_legacy (network_id, blog_id, legacy_id),
+			KEY site_session_order (network_id, blog_id, session_id, id),
+			KEY site_session_request (network_id, blog_id, session_id, request_id),
+			KEY site_option_occurred (network_id, blog_id, option_name, occurred_at),
+			KEY site_occurred_at (network_id, blog_id, occurred_at)
 		) {$charsetCollate};
 
 		CREATE TABLE {$writeSignals} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			network_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			blog_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			legacy_id bigint(20) unsigned NULL,
 			session_id bigint(20) unsigned NOT NULL,
 			request_id char(36) NOT NULL,
 			operation varchar(16) NOT NULL,
@@ -133,13 +144,17 @@ final class Schema
 			actor_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			occurred_at datetime NOT NULL,
 			PRIMARY KEY  (id),
-			KEY session_order (session_id, id),
-			KEY session_request (session_id, request_id),
-			KEY table_occurred (table_name, occurred_at)
+			UNIQUE KEY site_legacy (network_id, blog_id, legacy_id),
+			KEY site_session_order (network_id, blog_id, session_id, id),
+			KEY site_session_request (network_id, blog_id, session_id, request_id),
+			KEY site_table_occurred (network_id, blog_id, table_name, occurred_at)
 		) {$charsetCollate};
 
 		CREATE TABLE {$restoreRuns} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			network_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			blog_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			legacy_id bigint(20) unsigned NULL,
 			scope_type varchar(16) NOT NULL,
 			scope_id bigint(20) unsigned NOT NULL,
 			session_id bigint(20) unsigned NOT NULL,
@@ -150,13 +165,16 @@ final class Schema
 			started_at datetime NOT NULL,
 			finished_at datetime NULL,
 			PRIMARY KEY  (id),
-			KEY session_started (session_id, started_at),
-			KEY actor_started (actor_id, started_at),
-			KEY status_started (status, started_at)
+			UNIQUE KEY site_legacy (network_id, blog_id, legacy_id),
+			KEY site_session_started (network_id, blog_id, session_id, started_at),
+			KEY site_actor_started (network_id, blog_id, actor_id, started_at),
+			KEY site_status_started (network_id, blog_id, status, started_at)
 		) {$charsetCollate};";
 
 		dbDelta($sql);
 		$this->assertInstalledShape();
+		$this->backfillLegacySharedRows($storage);
+		(new LegacySiteTableMigrator($this->database, $storage))->migrateCurrentSite();
 
 		update_option('configops_schema_version', self::VERSION, false);
 		if (self::VERSION !== (int) get_option('configops_schema_version', 0)) {
@@ -166,10 +184,18 @@ final class Schema
 
 	private function assertInstalledShape(): void
 	{
+		$storage      = new StorageContext($this->database);
+		$sessions     = $storage->table('configops_capture_sessions');
+		$mutations    = $storage->table('configops_mutations');
+		$writeSignals = $storage->table('configops_write_signals');
+		$restoreRuns  = $storage->table('configops_restore_runs');
 		$this->assertTableShape(
-			$this->database->prefix . 'configops_capture_sessions',
+			$sessions,
 			array(
 				'id',
+				'network_id',
+				'blog_id',
+				'legacy_id',
 				'name',
 				'capture_mode',
 				'status',
@@ -187,9 +213,12 @@ final class Schema
 			)
 		);
 		$this->assertTableShape(
-			$this->database->prefix . 'configops_mutations',
+			$mutations,
 			array(
 				'id',
+				'network_id',
+				'blog_id',
+				'legacy_id',
 				'session_id',
 				'request_id',
 				'mutation_type',
@@ -223,9 +252,12 @@ final class Schema
 			)
 		);
 		$this->assertTableShape(
-			$this->database->prefix . 'configops_write_signals',
+			$writeSignals,
 			array(
 				'id',
+				'network_id',
+				'blog_id',
+				'legacy_id',
 				'session_id',
 				'request_id',
 				'operation',
@@ -243,9 +275,52 @@ final class Schema
 			)
 		);
 		$this->assertTableShape(
-			$this->database->prefix . 'configops_restore_runs',
-			array('id', 'scope_type', 'scope_id', 'session_id', 'actor_id', 'status', 'restored_option_count', 'failure_code', 'started_at', 'finished_at')
+			$restoreRuns,
+			array('id', 'network_id', 'blog_id', 'legacy_id', 'scope_type', 'scope_id', 'session_id', 'actor_id', 'status', 'restored_option_count', 'failure_code', 'started_at', 'finished_at')
 		);
+
+		$this->assertIndexShape($sessions, 'site_legacy', array('network_id', 'blog_id', 'legacy_id'), true);
+		$this->assertIndexShape($sessions, 'site_status_started', array('network_id', 'blog_id', 'status', 'started_at'));
+		$this->assertIndexShape($mutations, 'site_legacy', array('network_id', 'blog_id', 'legacy_id'), true);
+		$this->assertIndexShape($mutations, 'site_session_order', array('network_id', 'blog_id', 'session_id', 'id'));
+		$this->assertIndexShape($writeSignals, 'site_legacy', array('network_id', 'blog_id', 'legacy_id'), true);
+		$this->assertIndexShape($writeSignals, 'site_session_order', array('network_id', 'blog_id', 'session_id', 'id'));
+		$this->assertIndexShape($restoreRuns, 'site_legacy', array('network_id', 'blog_id', 'legacy_id'), true);
+		$this->assertIndexShape($restoreRuns, 'site_session_started', array('network_id', 'blog_id', 'session_id', 'started_at'));
+	}
+
+	private function backfillLegacySharedRows(StorageContext $storage): void
+	{
+		$networkId = $storage->networkId();
+		$blogId    = $storage->blogId();
+		if (is_multisite() && function_exists('get_site')) {
+			$mainSite = get_site(1);
+			if (is_object($mainSite)) {
+				$networkId = max(0, (int) ($mainSite->site_id ?? 0));
+				$blogId    = max(1, (int) ($mainSite->blog_id ?? 1));
+			}
+		}
+
+		foreach (
+			array(
+				'configops_capture_sessions',
+				'configops_mutations',
+				'configops_write_signals',
+				'configops_restore_runs',
+			) as $suffix
+		) {
+			$table   = $storage->table($suffix);
+			$updated = $this->database->query(
+				$this->database->prepare(
+					"UPDATE {$table} SET network_id = %d, blog_id = %d WHERE network_id = 0 AND blog_id = 0",
+					$networkId,
+					$blogId
+				)
+			);
+			if (false === $updated) {
+				throw new RuntimeException('ConfigOps could not assign legacy evidence to its original site.');
+			}
+		}
 	}
 
 	/**
@@ -265,6 +340,37 @@ final class Schema
 		$missing = array_diff($requiredColumns, is_array($columns) ? $columns : array());
 		if (! empty($missing)) {
 			throw new RuntimeException('ConfigOps storage is incomplete after the schema upgrade.');
+		}
+	}
+
+	/**
+	 * @param list<string> $requiredColumns Ordered index columns.
+	 */
+	private function assertIndexShape(
+		string $table,
+		string $index,
+		array $requiredColumns,
+		bool $unique = false
+	): void {
+		$quotedTable = '`' . str_replace('`', '``', $table) . '`';
+		$rows        = $this->database->get_results("SHOW INDEX FROM {$quotedTable}", ARRAY_A);
+		$columns     = array();
+		$nonUnique = null;
+		foreach (is_array($rows) ? $rows : array() as $row) {
+			$keyName = (string) ($row['Key_name'] ?? $row['key_name'] ?? '');
+			if ($index !== $keyName) {
+				continue;
+			}
+			$sequence = (int) ($row['Seq_in_index'] ?? $row['seq_in_index'] ?? 0);
+			$column   = (string) ($row['Column_name'] ?? $row['column_name'] ?? '');
+			if ($sequence > 0 && '' !== $column) {
+				$columns[$sequence] = $column;
+			}
+			$nonUnique = (int) ($row['Non_unique'] ?? $row['non_unique'] ?? 1);
+		}
+		ksort($columns);
+		if (array_values($columns) !== $requiredColumns || ($unique && 0 !== $nonUnique)) {
+			throw new RuntimeException('ConfigOps storage indexes are incomplete after the schema upgrade.');
 		}
 	}
 }

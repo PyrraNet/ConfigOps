@@ -9,16 +9,19 @@ declare(strict_types=1);
 
 namespace ConfigOps\Database;
 
+use ConfigOps\Multisite\SiteScope;
 use RuntimeException;
 use wpdb;
 
 final class DatabaseWriteSignalRepository
 {
 	private string $table;
+	private readonly StorageContext $storage;
 
-	public function __construct(private readonly wpdb $database)
+	public function __construct(private readonly wpdb $database, ?SiteScope $siteScope = null)
 	{
-		$this->table = $this->database->prefix . 'configops_write_signals';
+		$this->storage = new StorageContext($this->database, $siteScope);
+		$this->table   = $this->storage->table('configops_write_signals');
 	}
 
 	/**
@@ -26,7 +29,7 @@ final class DatabaseWriteSignalRepository
 	 */
 	public function insert(array $signal): int
 	{
-		$inserted = $this->database->insert($this->table, $signal);
+		$inserted = $this->database->insert($this->table, $this->storage->row($signal));
 		if (false === $inserted) {
 			throw new RuntimeException('The database write signal could not be stored.');
 		}
@@ -37,8 +40,8 @@ final class DatabaseWriteSignalRepository
 	public function incrementOccurrence(int $id): void
 	{
 		$updated = $this->database->query(
-			$this->database->prepare(
-				"UPDATE {$this->table} SET occurrence_count = occurrence_count + 1 WHERE id = %d",
+			$this->storage->prepare(
+				"UPDATE {$this->table} SET occurrence_count = occurrence_count + 1 WHERE {$this->storage->clause()} AND id = %d",
 				$id
 			)
 		);
@@ -54,8 +57,8 @@ final class DatabaseWriteSignalRepository
 	{
 		$limit = max(1, min(100, $limit));
 		$rows  = $this->database->get_results(
-			$this->database->prepare(
-				"SELECT * FROM {$this->table} WHERE session_id = %d ORDER BY id ASC LIMIT %d",
+			$this->storage->prepare(
+				"SELECT * FROM {$this->table} WHERE {$this->storage->clause()} AND session_id = %d ORDER BY id ASC LIMIT %d",
 				$sessionId,
 				$limit
 			)
@@ -67,8 +70,8 @@ final class DatabaseWriteSignalRepository
 	public function occurrenceCountForSession(int $sessionId): int
 	{
 		return (int) $this->database->get_var(
-			$this->database->prepare(
-				"SELECT COALESCE(SUM(occurrence_count), 0) FROM {$this->table} WHERE session_id = %d",
+			$this->storage->prepare(
+				"SELECT COALESCE(SUM(occurrence_count), 0) FROM {$this->table} WHERE {$this->storage->clause()} AND session_id = %d",
 				$sessionId
 			)
 		);

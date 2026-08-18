@@ -103,6 +103,14 @@ final class Uninstall
 		}
 		wp_cache_delete('alloptions', 'options');
 		wp_cache_delete('notoptions', 'options');
+
+		$baseOptions = '`' . str_replace('`', '``', (string) ($database->base_prefix ?: $database->prefix) . 'options') . '`';
+		$database->query(
+			$database->prepare(
+				"DELETE FROM {$baseOptions} WHERE option_name = %s",
+				'configops_shared_schema_lock'
+			)
+		);
 	}
 
 	private static function dropTables(wpdb $database): void
@@ -115,7 +123,7 @@ final class Uninstall
 				'configops_capture_sessions',
 			) as $suffix
 		) {
-			$table       = $database->prefix . $suffix;
+			$table       = (string) ($database->base_prefix ?: $database->prefix) . $suffix;
 			$quotedTable = '`' . str_replace('`', '``', $table) . '`';
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Identifier is composed only from wpdb::prefix and a fixed suffix, then quoted.
 			$database->query("DROP TABLE IF EXISTS {$quotedTable}");

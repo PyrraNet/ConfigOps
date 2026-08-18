@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace ConfigOps\Maintenance;
 
+use ConfigOps\Database\StorageContext;
 use ConfigOps\Execution\OperationLock;
+use ConfigOps\Multisite\SiteScope;
 use RuntimeException;
 use wpdb;
 
@@ -19,11 +21,14 @@ final class HistoryRetention
 	private const DEFAULT_DAYS = 30;
 	private const BATCH_SIZE = 100;
 	private const MAX_BATCHES = 10;
+	private readonly StorageContext $storage;
 
 	public function __construct(
 		private readonly wpdb $database,
-		private readonly OperationLock $operationLock
+		private readonly OperationLock $operationLock,
+		?SiteScope $siteScope = null
 	) {
+		$this->storage = new StorageContext($this->database, $siteScope);
 	}
 
 	public function register(): void
@@ -69,17 +74,18 @@ final class HistoryRetention
 
 	private function deleteBatch(): int
 	{
-		$sessions = $this->database->prefix . 'configops_capture_sessions';
+		$sessions = $this->storage->table('configops_capture_sessions');
 		$cutoff = gmdate('Y-m-d H:i:s', time() - self::retentionDays() * DAY_IN_SECONDS);
 		$ids = $this->database->get_col(
-			$this->database->prepare(
+			$this->storage->prepare(
 				"SELECT id FROM {$sessions}
-				WHERE status = 'deleting'
+				WHERE {$this->storage->clause()}
+					AND (status = 'deleting'
 					OR (
 						status IN ('completed', 'interrupted', 'discarded')
 						AND ended_at IS NOT NULL
 						AND ended_at < %s
-					)
+					))
 				ORDER BY id ASC
 				LIMIT %d",
 				$cutoff,
@@ -93,9 +99,9 @@ final class HistoryRetention
 
 		$placeholders = implode(', ', array_fill(0, count($ids), '%d'));
 		$marked = $this->database->query(
-			$this->database->prepare(
+			$this->storage->prepare(
 				"UPDATE {$sessions} SET status = 'deleting'
-				WHERE id IN ({$placeholders})
+				WHERE {$this->storage->clause()} AND id IN ({$placeholders})
 					AND status IN ('completed', 'interrupted', 'discarded', 'deleting')",
 				...$ids
 			)
@@ -105,9 +111,12 @@ final class HistoryRetention
 		}
 
 		foreach (array('configops_restore_runs', 'configops_write_signals', 'configops_mutations') as $suffix) {
-			$table = $this->database->prefix . $suffix;
+			$table = $this->storage->table($suffix);
 			$deleted = $this->database->query(
-				$this->database->prepare("DELETE FROM {$table} WHERE session_id IN ({$placeholders})", ...$ids)
+				$this->storage->prepare(
+					"DELETE FROM {$table} WHERE {$this->storage->clause()} AND session_id IN ({$placeholders})",
+					...$ids
+				)
 			);
 			if (false === $deleted) {
 				throw new RuntimeException('ConfigOps retention could not remove dependent evidence. Capture history was preserved.');
@@ -115,8 +124,8 @@ final class HistoryRetention
 		}
 
 		$deletedSessions = $this->database->query(
-			$this->database->prepare(
-				"DELETE FROM {$sessions} WHERE id IN ({$placeholders}) AND status = 'deleting'",
+			$this->storage->prepare(
+				"DELETE FROM {$sessions} WHERE {$this->storage->clause()} AND id IN ({$placeholders}) AND status = 'deleting'",
 				...$ids
 			)
 		);

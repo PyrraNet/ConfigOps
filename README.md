@@ -104,7 +104,7 @@ Useful commands:
 ```bash
 npm run test:adversarial            # Hostile cookies, payloads, secrets, and value shapes
 npm run test:minimum                # Full PHP path on the oldest supported PHP 8.2 runtime
-npm run test:multisite              # Real two-site fail-closed boundary contract
+npm run test:multisite              # Real Multisite boundary, scoped storage, and migration contract
 npm run test:coverage               # Fails below 70% overall or 75% trust-boundary line coverage
 npm run test:docs                   # Build and browser-check every documentation route
 npm run wp:cli -- plugin list       # Run WP-CLI in the container

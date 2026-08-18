@@ -15,7 +15,7 @@ Support means a tested contract, not a best-effort badge. Version 0.3.1 fails it
 | PHP | 8.2–8.5 | Parser, unit, hostile-input, and WordPress integration paths across the matrix |
 | Database | WordPress-supported MySQL/MariaDB | Native MySQL 8.4 and MariaDB 11.4 integration lanes |
 | Browser UI | Current JavaScript-capable admin browser | Real Chromium settings, review, and undo flows |
-| Site model | Single-site only | Multisite is outside the 0.3 contract |
+| Site model | Single-site support contract; isolated Multisite storage foundation | Site-local rows are network/blog scoped, but network settings and administration remain outside the 0.3 contract |
 
 PHP 8.2 is the oldest supported branch. A lifecycle check expires that claim after upstream security support ends on 2026-12-31 instead of silently keeping an unsafe floor.
 

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ConfigOps\Database;
 
+use ConfigOps\Multisite\SiteScope;
 use Generator;
 use RuntimeException;
 use wpdb;
@@ -16,10 +17,12 @@ use wpdb;
 final class MutationRepository
 {
 	private string $table;
+	private readonly StorageContext $storage;
 
-	public function __construct(private readonly wpdb $database)
+	public function __construct(private readonly wpdb $database, ?SiteScope $siteScope = null)
 	{
-		$this->table = $this->database->prefix . 'configops_mutations';
+		$this->storage = new StorageContext($this->database, $siteScope);
+		$this->table   = $this->storage->table('configops_mutations');
 	}
 
 	/**
@@ -27,7 +30,7 @@ final class MutationRepository
 	 */
 	public function insert(array $mutation): int
 	{
-		$inserted = $this->database->insert($this->table, $mutation);
+		$inserted = $this->database->insert($this->table, $this->storage->row($mutation));
 		if (false === $inserted) {
 			throw new RuntimeException('The configuration mutation could not be stored.');
 		}
@@ -42,7 +45,11 @@ final class MutationRepository
 	 */
 	public function update(int $id, array $mutation): void
 	{
-		$updated = $this->database->update($this->table, $mutation, array('id' => $id));
+		$updated = $this->database->update(
+			$this->table,
+			$this->storage->row($mutation),
+			$this->storage->where(array('id' => $id))
+		);
 		if (false === $updated || (0 === $updated && null === $this->find($id))) {
 			throw new RuntimeException('The aggregated configuration mutation could not be updated.');
 		}
@@ -50,7 +57,11 @@ final class MutationRepository
 
 	public function delete(int $id): void
 	{
-		$deleted = $this->database->delete($this->table, array('id' => $id), array('%d'));
+		$deleted = $this->database->delete(
+			$this->table,
+			$this->storage->where(array('id' => $id)),
+			$this->storage->whereFormats(array('%d'))
+		);
 		if (1 !== $deleted) {
 			throw new RuntimeException('The reverted configuration mutation could not be removed.');
 		}
@@ -59,7 +70,10 @@ final class MutationRepository
 	public function find(int $id): ?object
 	{
 		$row = $this->database->get_row(
-			$this->database->prepare("SELECT * FROM {$this->table} WHERE id = %d", $id)
+			$this->storage->prepare(
+				"SELECT * FROM {$this->table} WHERE {$this->storage->clause()} AND id = %d",
+				$id
+			)
 		);
 
 		return is_object($row) ? $row : null;
@@ -72,9 +86,9 @@ final class MutationRepository
 	{
 		$limit  = max(1, min(1000, $limit));
 		$offset = max(0, $offset);
-		$rows      = $this->database->get_results(
-			$this->database->prepare(
-				"SELECT * FROM {$this->table} WHERE session_id = %d ORDER BY id ASC LIMIT %d OFFSET %d",
+		$rows   = $this->database->get_results(
+			$this->storage->prepare(
+				"SELECT * FROM {$this->table} WHERE {$this->storage->clause()} AND session_id = %d ORDER BY id ASC LIMIT %d OFFSET %d",
 				$sessionId,
 				$limit,
 				$offset
@@ -95,9 +109,9 @@ final class MutationRepository
 		$afterId = max(0, $afterId);
 		$limit   = max(1, min(100, $limit));
 		$rows    = $this->database->get_results(
-			$this->database->prepare(
+			$this->storage->prepare(
 				"SELECT * FROM {$this->table}
-				WHERE session_id = %d AND id > %d
+				WHERE {$this->storage->clause()} AND session_id = %d AND id > %d
 				ORDER BY id ASC
 				LIMIT %d",
 				$sessionId,
@@ -119,8 +133,8 @@ final class MutationRepository
 		yield from $this->iterateBatches(
 			$batchSize,
 			fn (int $lastId, int $limit): ?array => $this->database->get_results(
-				$this->database->prepare(
-					"SELECT * FROM {$this->table} WHERE session_id = %d AND id > %d ORDER BY id ASC LIMIT %d",
+				$this->storage->prepare(
+					"SELECT * FROM {$this->table} WHERE {$this->storage->clause()} AND session_id = %d AND id > %d ORDER BY id ASC LIMIT %d",
 					$sessionId,
 					$lastId,
 					$limit
@@ -139,10 +153,10 @@ final class MutationRepository
 		yield from $this->iterateBatches(
 			$batchSize,
 			fn (int $lastId, int $limit): ?array => $this->database->get_results(
-				$this->database->prepare(
+				$this->storage->prepare(
 					"SELECT id, option_name, old_value, new_value, diff, old_autoload, new_autoload, restorable, restore_mode, classification, adapter_id, adapter_schema_version
 					FROM {$this->table}
-					WHERE session_id = %d AND id > %d AND classification <> 'derived'
+					WHERE {$this->storage->clause()} AND session_id = %d AND id > %d AND classification <> 'derived'
 					ORDER BY id ASC
 					LIMIT %d",
 					$sessionId,
@@ -178,7 +192,7 @@ final class MutationRepository
 	public function summaryForSession(int $sessionId): array
 	{
 		$row = $this->database->get_row(
-			$this->database->prepare(
+			$this->storage->prepare(
 				"SELECT
 					COUNT(*) AS mutation_total,
 					COALESCE(SUM(review_change_count), 0) AS total,
@@ -186,7 +200,7 @@ final class MutationRepository
 					COALESCE(SUM(secret_change_count), 0) AS redacted,
 					COALESCE(SUM(CASE WHEN classification <> 'derived' AND (restorable <> 1 OR restore_mode <> 'full') THEN 1 ELSE 0 END), 0) AS not_restorable
 				FROM {$this->table}
-				WHERE session_id = %d",
+				WHERE {$this->storage->clause()} AND session_id = %d",
 				$sessionId
 			)
 		);
@@ -198,8 +212,8 @@ final class MutationRepository
 		// after upgrade instead of presenting old captures as empty.
 		if ($mutationTotal > 0 && 0 === $reviewCount + $technicalCount) {
 			$technicalCount = (int) $this->database->get_var(
-				$this->database->prepare(
-					"SELECT COUNT(*) FROM {$this->table} WHERE session_id = %d AND classification = 'derived'",
+				$this->storage->prepare(
+					"SELECT COUNT(*) FROM {$this->table} WHERE {$this->storage->clause()} AND session_id = %d AND classification = 'derived'",
 					$sessionId
 				)
 			);

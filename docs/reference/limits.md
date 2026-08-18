@@ -9,7 +9,7 @@ Version 0.3.1 is deliberately narrower than a configuration-management platform.
 
 ## Not shipped
 
-- multisite observation or network-wide administration;
+- network settings, network-wide administration, cross-site bulk actions, or continuing one capture across `switch_to_blog()` transitions;
 - remote apply, cross-site synchronization, or fleet control;
 - generic rollback for plugin custom tables or direct SQL;
 - content, media-file, theme-file, or filesystem deployment;

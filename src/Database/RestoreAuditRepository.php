@@ -9,16 +9,19 @@ declare(strict_types=1);
 
 namespace ConfigOps\Database;
 
+use ConfigOps\Multisite\SiteScope;
 use RuntimeException;
 use wpdb;
 
 final class RestoreAuditRepository
 {
 	private string $table;
+	private readonly StorageContext $storage;
 
-	public function __construct(private readonly wpdb $database)
+	public function __construct(private readonly wpdb $database, ?SiteScope $siteScope = null)
 	{
-		$this->table = $this->database->prefix . 'configops_restore_runs';
+		$this->storage = new StorageContext($this->database, $siteScope);
+		$this->table   = $this->storage->table('configops_restore_runs');
 	}
 
 	public function start(string $scopeType, int $scopeId, int $sessionId, int $actorId): int
@@ -29,15 +32,15 @@ final class RestoreAuditRepository
 
 		$inserted = $this->database->insert(
 			$this->table,
-			array(
+			$this->storage->row(array(
 				'scope_type' => $scopeType,
 				'scope_id'   => $scopeId,
 				'session_id' => $sessionId,
 				'actor_id'   => max(0, $actorId),
 				'status'     => 'running',
 				'started_at' => current_time('mysql', true),
-			),
-			array('%s', '%d', '%d', '%d', '%s', '%s')
+			)),
+			$this->storage->rowFormats(array('%s', '%d', '%d', '%d', '%s', '%s'))
 		);
 		if (false === $inserted) {
 			throw new RuntimeException('ConfigOps could not create the restore audit record. Nothing was changed.');
@@ -61,7 +64,10 @@ final class RestoreAuditRepository
 	public function find(int $id): ?object
 	{
 		$row = $this->database->get_row(
-			$this->database->prepare("SELECT * FROM {$this->table} WHERE id = %d", $id)
+			$this->storage->prepare(
+				"SELECT * FROM {$this->table} WHERE {$this->storage->clause()} AND id = %d",
+				$id
+			)
 		);
 
 		return is_object($row) ? $row : null;
@@ -74,8 +80,8 @@ final class RestoreAuditRepository
 	{
 		$limit = max(1, min(100, $limit));
 		$rows = $this->database->get_results(
-			$this->database->prepare(
-				"SELECT * FROM {$this->table} WHERE session_id = %d ORDER BY id DESC LIMIT %d",
+			$this->storage->prepare(
+				"SELECT * FROM {$this->table} WHERE {$this->storage->clause()} AND session_id = %d ORDER BY id DESC LIMIT %d",
 				$sessionId,
 				$limit
 			)
@@ -87,9 +93,9 @@ final class RestoreAuditRepository
 	public function latestSessionRun(int $sessionId): ?object
 	{
 		$row = $this->database->get_row(
-			$this->database->prepare(
+			$this->storage->prepare(
 				"SELECT * FROM {$this->table}
-				WHERE session_id = %d
+				WHERE {$this->storage->clause()} AND session_id = %d
 					AND scope_type = 'session'
 					AND status IN ('succeeded', 'running', 'compensation_failed')
 				ORDER BY id DESC LIMIT 1",
@@ -113,9 +119,10 @@ final class RestoreAuditRepository
 
 		$placeholders = implode(', ', array_fill(0, count($mutationIds), '%d'));
 		$rows = $this->database->get_results(
-			$this->database->prepare(
+			$this->storage->prepare(
 				"SELECT * FROM {$this->table}
-				WHERE scope_type = 'mutation'
+				WHERE {$this->storage->clause()}
+					AND scope_type = 'mutation'
 					AND status IN ('succeeded', 'running', 'compensation_failed')
 					AND scope_id IN ({$placeholders})
 				ORDER BY id DESC",
@@ -135,9 +142,9 @@ final class RestoreAuditRepository
 	public function blockingMutationCountForSession(int $sessionId): int
 	{
 		return (int) $this->database->get_var(
-			$this->database->prepare(
+			$this->storage->prepare(
 				"SELECT COUNT(DISTINCT scope_id) FROM {$this->table}
-				WHERE session_id = %d
+				WHERE {$this->storage->clause()} AND session_id = %d
 					AND scope_type = 'mutation'
 					AND status IN ('succeeded', 'running', 'compensation_failed')",
 				$sessionId
@@ -155,9 +162,9 @@ final class RestoreAuditRepository
 				'failure_code'          => $failureCode,
 				'finished_at'           => current_time('mysql', true),
 			),
-			array('id' => $id, 'status' => 'running'),
+			$this->storage->where(array('id' => $id, 'status' => 'running')),
 			array('%s', '%d', '%s', '%s'),
-			array('%d', '%s')
+			$this->storage->whereFormats(array('%d', '%s'))
 		);
 		if (1 !== $updated) {
 			throw new RuntimeException('ConfigOps could not finalize the restore audit record.');

@@ -128,4 +128,260 @@ $assert(
 	'Automatic shutdown finalization must preserve the cross-site integrity warning as an interrupted observation.'
 );
 
+$insertFixtureMutation = static function (
+	\ConfigOps\Database\MutationRepository $repository,
+	int $sessionId,
+	string $value
+): int {
+	return $repository->insert(
+		array(
+			'session_id'   => $sessionId,
+			'request_id'    => wp_generate_uuid4(),
+			'mutation_type' => 'update',
+			'option_name'   => 'shared_multisite_fixture',
+			'old_value'     => 'before',
+			'new_value'     => $value,
+			'diff'          => '[]',
+			'occurred_at'   => current_time('mysql', true),
+		)
+	);
+};
+
+$originStorageSession = $captures->start('Origin shared-storage fixture', 0, '/wp-admin/options-general.php');
+$originMutationId = $insertFixtureMutation($mutations, $originStorageSession, 'origin-row');
+$captures->incrementMutationCount($originStorageSession);
+$assert($originStorageSession === $captures->stop(), 'The origin site should finalize evidence in shared storage.');
+$originSignals = new \ConfigOps\Database\DatabaseWriteSignalRepository($wpdb);
+$originSignalId = $originSignals->insert(
+	array(
+		'session_id'      => $originStorageSession,
+		'request_id'      => wp_generate_uuid4(),
+		'operation'       => 'update',
+		'table_name'      => $originPrefix . 'fixture_table',
+		'occurrence_count' => 1,
+		'occurred_at'     => current_time('mysql', true),
+	)
+);
+$originAudits = new \ConfigOps\Database\RestoreAuditRepository($wpdb);
+$originAuditId = $originAudits->start('mutation', $originMutationId, $originStorageSession, 0);
+$originAudits->fail($originAuditId, 'failed', 'migration_fixture');
+$originSessionAuditId = $originAudits->start('session', $originStorageSession, $originStorageSession, 0);
+$originAudits->fail($originSessionAuditId, 'failed', 'migration_session_fixture');
+
+$assert(switch_to_blog($foreignSiteId), 'The shared-storage check should enter the second site.');
+(new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
+$foreignScope = \ConfigOps\Multisite\SiteScope::current();
+$foreignCaptures = new \ConfigOps\Database\CaptureRepository($wpdb, $foreignScope);
+$foreignMutations = new \ConfigOps\Database\MutationRepository($wpdb, $foreignScope);
+$foreignStorageSession = $foreignCaptures->start('Foreign shared-storage fixture', 0, '/wp-admin/options-general.php');
+$foreignMutationId = $insertFixtureMutation($foreignMutations, $foreignStorageSession, 'foreign-row');
+$foreignCaptures->incrementMutationCount($foreignStorageSession);
+$assert($foreignStorageSession === $foreignCaptures->stop(), 'The second site should finalize its own evidence in shared storage.');
+$assert(
+	$originPrefix . 'configops_capture_sessions' === $wpdb->base_prefix . 'configops_capture_sessions'
+	&& $originPrefix !== $wpdb->prefix,
+	'The second site should use a distinct WordPress table prefix while ConfigOps retains one network-wide table namespace.'
+);
+$assert(restore_current_blog(), 'The shared-storage check should restore the origin site.');
+
+$originRow = $captures->find($originStorageSession);
+$originMutation = $mutations->find($originMutationId);
+$assert(
+	$originNetworkId === (int) $originRow->network_id
+	&& $originSiteId === (int) $originRow->blog_id,
+	'Origin evidence should persist its immutable network and blog identity.'
+);
+$assert(
+	'origin-row' === (string) $originMutation->new_value
+	&& 'shared_multisite_fixture' === (string) $originMutation->option_name,
+	'The origin site should retain its value for an option name also used by another site.'
+);
+$assert(null === $captures->find($foreignStorageSession), 'An origin repository must not resolve a foreign capture ID.');
+$assert(null === $mutations->find($foreignMutationId), 'An origin repository must not resolve a foreign mutation ID.');
+
+$assert(switch_to_blog($foreignSiteId), 'The scoped-read check should re-enter the second site.');
+$foreignRow = $foreignCaptures->find($foreignStorageSession);
+$foreignMutation = $foreignMutations->find($foreignMutationId);
+$assert(
+	$originNetworkId === (int) $foreignRow->network_id
+	&& $foreignSiteId === (int) $foreignRow->blog_id,
+	'Foreign evidence should persist the second site identity in the shared table.'
+);
+$assert(
+	'foreign-row' === (string) $foreignMutation->new_value
+	&& 'shared_multisite_fixture' === (string) $foreignMutation->option_name,
+	'The second site should retain an independent value under the same option name.'
+);
+$assert(null === $foreignCaptures->find($originStorageSession), 'A foreign repository must not resolve the origin capture ID.');
+$assert(null === $foreignMutations->find($originMutationId), 'A foreign repository must not resolve the origin mutation ID.');
+$assert(restore_current_blog(), 'The scoped-read check should restore the origin site.');
+
+$originAdapters = new \ConfigOps\Adapter\AdapterRegistry(
+	\ConfigOps\Adapter\BuiltInAdapters::create(),
+	new \ConfigOps\Noise\NoiseClassifier(),
+	new \ConfigOps\Capture\HeuristicSensitiveValueDetector()
+);
+$originRestore = new \ConfigOps\Restore\RestoreService(
+	$captures,
+	$mutations,
+	new \ConfigOps\Capture\ValueCodec($originAdapters),
+	new \ConfigOps\Database\OptionMetadataRepository($wpdb),
+	new \ConfigOps\Execution\OperationLock($wpdb),
+	$originAdapters,
+	$originAudits,
+	new \ConfigOps\Multisite\SiteBoundaryGuard(\ConfigOps\Multisite\SiteScope::current(), $captures)
+);
+$foreignRestoreRejected = false;
+try {
+	$originRestore->restoreMutation($foreignMutationId);
+} catch (RuntimeException) {
+	$foreignRestoreRejected = true;
+}
+$assert($foreignRestoreRejected, 'Restore on the origin site must reject a foreign mutation before any option write or audit starts.');
+$assert(array() === $originAudits->forSession($foreignStorageSession), 'A rejected foreign restore must not create an origin-site audit row.');
+
+$legacySiteId = wpmu_create_blog(
+	$domain,
+	'/configops-legacy/',
+	'ConfigOps legacy migration target',
+	1,
+	array('public' => 0),
+	$originNetworkId
+);
+if (is_wp_error($legacySiteId)) {
+	throw new RuntimeException('Could not create the legacy migration fixture: ' . $legacySiteId->get_error_message());
+}
+$legacySiteId = (int) $legacySiteId;
+$assert(switch_to_blog($legacySiteId), 'The migration check should enter its isolated legacy site.');
+
+$copyLegacyTable = static function (string $suffix, string $rowFilter) use ($wpdb, $originNetworkId, $originSiteId): void {
+	$sharedTable = $wpdb->base_prefix . $suffix;
+	$legacyTable = $wpdb->prefix . $suffix;
+	$columns = $wpdb->get_col("SHOW COLUMNS FROM `{$sharedTable}`", 0);
+	$columns = array_values(array_diff(is_array($columns) ? $columns : array(), array('network_id', 'blog_id', 'legacy_id')));
+	$quotedColumns = implode(', ', array_map(static fn (string $column): string => '`' . str_replace('`', '``', $column) . '`', $columns));
+	$definitions = array_map(
+		static fn (string $column): string => 'id' === $column
+			? '`id` bigint(20) unsigned NOT NULL'
+			: '`' . str_replace('`', '``', $column) . '` longtext NULL',
+		$columns
+	);
+	$definitions[] = 'PRIMARY KEY (`id`)';
+	$created = $wpdb->query("CREATE TABLE `{$legacyTable}` (" . implode(', ', $definitions) . ')');
+	if (false === $created) {
+		throw new RuntimeException('Could not create a per-site legacy table fixture: ' . $wpdb->last_error);
+	}
+
+	$rows = $wpdb->get_results(
+		$wpdb->prepare(
+			"SELECT {$quotedColumns} FROM `{$sharedTable}`
+			WHERE network_id = %d AND blog_id = %d AND {$rowFilter}",
+			$originNetworkId,
+			$originSiteId
+		),
+		ARRAY_A
+	);
+	foreach (is_array($rows) ? $rows : array() as $row) {
+		if (false === $wpdb->insert($legacyTable, $row)) {
+			throw new RuntimeException('Could not populate a per-site legacy table fixture.');
+		}
+	}
+};
+$copyLegacyTable('configops_capture_sessions', 'id = ' . $originStorageSession);
+$copyLegacyTable('configops_mutations', 'session_id = ' . $originStorageSession);
+$copyLegacyTable('configops_write_signals', 'session_id = ' . $originStorageSession);
+$copyLegacyTable('configops_restore_runs', 'session_id = ' . $originStorageSession);
+update_option('configops_schema_version', 9, false);
+update_option('configops_active_capture_id', $originStorageSession, false);
+update_option(
+	\ConfigOps\Database\CaptureRepository::INTEGRITY_FALLBACK_OPTION,
+	array(
+		'events' => array(
+			(string) $originStorageSession => array(
+				'code' => 'legacy_fixture_warning',
+				'at'   => current_time('mysql', true),
+			),
+		),
+		'overflow' => false,
+	),
+	false
+);
+(new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
+$assert(10 === (int) get_option('configops_schema_version'), 'A legacy subsite should commit the shared-storage schema only after migration.');
+
+$legacyScope = \ConfigOps\Multisite\SiteScope::current();
+$legacyCaptures = new \ConfigOps\Database\CaptureRepository($wpdb, $legacyScope);
+$legacyMutations = new \ConfigOps\Database\MutationRepository($wpdb, $legacyScope);
+$legacySignals = new \ConfigOps\Database\DatabaseWriteSignalRepository($wpdb, $legacyScope);
+$legacyAudits = new \ConfigOps\Database\RestoreAuditRepository($wpdb, $legacyScope);
+$migratedSessions = array_values(array_filter(
+	$legacyCaptures->recent(20),
+	static fn (object $row): bool => $originStorageSession === (int) ($row->legacy_id ?? 0)
+));
+$assert(1 === count($migratedSessions), 'The per-site legacy session should migrate exactly once.');
+$migratedSession = $migratedSessions[0];
+$migratedSessionId = (int) $migratedSession->id;
+$assert(
+	$migratedSessionId !== $originStorageSession
+	&& $legacySiteId === (int) $migratedSession->blog_id,
+	'Legacy session IDs should be remapped when another site already owns the old numeric ID.'
+);
+$migratedMutations = $legacyMutations->forSession($migratedSessionId);
+$assert(
+	1 === count($migratedMutations)
+	&& $originMutationId === (int) $migratedMutations[0]->legacy_id
+	&& $migratedSessionId === (int) $migratedMutations[0]->session_id
+	&& 'origin-row' === (string) $migratedMutations[0]->new_value,
+	'Legacy mutation payloads and their remapped session relationship should survive migration.'
+);
+$migratedMutationId = (int) $migratedMutations[0]->id;
+$migratedSignalRows = $legacySignals->forSession($migratedSessionId);
+$migratedAuditRows = $legacyAudits->forSession($migratedSessionId);
+$migratedAuditsByType = array_column($migratedAuditRows, null, 'scope_type');
+$assert(
+	1 === count($migratedSignalRows)
+	&& $originSignalId === (int) $migratedSignalRows[0]->legacy_id
+	&& $migratedSessionId === (int) $migratedSignalRows[0]->session_id,
+	'Legacy unmanaged-write evidence should follow the remapped session.'
+);
+$assert(
+	2 === count($migratedAuditRows)
+	&& $originAuditId === (int) $migratedAuditsByType['mutation']->legacy_id
+	&& $migratedSessionId === (int) $migratedAuditsByType['mutation']->session_id
+	&& $migratedMutationId === (int) $migratedAuditsByType['mutation']->scope_id
+	&& $originSessionAuditId === (int) $migratedAuditsByType['session']->legacy_id
+	&& $migratedSessionId === (int) $migratedAuditsByType['session']->scope_id,
+	'Legacy restore audits should remap their session, mutation, and whole-session scope references.'
+);
+$assert(
+	$migratedSessionId === (int) get_option('configops_active_capture_id', 0),
+	'The site-local active capture pointer should follow its migrated session ID.'
+);
+$migratedFallback = get_option(\ConfigOps\Database\CaptureRepository::INTEGRITY_FALLBACK_OPTION, array());
+$assert(
+	'legacy_fixture_warning' === (string) ($migratedFallback['events'][(string) $migratedSessionId]['code'] ?? '')
+	&& ! isset($migratedFallback['events'][(string) $originStorageSession]),
+	'Integrity fallback pointers should be remapped without attaching warnings to another site.'
+);
+update_option('configops_schema_version', 9, false);
+(new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
+$migratedCount = (int) $wpdb->get_var(
+	$wpdb->prepare(
+		"SELECT COUNT(*) FROM `{$wpdb->base_prefix}configops_capture_sessions`
+		WHERE network_id = %d AND blog_id = %d AND legacy_id = %d",
+		$originNetworkId,
+		$legacySiteId,
+		$originStorageSession
+	)
+);
+$assert(1 === $migratedCount, 'Retrying an interrupted or stale migration must remain idempotent.');
+$retriedFallback = get_option(\ConfigOps\Database\CaptureRepository::INTEGRITY_FALLBACK_OPTION, array());
+$assert(
+	'legacy_fixture_warning' === (string) ($retriedFallback['events'][(string) $migratedSessionId]['code'] ?? '')
+	&& false === (bool) ($retriedFallback['overflow'] ?? true),
+	'Retrying migration should preserve an already-remapped integrity fallback without degrading it to overflow.'
+);
+$assert(restore_current_blog(), 'The legacy migration check should restore the origin site.');
+$assert($originSiteId === get_current_blog_id(), 'All Multisite storage checks should leave WordPress on the origin site.');
+
 fwrite(STDOUT, "ConfigOps Multisite boundary checks passed ({$assertions} assertions).\n");

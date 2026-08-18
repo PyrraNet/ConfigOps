@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ConfigOps\Database;
 
+use ConfigOps\Multisite\SiteScope;
 use RuntimeException;
 use wpdb;
 
@@ -20,13 +21,15 @@ final class CaptureRepository
 	private const STOPPING_TIMEOUT = 300;
 
 	private string $table;
+	private readonly StorageContext $storage;
 	private bool $activeResolved = false;
 	private bool $integrityFallbackChecked = false;
 	private ?object $activeSession = null;
 
-	public function __construct(private readonly wpdb $database)
+	public function __construct(private readonly wpdb $database, ?SiteScope $siteScope = null)
 	{
-		$this->table = $this->database->prefix . 'configops_capture_sessions';
+		$this->storage = new StorageContext($this->database, $siteScope);
+		$this->table   = $this->storage->table('configops_capture_sessions');
 	}
 
 	public function start(string $name, int $actorId, string $initialUrl): int
@@ -39,15 +42,15 @@ final class CaptureRepository
 
 		$inserted = $this->database->insert(
 			$this->table,
-			array(
+			$this->storage->row(array(
 				'name'        => $name,
 				'capture_mode' => 'manual',
 				'status'      => 'starting',
 				'actor_id'    => $actorId,
 				'initial_url' => $initialUrl,
 				'started_at'  => current_time('mysql', true),
-			),
-			array('%s', '%s', '%s', '%d', '%s', '%s')
+			)),
+			$this->storage->rowFormats(array('%s', '%s', '%s', '%d', '%s', '%s'))
 		);
 
 		if (false === $inserted) {
@@ -65,9 +68,9 @@ final class CaptureRepository
 		$activated = $this->database->update(
 			$this->table,
 			array('status' => 'active'),
-			array('id' => $id),
+			$this->storage->where(array('id' => $id)),
 			array('%s'),
-			array('%d')
+			$this->storage->whereFormats(array('%d'))
 		);
 		if (false === $activated) {
 			delete_option(self::ACTIVE_OPTION);
@@ -88,15 +91,15 @@ final class CaptureRepository
 		$name = $this->normalizeName($name);
 		$inserted = $this->database->insert(
 			$this->table,
-			array(
+			$this->storage->row(array(
 				'name'         => $name,
 				'capture_mode' => 'automatic',
 				'status'       => 'active',
 				'actor_id'     => max(0, $actorId),
 				'initial_url'  => $initialUrl,
 				'started_at'   => current_time('mysql', true),
-			),
-			array('%s', '%s', '%s', '%d', '%s', '%s')
+			)),
+			$this->storage->rowFormats(array('%s', '%s', '%s', '%d', '%s', '%s'))
 		);
 		if (false === $inserted) {
 			throw new RuntimeException('The automatic settings observation could not be stored.');
@@ -108,9 +111,9 @@ final class CaptureRepository
 	public function completeAutomatic(int $id): object
 	{
 		$finalizing = $this->database->query(
-			$this->database->prepare(
+			$this->storage->prepare(
 				"UPDATE {$this->table} SET status = 'stopping', ended_at = %s
-				WHERE id = %d AND capture_mode = 'automatic' AND status = 'active'",
+				WHERE {$this->storage->clause()} AND id = %d AND capture_mode = 'automatic' AND status = 'active'",
 				current_time('mysql', true),
 				$id
 			)
@@ -137,9 +140,9 @@ final class CaptureRepository
 				'write_signal_count'     => $summary['write_signal_count'],
 				'ended_at'               => current_time('mysql', true),
 			),
-			array('id' => $id, 'capture_mode' => 'automatic', 'status' => 'stopping'),
+			$this->storage->where(array('id' => $id, 'capture_mode' => 'automatic', 'status' => 'stopping')),
 			array('%s', '%d', '%d', '%d', '%d', '%s'),
-			array('%d', '%s', '%s')
+			$this->storage->whereFormats(array('%d', '%s', '%s'))
 		);
 		if (1 !== $updated) {
 			throw new RuntimeException('The automatic settings observation could not be finalized.');
@@ -157,14 +160,14 @@ final class CaptureRepository
 	{
 		$code = substr(sanitize_key($code), 0, 64) ?: 'automatic_capture_interrupted';
 		$updated = $this->database->query(
-			$this->database->prepare(
+			$this->storage->prepare(
 				"UPDATE {$this->table}
 				SET status = 'interrupted',
 					capture_error_count = capture_error_count + 1,
 					last_error_code = %s,
 					last_error_at = %s,
 					ended_at = %s
-				WHERE id = %d AND capture_mode = 'automatic' AND status IN ('active', 'stopping')",
+				WHERE {$this->storage->clause()} AND id = %d AND capture_mode = 'automatic' AND status IN ('active', 'stopping')",
 				$code,
 				current_time('mysql', true),
 				current_time('mysql', true),
@@ -184,8 +187,8 @@ final class CaptureRepository
 		}
 
 		$finalizing = $this->database->query(
-			$this->database->prepare(
-				"UPDATE {$this->table} SET status = 'stopping', ended_at = %s WHERE id = %d AND status IN ('starting', 'active')",
+			$this->storage->prepare(
+				"UPDATE {$this->table} SET status = 'stopping', ended_at = %s WHERE {$this->storage->clause()} AND id = %d AND status IN ('starting', 'active')",
 				current_time('mysql', true),
 				$id
 			)
@@ -223,9 +226,9 @@ final class CaptureRepository
 				'write_signal_count' => $writeSignalCount,
 				'ended_at'           => current_time('mysql', true),
 			),
-			array('id' => $id, 'status' => 'stopping'),
+			$this->storage->where(array('id' => $id, 'status' => 'stopping')),
 			array('%s', '%d', '%d', '%d', '%d', '%s'),
-			array('%d', '%s')
+			$this->storage->whereFormats(array('%d', '%s'))
 		);
 		if (1 !== $updated) {
 			$recovered = $this->recoverFailedStop($id);
@@ -251,14 +254,14 @@ final class CaptureRepository
 
 		$code = substr(sanitize_key($code), 0, 64);
 		$updated = $this->database->query(
-			$this->database->prepare(
+			$this->storage->prepare(
 				"UPDATE {$this->table}
 				SET status = 'interrupted',
 					capture_error_count = capture_error_count + 1,
 					last_error_code = %s,
 					last_error_at = %s,
 					ended_at = %s
-				WHERE id = %d AND status IN ('starting', 'active', 'stopping')",
+				WHERE {$this->storage->clause()} AND id = %d AND status IN ('starting', 'active', 'stopping')",
 				'' === $code ? 'capture_interrupted' : $code,
 				current_time('mysql', true),
 				current_time('mysql', true),
@@ -287,14 +290,15 @@ final class CaptureRepository
 	{
 		$cutoff = gmdate('Y-m-d H:i:s', time() - self::STOPPING_TIMEOUT);
 		$this->database->query(
-			$this->database->prepare(
+			$this->storage->prepare(
 				"UPDATE {$this->table}
 				SET status = 'interrupted',
 					capture_error_count = capture_error_count + 1,
 					last_error_code = 'automatic_request_timed_out',
 					last_error_at = %s,
 					ended_at = %s
-				WHERE capture_mode = 'automatic'
+				WHERE {$this->storage->clause()}
+					AND capture_mode = 'automatic'
 					AND status IN ('active', 'stopping')
 					AND started_at < %s",
 				current_time('mysql', true),
@@ -305,7 +309,7 @@ final class CaptureRepository
 
 		$count = $this->database->get_var(
 			"SELECT COUNT(*) FROM {$this->table}
-			WHERE capture_mode = 'automatic' AND status IN ('active', 'stopping')"
+			WHERE {$this->storage->clause()} AND capture_mode = 'automatic' AND status IN ('active', 'stopping')"
 		);
 
 		return null === $count || (int) $count > 0;
@@ -340,13 +344,13 @@ final class CaptureRepository
 			$stoppingAt = strtotime((string) ($session->ended_at ?? '') . ' UTC');
 			if (false !== $stoppingAt && $stoppingAt <= time() - self::STOPPING_TIMEOUT) {
 				$interrupted = $this->database->query(
-					$this->database->prepare(
+					$this->storage->prepare(
 						"UPDATE {$this->table}
 						SET status = 'interrupted',
 							capture_error_count = capture_error_count + 1,
 							last_error_code = 'stop_timed_out',
 							last_error_at = %s
-						WHERE id = %d AND status = 'stopping'",
+						WHERE {$this->storage->clause()} AND id = %d AND status = 'stopping'",
 						current_time('mysql', true),
 						$id
 					)
@@ -368,9 +372,9 @@ final class CaptureRepository
 			$recovered = $this->database->update(
 				$this->table,
 				array('status' => 'active'),
-				array('id' => $id),
+				$this->storage->where(array('id' => $id)),
 				array('%s'),
-				array('%d')
+				$this->storage->whereFormats(array('%d'))
 			);
 			if (false === $recovered) {
 				delete_option(self::ACTIVE_OPTION);
@@ -398,7 +402,7 @@ final class CaptureRepository
 		int $technicalChangeDelta
 	): void {
 		$updated = $this->database->query(
-			$this->database->prepare(
+			$this->storage->prepare(
 				"UPDATE {$this->table}
 				SET mutation_count = mutation_count + %d,
 					review_change_count = review_change_count + %d,
@@ -406,7 +410,7 @@ final class CaptureRepository
 					capture_error_count = capture_error_count + CASE WHEN status IN ('stopping', 'completed') THEN 1 ELSE 0 END,
 					last_error_code = CASE WHEN status IN ('stopping', 'completed') THEN 'late_mutation' ELSE last_error_code END,
 					last_error_at = CASE WHEN status IN ('stopping', 'completed') THEN %s ELSE last_error_at END
-				WHERE id = %d",
+				WHERE {$this->storage->clause()} AND id = %d",
 				$mutationDelta,
 				$reviewChangeDelta,
 				$technicalChangeDelta,
@@ -429,13 +433,13 @@ final class CaptureRepository
 	public function incrementWriteSignalCount(int $sessionId): void
 	{
 		$updated = $this->database->query(
-			$this->database->prepare(
+			$this->storage->prepare(
 				"UPDATE {$this->table}
 				SET write_signal_count = write_signal_count + 1,
 					capture_error_count = capture_error_count + CASE WHEN status IN ('stopping', 'completed') THEN 1 ELSE 0 END,
 					last_error_code = CASE WHEN status IN ('stopping', 'completed') THEN 'late_database_write' ELSE last_error_code END,
 					last_error_at = CASE WHEN status IN ('stopping', 'completed') THEN %s ELSE last_error_at END
-				WHERE id = %d",
+				WHERE {$this->storage->clause()} AND id = %d",
 				current_time('mysql', true),
 				$sessionId
 			)
@@ -461,12 +465,12 @@ final class CaptureRepository
 		}
 
 		$updated = $this->database->query(
-			$this->database->prepare(
+			$this->storage->prepare(
 				"UPDATE {$this->table}
 				SET capture_error_count = capture_error_count + 1,
 					last_error_code = %s,
 					last_error_at = %s
-				WHERE id = %d AND status IN ('starting', 'active', 'stopping', 'completed')",
+				WHERE {$this->storage->clause()} AND id = %d AND status IN ('starting', 'active', 'stopping', 'completed')",
 				$code,
 				current_time('mysql', true),
 				$sessionId
@@ -503,12 +507,12 @@ final class CaptureRepository
 			// existing evidence closed once canonical storage is writable, then
 			// retire the site-wide fallback instead of showing a permanent alert.
 			$updated = $this->database->query(
-				$this->database->prepare(
+				$this->storage->prepare(
 					"UPDATE {$this->table}
 					SET last_error_code = CASE WHEN capture_error_count < 1 THEN 'integrity_fallback_overflow' ELSE last_error_code END,
 						last_error_at = CASE WHEN capture_error_count < 1 THEN %s ELSE last_error_at END,
 						capture_error_count = CASE WHEN capture_error_count < 1 THEN 1 ELSE capture_error_count END
-					WHERE status NOT IN ('discarded', 'deleting')",
+					WHERE {$this->storage->clause()} AND status NOT IN ('discarded', 'deleting')",
 					current_time('mysql', true)
 				)
 			);
@@ -525,12 +529,12 @@ final class CaptureRepository
 			}
 
 			$updated = $this->database->query(
-				$this->database->prepare(
+				$this->storage->prepare(
 					"UPDATE {$this->table}
 					SET capture_error_count = CASE WHEN capture_error_count < 1 THEN 1 ELSE capture_error_count END,
 						last_error_code = %s,
 						last_error_at = %s
-					WHERE id = %d AND status NOT IN ('discarded', 'deleting')",
+					WHERE {$this->storage->clause()} AND id = %d AND status NOT IN ('discarded', 'deleting')",
 					$event['code'],
 					$event['at'],
 					$sessionId
@@ -541,7 +545,10 @@ final class CaptureRepository
 			}
 
 			$persistedCount = $this->database->get_var(
-				$this->database->prepare("SELECT capture_error_count FROM {$this->table} WHERE id = %d", $sessionId)
+				$this->storage->prepare(
+					"SELECT capture_error_count FROM {$this->table} WHERE {$this->storage->clause()} AND id = %d",
+					$sessionId
+				)
 			);
 			if (null !== $persistedCount && (int) $persistedCount > 0) {
 				unset($ledger['events'][$sessionKey]);
@@ -563,7 +570,10 @@ final class CaptureRepository
 	public function find(int $id): ?object
 	{
 		$row = $this->database->get_row(
-			$this->database->prepare("SELECT * FROM {$this->table} WHERE id = %d", $id)
+			$this->storage->prepare(
+				"SELECT * FROM {$this->table} WHERE {$this->storage->clause()} AND id = %d",
+				$id
+			)
 		);
 
 		return is_object($row) ? $row : null;
@@ -576,8 +586,8 @@ final class CaptureRepository
 	{
 		$limit = max(1, min(100, $limit));
 		$rows  = $this->database->get_results(
-			$this->database->prepare(
-				"SELECT * FROM {$this->table} WHERE status NOT IN ('discarded', 'deleting') ORDER BY started_at DESC, id DESC LIMIT %d",
+			$this->storage->prepare(
+				"SELECT * FROM {$this->table} WHERE {$this->storage->clause()} AND status NOT IN ('discarded', 'deleting') ORDER BY started_at DESC, id DESC LIMIT %d",
 				$limit
 			)
 		);
@@ -593,9 +603,9 @@ final class CaptureRepository
 				'status'   => 'discarded',
 				'ended_at' => current_time('mysql', true),
 			),
-			array('id' => $id),
+			$this->storage->where(array('id' => $id)),
 			array('%s', '%s'),
-			array('%d')
+			$this->storage->whereFormats(array('%d'))
 		);
 	}
 
@@ -608,8 +618,8 @@ final class CaptureRepository
 	private function recoverFailedStop(int $id): bool
 	{
 		$recovered = $this->database->query(
-			$this->database->prepare(
-				"UPDATE {$this->table} SET status = 'active', ended_at = NULL WHERE id = %d AND status = 'stopping'",
+			$this->storage->prepare(
+				"UPDATE {$this->table} SET status = 'active', ended_at = NULL WHERE {$this->storage->clause()} AND id = %d AND status = 'stopping'",
 				$id
 			)
 		);
@@ -623,14 +633,14 @@ final class CaptureRepository
 		}
 
 		$interrupted = $this->database->query(
-			$this->database->prepare(
+			$this->storage->prepare(
 				"UPDATE {$this->table}
 				SET status = 'interrupted',
 					capture_error_count = capture_error_count + 1,
 					last_error_code = 'stop_recovery_failed',
 					last_error_at = %s,
 					ended_at = %s
-				WHERE id = %d AND status = 'stopping'",
+				WHERE {$this->storage->clause()} AND id = %d AND status = 'stopping'",
 				current_time('mysql', true),
 				current_time('mysql', true),
 				$id
@@ -729,14 +739,14 @@ final class CaptureRepository
 	 */
 	private function verifiedSummary(int $id): array
 	{
-		$mutationTable = $this->database->prefix . 'configops_mutations';
+		$mutationTable = $this->storage->table('configops_mutations');
 		$mutationSummary = $this->database->get_row(
-			$this->database->prepare(
+			$this->storage->prepare(
 				"SELECT
 					COUNT(*) AS mutation_count,
 					COALESCE(SUM(review_change_count), 0) AS review_change_count,
 					COALESCE(SUM(technical_change_count), 0) AS technical_change_count
-				FROM {$mutationTable} WHERE session_id = %d",
+				FROM {$mutationTable} WHERE {$this->storage->clause()} AND session_id = %d",
 				$id
 			)
 		);
@@ -749,8 +759,8 @@ final class CaptureRepository
 		$technicalChangeCount = (int) $mutationSummary->technical_change_count;
 		if ($mutationCount > 0 && 0 === $reviewChangeCount + $technicalChangeCount) {
 			$legacyTechnicalCount = $this->database->get_var(
-				$this->database->prepare(
-					"SELECT COUNT(*) FROM {$mutationTable} WHERE session_id = %d AND classification = 'derived'",
+				$this->storage->prepare(
+					"SELECT COUNT(*) FROM {$mutationTable} WHERE {$this->storage->clause()} AND session_id = %d AND classification = 'derived'",
 					$id
 				)
 			);
@@ -761,10 +771,10 @@ final class CaptureRepository
 			$reviewChangeCount = $mutationCount - $technicalChangeCount;
 		}
 
-		$signalTable = $this->database->prefix . 'configops_write_signals';
+		$signalTable = $this->storage->table('configops_write_signals');
 		$writeSignalSummary = $this->database->get_var(
-			$this->database->prepare(
-				"SELECT COALESCE(SUM(occurrence_count), 0) FROM {$signalTable} WHERE session_id = %d",
+			$this->storage->prepare(
+				"SELECT COALESCE(SUM(occurrence_count), 0) FROM {$signalTable} WHERE {$this->storage->clause()} AND session_id = %d",
 				$id
 			)
 		);

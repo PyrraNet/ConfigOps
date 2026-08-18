@@ -57,12 +57,12 @@ final class Plugin
 		(new CapabilityManager())->maybeInstall();
 
 		$siteScope = SiteScope::current();
-		$captures  = new CaptureRepository($wpdb);
+		$captures  = new CaptureRepository($wpdb, $siteScope);
 		$siteBoundary = new SiteBoundaryGuard($siteScope, $captures);
 		$captures->reconcileIntegrityFallback();
 		self::registerIntegrityFallbackNotice($captures);
-		$mutations = new MutationRepository($wpdb);
-		$signals   = new DatabaseWriteSignalRepository($wpdb);
+		$mutations = new MutationRepository($wpdb, $siteScope);
+		$signals   = new DatabaseWriteSignalRepository($wpdb, $siteScope);
 		$metadata  = new OptionMetadataRepository($wpdb);
 		$builtInAdapters = BuiltInAdapters::create();
 		try {
@@ -87,8 +87,8 @@ final class Plugin
 		$automatic = new AutomaticRecorder($captures, $evidenceNotices, $request, $siteBoundary);
 		$automatic->register();
 		$operationLock = new OperationLock($wpdb, $siteScope);
-		$restoreAudits = new RestoreAuditRepository($wpdb);
-		(new HistoryRetention($wpdb, $operationLock))->register();
+		$restoreAudits = new RestoreAuditRepository($wpdb, $siteScope);
+		(new HistoryRetention($wpdb, $operationLock, $siteScope))->register();
 		(new PrivacyPolicy())->register();
 
 		(new SqlWriteSentry($wpdb, $captures, $signals, $source, $request, $adapters, $automatic, $siteBoundary))->register();

@@ -49,6 +49,8 @@ $sessionTable = $wpdb->prefix . 'configops_capture_sessions';
 $sessionColumns = $wpdb->get_col("SHOW COLUMNS FROM `{$sessionTable}`", 0);
 $assert(
 	in_array('capture_mode', $sessionColumns, true)
+	&& in_array('network_id', $sessionColumns, true)
+	&& in_array('blog_id', $sessionColumns, true)
 	&& in_array('capture_error_count', $sessionColumns, true)
 	&& in_array('last_error_code', $sessionColumns, true)
 	&& in_array('last_error_at', $sessionColumns, true),
@@ -64,7 +66,7 @@ $assert(
 );
 update_option('configops_schema_version', 8, false);
 (new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
-$assert(9 === (int) get_option('configops_schema_version'), 'A stale schema version should upgrade idempotently under the schema lock.');
+$assert(10 === (int) get_option('configops_schema_version'), 'A stale schema version should upgrade idempotently under the schema lock.');
 
 update_option('configops_schema_version', 8, false);
 $hideSchemaTables = static function (string $query): string {
@@ -81,7 +83,68 @@ remove_filter('query', $hideSchemaTables, PHP_INT_MIN);
 $assert($schemaFailureRejected, 'Schema verification should reject a storage layer that cannot prove its tables exist.');
 $assert(8 === (int) get_option('configops_schema_version'), 'A failed schema verification must never advance the committed schema version.');
 (new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
-$assert(9 === (int) get_option('configops_schema_version'), 'A schema upgrade should recover after the injected storage failure clears.');
+$assert(10 === (int) get_option('configops_schema_version'), 'A schema upgrade should recover after the injected storage failure clears.');
+
+$sharedStorageLock = new \ConfigOps\Database\SharedStorageLock($wpdb);
+$nestedSharedLockRejected = false;
+$sharedStorageLock->run(
+	static function () use ($sharedStorageLock, &$nestedSharedLockRejected): void {
+		try {
+			$sharedStorageLock->run(static fn (): null => null);
+		} catch (RuntimeException) {
+			$nestedSharedLockRejected = true;
+		}
+	}
+);
+$assert($nestedSharedLockRejected, 'Concurrent shared-schema upgrades should be rejected across site-local lock namespaces.');
+$baseOptionsTable = $wpdb->base_prefix . 'options';
+$sharedLockValue = $wpdb->get_var(
+	$wpdb->prepare(
+		"SELECT option_value FROM `{$baseOptionsTable}` WHERE option_name = %s",
+		'configops_shared_schema_lock'
+	)
+);
+$assert(null === $sharedLockValue, 'A completed shared-schema operation should release its installation-wide lock.');
+$wpdb->insert(
+	$baseOptionsTable,
+	array(
+		'option_name'  => 'configops_shared_schema_lock',
+		'option_value' => maybe_serialize(array('token' => 'stale-fixture', 'expires_at' => time() - 1)),
+		'autoload'     => 'no',
+	),
+	array('%s', '%s', '%s')
+);
+$staleSharedLockRecovered = false;
+$sharedStorageLock->run(static function () use (&$staleSharedLockRecovered): void {
+	$staleSharedLockRecovered = true;
+});
+$assert($staleSharedLockRecovered, 'An expired installation-wide schema lock should be recovered atomically.');
+
+$wpdb->insert(
+	$sessionTable,
+	array(
+		'network_id'  => 0,
+		'blog_id'     => 0,
+		'name'        => 'Legacy shared-table ownership fixture',
+		'capture_mode' => 'manual',
+		'status'      => 'discarded',
+		'actor_id'    => 0,
+		'started_at'  => current_time('mysql', true),
+	),
+	array('%d', '%d', '%s', '%s', '%s', '%d', '%s')
+);
+$legacySharedSessionId = (int) $wpdb->insert_id;
+update_option('configops_schema_version', 9, false);
+(new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
+$legacySharedSession = (new \ConfigOps\Database\CaptureRepository($wpdb))->find($legacySharedSessionId);
+$legacySharedScope = \ConfigOps\Multisite\SiteScope::current();
+$assert(
+	is_object($legacySharedSession)
+	&& $legacySharedScope->networkId() === (int) $legacySharedSession->network_id
+	&& $legacySharedScope->siteId() === (int) $legacySharedSession->blog_id,
+	'Rows from the former single-site table should be assigned to the original site during upgrade.'
+);
+$wpdb->delete($sessionTable, array('id' => $legacySharedSessionId), array('%d'));
 
 $administrator = get_role('administrator');
 $assert(false !== $administrator, 'WordPress should provide an administrator role for capability checks.');
