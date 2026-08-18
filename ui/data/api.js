@@ -1,30 +1,31 @@
 const apiFetch = (options) => window.wp.apiFetch(options);
+const API_ROOT = '/configops/v1';
 
 export const fetchState = (sessionId) => apiFetch({
-	path: `/configops/v1/state${sessionId ? `?session=${sessionId}` : ''}`,
+	path: `${API_ROOT}/state${sessionId ? `?session=${sessionId}` : ''}`,
 });
 
 export const fetchMutationPage = (sessionId, after) => apiFetch({
-	path: `/configops/v1/captures/${sessionId}/mutations?after=${after}&limit=25`,
+	path: `${API_ROOT}/captures/${sessionId}/mutations?after=${after}`,
 });
 
 export const createCapture = (name) => apiFetch({
-	path: '/configops/v1/captures',
+	path: `${API_ROOT}/captures`,
 	method: 'POST',
 	data: { name },
 });
 
 export const stopActiveCapture = () => apiFetch({
-	path: '/configops/v1/captures/active/stop',
+	path: `${API_ROOT}/captures/active/stop`,
 	method: 'POST',
 });
 
 export const restoreMutationRequest = (mutationId) => apiFetch({
-	path: `/configops/v1/mutations/${mutationId}/restore`,
+	path: `${API_ROOT}/mutations/${mutationId}/restore`,
 	method: 'POST',
 });
 
 export const restoreSessionRequest = (sessionId) => apiFetch({
-	path: `/configops/v1/captures/${sessionId}/restore`,
+	path: `${API_ROOT}/captures/${sessionId}/restore`,
 	method: 'POST',
 });

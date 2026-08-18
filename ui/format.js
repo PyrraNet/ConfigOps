@@ -1,9 +1,9 @@
-export const formatValue = (value, emptyLabel = 'Empty') => {
+export const formatValue = (value, labels) => {
 	if (typeof value === 'boolean') {
-		return value ? 'On (true)' : 'Off (false)';
+		return value ? labels.booleanTrue : labels.booleanFalse;
 	}
 	if (value === null || value === '') {
-		return emptyLabel;
+		return labels.empty;
 	}
 	if (typeof value === 'string') {
 		if (value === '[not set]' || value === '••••••••' || value.startsWith('[unsupported')) {
@@ -17,4 +17,12 @@ export const formatValue = (value, emptyLabel = 'Empty') => {
 	}
 
 	return String(value);
+};
+
+export const fileSizeParts = (bytes) => {
+	if (!Number.isFinite(bytes) || bytes < 0) return null;
+	if (bytes < 1024) return { value: bytes, unit: 'bytes' };
+	if (bytes < 1024 * 1024) return { value: Math.round(bytes / 102.4) / 10, unit: 'kilobytes' };
+
+	return { value: Math.round(bytes / 1024 / 102.4) / 10, unit: 'megabytes' };
 };

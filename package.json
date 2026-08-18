@@ -2,6 +2,7 @@
   "name": "configops",
   "version": "0.3.0",
   "private": true,
+  "type": "module",
   "description": "The undo and evidence layer for WordPress settings.",
   "scripts": {
     "build:ui": "node build/build-ui.mjs",
@@ -16,6 +17,7 @@
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
     "test:docs": "npm run docs:build && node tests/docs-smoke.mjs",
+    "test:ui": "node --test tests/ui-format.test.mjs",
     "prewp:start": "npm run build:ui",
     "wp:start": "bash .dev/start.sh",
     "wp:stop": "docker compose stop",
@@ -34,7 +36,7 @@
     "test:coverage:report": "node tests/coverage/report.mjs --minimum=70 --critical-minimum=75",
     "test:adapter-ui": "node tests/adapters-user-flow.mjs",
     "test:visual": "node tests/visual-check.mjs",
-    "test": "npm run build:plugin && npm run check:ui-budget && npm run check:runtime-policy && npm run lint:php && npm run test:unit && npm run test:adversarial && npm run test:integration && npm run test:adapters"
+    "test": "npm run build:plugin && npm run check:ui-budget && npm run check:runtime-policy && npm run test:ui && npm run lint:php && npm run test:unit && npm run test:adversarial && npm run test:integration && npm run test:adapters"
   },
   "devDependencies": {
     "@wp-playground/cli": "3.1.49",

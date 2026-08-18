@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ConfigOps\Admin;
 
+use ConfigOps\Api\RestRoutes;
 use ConfigOps\Capture\AutomaticRecorder;
 use ConfigOps\Capture\IntentContext;
 use ConfigOps\Database\CaptureRepository;
@@ -92,7 +93,7 @@ final class AdminController
 			);
 			$feedback = wp_json_encode(
 				array(
-					'endpoint' => rest_url('configops/v1/evidence'),
+					'endpoint' => rest_url(RestRoutes::NAMESPACE . '/evidence'),
 					'nonce'    => wp_create_nonce('wp_rest'),
 				)
 			);

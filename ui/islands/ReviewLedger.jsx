@@ -6,7 +6,7 @@ import {
 	useConfigOpsState,
 } from '../data/store.js';
 import Hint from '../components/Hint.jsx';
-import { formatValue } from '../format.js';
+import { fileSizeParts, formatValue } from '../format.js';
 
 const fieldKindLabel = (kind, referenceType, __) => {
 	switch (kind) {
@@ -27,11 +27,24 @@ const fieldKindLabel = (kind, referenceType, __) => {
 };
 
 const formatFileSize = (bytes) => {
-	if (!Number.isFinite(bytes) || bytes < 0) return '';
-	if (bytes < 1024) return `${bytes} B`;
-	if (bytes < 1024 * 1024) return `${Math.round(bytes / 102.4) / 10} KB`;
+	const size = fileSizeParts(bytes);
+	if (!size) return '';
 
-	return `${Math.round(bytes / 1024 / 102.4) / 10} MB`;
+	const { __, sprintf } = window.wp.i18n;
+	const value = new Intl.NumberFormat(document.documentElement.lang || undefined, {
+		maximumFractionDigits: 1,
+	}).format(size.value);
+	if (size.unit === 'bytes') {
+		/* translators: %s: file size in bytes. */
+		return sprintf(__('%s B', 'configops'), value);
+	}
+	if (size.unit === 'kilobytes') {
+		/* translators: %s: file size in kilobytes. */
+		return sprintf(__('%s KB', 'configops'), value);
+	}
+
+	/* translators: %s: file size in megabytes. */
+	return sprintf(__('%s MB', 'configops'), value);
 };
 
 const referenceState = (snapshot) => {
@@ -141,10 +154,15 @@ const DiffValue = ({ change, side, label }) => {
 	const hasValue = Object.hasOwn(change, side);
 	const value = hasValue ? change[side] : undefined;
 	const empty = hasValue && (value === null || value === '');
+	const labels = {
+		empty: __('Empty', 'configops'),
+		booleanTrue: __('On (true)', 'configops'),
+		booleanFalse: __('Off (false)', 'configops'),
+	};
 
 	return (
 		<pre className={empty ? 'is-empty' : ''} data-label={label}>
-			{hasValue ? formatValue(value, __('Empty', 'configops')) : '—'}
+			{hasValue ? formatValue(value, labels) : '—'}
 		</pre>
 	);
 };

@@ -23,8 +23,6 @@ use WP_REST_Server;
 
 final class RestController
 {
-	private const NAMESPACE = 'configops/v1';
-
 	public function __construct(
 		private readonly CaptureRepository $captures,
 		private readonly MutationRepository $mutations,
@@ -67,7 +65,12 @@ final class RestController
 			array(
 				'id'    => array('type' => 'integer', 'minimum' => 1, 'required' => true),
 				'after' => array('type' => 'integer', 'minimum' => 0, 'default' => 0),
-				'limit' => array('type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 100),
+				'limit' => array(
+					'type'    => 'integer',
+					'minimum' => 1,
+					'maximum' => AdminPayloadFactory::PAGE_SIZE,
+					'default' => AdminPayloadFactory::PAGE_SIZE,
+				),
 			)
 		);
 
@@ -117,7 +120,7 @@ final class RestController
 			$route['args'] = $args;
 		}
 
-		register_rest_route(self::NAMESPACE, $path, $route);
+		register_rest_route(RestRoutes::NAMESPACE, $path, $route);
 	}
 
 	public function state(WP_REST_Request $request): WP_REST_Response

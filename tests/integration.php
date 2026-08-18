@@ -1440,7 +1440,6 @@ $firstBulkMutationId = (int) $bulkFirstPage[array_key_last($bulkFirstPage)]->id;
 $pageRequest = new WP_REST_Request('GET', "/configops/v1/captures/{$bulkSession}/mutations");
 $pageRequest->set_param('id', $bulkSession);
 $pageRequest->set_param('after', $firstBulkMutationId);
-$pageRequest->set_param('limit', 100);
 $pageResponse = $restServer->dispatch($pageRequest);
 $pageData = $pageResponse->get_data();
 $assert(
@@ -1448,6 +1447,14 @@ $assert(
 	'The mutation connection should continue from an opaque monotonic boundary without an offset scan.'
 );
 $assert(false === $pageData['pageInfo']['hasNext'], 'The final mutation connection page should close its continuation honestly.');
+$oversizedPageRequest = new WP_REST_Request('GET', "/configops/v1/captures/{$bulkSession}/mutations");
+$oversizedPageRequest->set_param('id', $bulkSession);
+$oversizedPageRequest->set_param('limit', \ConfigOps\Admin\AdminPayloadFactory::PAGE_SIZE + 1);
+$oversizedPageResponse = $restServer->dispatch($oversizedPageRequest);
+$assert(
+	400 === $oversizedPageResponse->get_status(),
+	'The REST mutation connection must reject pages above the shared 25-row review budget.'
+);
 $assert(
 	'private, no-store' === ($pageResponse->get_headers()['Cache-Control'] ?? ''),
 	'Configuration evidence must never be retained by browser, proxy, or shared wp-admin caches.'

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ConfigOps\Capture;
 
+use ConfigOps\Api\RestRoutes;
 use ConfigOps\Admin\EvidenceNoticeStore;
 use ConfigOps\Database\CaptureRepository;
 use Throwable;
@@ -151,8 +152,7 @@ final class AutomaticRecorder
 
 	private function isConfigOpsRestRequest(): bool
 	{
-		$route = trim($this->request->uri(), '/');
-		if (str_starts_with($route, 'configops/v1/') || str_contains($route, '/configops/v1/')) {
+		if (RestRoutes::owns($this->request->uri())) {
 			return true;
 		}
 
@@ -161,7 +161,7 @@ final class AutomaticRecorder
 			$queryRoute = sanitize_text_field(wp_unslash($_GET['rest_route'])); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		}
 
-		return str_starts_with(trim($queryRoute, '/'), 'configops/v1/');
+		return RestRoutes::ownsQueryRoute($queryRoute);
 	}
 
 	private function automaticName(): string

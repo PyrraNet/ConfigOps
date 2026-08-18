@@ -14,6 +14,7 @@ require_once dirname(__DIR__) . '/src/Autoload.php';
 
 use ConfigOps\Capture\ValueCodec;
 use ConfigOps\Capture\SensitiveValueDetector;
+use ConfigOps\Api\RestRoutes;
 use ConfigOps\Diff\NestedDiff;
 use ConfigOps\Adapter\WpMailSmtpAdapter;
 use ConfigOps\Adapter\WordPressCoreAdapter;
@@ -35,6 +36,16 @@ $assert = static function (bool $condition, string $message) use (&$assertions):
 		throw new RuntimeException($message);
 	}
 };
+
+$assert(RestRoutes::owns('/configops/v1/state'), 'The direct ConfigOps REST namespace should be recognized.');
+$assert(RestRoutes::owns('/wp-json/configops/v1/captures/7/restore'), 'Pretty WordPress REST routes should be recognized.');
+$assert(RestRoutes::owns('/?rest_route=/configops/v1/captures/7/restore'), 'Query-routed ConfigOps REST paths should be recognized.');
+$assert(! RestRoutes::owns('/configops/v10/state'), 'Adjacent REST namespaces must not be mistaken for ConfigOps routes.');
+$assert(RestRoutes::ownsQueryRoute('/configops/v1/state'), 'Direct rest_route values should recognize the ConfigOps namespace.');
+$assert(
+	! RestRoutes::ownsQueryRoute('/vendor/v1/configops/v1/state'),
+	'Foreign rest_route values containing the ConfigOps namespace must not suppress automatic recording.'
+);
 
 $diff = new NestedDiff();
 

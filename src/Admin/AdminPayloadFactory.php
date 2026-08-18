@@ -18,7 +18,7 @@ use ConfigOps\Maintenance\HistoryRetention;
 
 final class AdminPayloadFactory
 {
-	private const PAGE_SIZE = 25;
+	public const PAGE_SIZE = 25;
 	private const MAX_PAGE_BYTES = 524288;
 
 	public function __construct(
