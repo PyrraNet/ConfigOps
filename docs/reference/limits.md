@@ -18,6 +18,8 @@ Version 0.3.1 is deliberately narrower than a configuration-management platform.
 - generic semantic understanding for every WordPress plugin;
 - cloud storage, team accounts, approvals, drift monitoring, Policies, or Release Packs.
 
+ConfigOps pins each request to its originating WordPress site. If unsupported cross-site code calls `switch_to_blog()` and then writes configuration, ConfigOps ignores that value instead of attaching it to the wrong site's history. Any already-running capture is marked incomplete and cannot use whole-change undo.
+
 ## Evidence limits
 
 Source attribution is bounded provenance, not proof of causality. Browser field correlation explains likely intent but cannot authorize a write. Secret detection is conservative but cannot guarantee discovery of every unusually named credential.

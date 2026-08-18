@@ -20,6 +20,7 @@ const criticalPrefixes = [
 	'src/Database/',
 	'src/Execution/',
 	'src/Maintenance/',
+	'src/Multisite/',
 	'src/Reference/',
 	'src/Release/',
 	'src/Restore/',

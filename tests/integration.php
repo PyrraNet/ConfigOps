@@ -104,6 +104,110 @@ $operationLock = new \ConfigOps\Execution\OperationLock($wpdb);
 $restoreAudit  = new \ConfigOps\Database\RestoreAuditRepository($wpdb);
 $restore       = new \ConfigOps\Restore\RestoreService($captures, $mutations, $codec, $metadata, $operationLock, $adapters, $restoreAudit);
 
+if (! function_exists('switch_to_blog')) {
+	require_once ABSPATH . WPINC . '/ms-blogs.php';
+}
+$siteScope = \ConfigOps\Multisite\SiteScope::current();
+$siteBoundary = new \ConfigOps\Multisite\SiteBoundaryGuard($siteScope, $captures);
+$scopeObserver = new \ConfigOps\Capture\MutationObserver(
+	$captures,
+	$mutations,
+	$metadata,
+	new \ConfigOps\Capture\InternalOptionPolicy(),
+	$codec,
+	new \ConfigOps\Diff\NestedDiff(),
+	$adapters,
+	new \ConfigOps\Capture\SourceAttributor(WP_PLUGIN_DIR . '/configops'),
+	new \ConfigOps\Capture\RequestContext(),
+	new \ConfigOps\Capture\IntentContext(),
+	null,
+	$siteBoundary
+);
+$siteBoundarySession = $captures->start('Site boundary isolation', 0, '/wp-admin/options-general.php');
+$scopeObserver->beforeUpdate('after', 'site_boundary_fixture_setting', 'before');
+$originSiteId = get_current_blog_id();
+$foreignSiteId = $originSiteId + 100000;
+$assert(switch_to_blog($foreignSiteId), 'The site-boundary test should enter a foreign WordPress site context.');
+$assert($foreignSiteId === get_current_blog_id(), 'The foreign site context should be active before exercising the guard.');
+$scopeObserver->onUpdated('site_boundary_fixture_setting', 'before', 'after');
+$assert(
+	$foreignSiteId === get_current_blog_id(),
+	'The guard may enter the owning site to persist an integrity warning, but it must restore the caller\'s switch stack position.'
+);
+$scopeObserver->onUpdated('site_boundary_fixture_setting', 'before', 'after-again');
+$assert(
+	! $siteBoundary->acceptsCurrentSite($siteBoundarySession),
+	'Repeated work in another site must remain rejected without creating duplicate integrity warnings.'
+);
+$crossSiteCommandRejected = false;
+try {
+	(new \ConfigOps\Command\CaptureCommands($captures, $restore, null, $siteBoundary))->stop();
+} catch (RuntimeException) {
+	$crossSiteCommandRejected = true;
+}
+$assert($crossSiteCommandRejected, 'ConfigOps commands must fail closed while WordPress is switched to another site.');
+$assert(restore_current_blog(), 'The site-boundary test should restore the original WordPress site context.');
+$assert($originSiteId === get_current_blog_id(), 'The original site context should be restored after the boundary test.');
+$siteBoundaryCapture = $captures->find($siteBoundarySession);
+$assert(
+	1 === (int) $siteBoundaryCapture->capture_error_count
+	&& 'cross_site_write_ignored' === (string) $siteBoundaryCapture->last_error_code,
+	'A rejected cross-site write must make the owning capture visibly incomplete exactly once.'
+);
+$assert(
+	array() === $mutations->forSession($siteBoundarySession),
+	'Values observed after a site-context switch must never be persisted in the owning site\'s evidence table.'
+);
+$captures->stop();
+
+$lockScope = 'site-boundary-release-' . wp_generate_uuid4();
+$lockOption = 'configops_operation_lock_' . hash('sha256', $lockScope);
+$scopedLock = new \ConfigOps\Execution\OperationLock($wpdb, $siteScope);
+$scopedLock->run(
+	$lockScope,
+	static function () use ($foreignSiteId): void {
+		if (! switch_to_blog($foreignSiteId)) {
+			throw new RuntimeException('Could not enter the foreign site context during lock cleanup testing.');
+		}
+	}
+);
+$assert($foreignSiteId === get_current_blog_id(), 'Lock cleanup must preserve the caller\'s foreign site context.');
+$assert(restore_current_blog(), 'The lock-cleanup test should restore the original WordPress site context.');
+$assert(false === get_option($lockOption, false), 'A scoped operation lock must be released from its owning site even after a nested site switch.');
+
+update_option('site_boundary_restore_setting', 'before', false);
+$siteBoundaryRestoreSession = $captures->start('Site boundary restore guard', 0, '/wp-admin/options-general.php');
+update_option('site_boundary_restore_setting', 'after', false);
+$captures->stop();
+$siteBoundaryRestoreMutation = $mutations->forSession($siteBoundaryRestoreSession)[0];
+$switchDuringRestoreRead = static function (mixed $value) use ($foreignSiteId): mixed {
+	if (! switch_to_blog($foreignSiteId)) {
+		throw new RuntimeException('Could not enter the foreign site context during restore guarding.');
+	}
+
+	return $value;
+};
+add_filter('option_site_boundary_restore_setting', $switchDuringRestoreRead);
+$crossSiteRestoreRejected = false;
+try {
+	$restore->restoreMutation((int) $siteBoundaryRestoreMutation->id);
+} catch (RuntimeException) {
+	$crossSiteRestoreRejected = true;
+}
+remove_filter('option_site_boundary_restore_setting', $switchDuringRestoreRead);
+$assert($crossSiteRestoreRejected, 'Undo must abort before writing if an option callback changes the WordPress site context.');
+$assert($foreignSiteId === get_current_blog_id(), 'Failed undo cleanup must preserve the caller\'s changed site context.');
+$assert(restore_current_blog(), 'The guarded undo check should restore the original WordPress site context.');
+$assert(
+	'after' === get_option('site_boundary_restore_setting'),
+	'A site-context change during conflict checking must leave the origin setting untouched.'
+);
+$siteBoundaryRestoreAudits = $restoreAudit->forSession($siteBoundaryRestoreSession);
+$assert(
+	'failed' === (string) $siteBoundaryRestoreAudits[array_key_last($siteBoundaryRestoreAudits)]->status,
+	'A site-boundary restore refusal must retain a value-free failed audit record.'
+);
+
 $createMediaFixture = static function (string $filename, string $title, int $width, int $height): int {
 	$attachment = wp_insert_attachment(
 		array(

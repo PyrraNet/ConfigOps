@@ -16,6 +16,8 @@ use ConfigOps\Database\MutationRepository;
 use ConfigOps\Database\OptionMetadataRepository;
 use ConfigOps\Database\RestoreAuditRepository;
 use ConfigOps\Execution\OperationLock;
+use ConfigOps\Multisite\SiteBoundaryGuard;
+use ConfigOps\Multisite\SiteScope;
 use RuntimeException;
 use Throwable;
 
@@ -23,6 +25,7 @@ final class RestoreService
 {
 	private const MAX_DISTINCT_OPTIONS = 1000;
 	private const MAX_RETAINED_BYTES = 67108864;
+	private readonly SiteBoundaryGuard $siteBoundary;
 
 	public function __construct(
 		private readonly CaptureRepository $captures,
@@ -31,12 +34,15 @@ final class RestoreService
 		private readonly OptionMetadataRepository $optionMetadata,
 		private readonly OperationLock $operationLock,
 		private readonly AdapterRegistry $adapters,
-		private readonly RestoreAuditRepository $audit
+		private readonly RestoreAuditRepository $audit,
+		?SiteBoundaryGuard $siteBoundary = null
 	) {
+		$this->siteBoundary = $siteBoundary ?? new SiteBoundaryGuard(SiteScope::current(), $captures);
 	}
 
 	public function restoreMutation(int $mutationId): void
 	{
+		$this->siteBoundary->assertCurrentSite();
 		$mutation = $this->mutations->find($mutationId);
 		if (! $mutation) {
 			throw new RuntimeException('The mutation no longer exists.');
@@ -52,6 +58,7 @@ final class RestoreService
 
 	public function restoreSession(int $sessionId): int
 	{
+		$this->siteBoundary->assertCurrentSite();
 		if (! $this->captures->find($sessionId)) {
 			throw new RuntimeException('The capture session no longer exists.');
 		}
@@ -321,6 +328,7 @@ final class RestoreService
 
 	private function restoreSafeFields(object $mutation): void
 	{
+		$this->siteBoundary->assertCurrentSite();
 		$diff = json_decode((string) ($mutation->diff ?? ''), true);
 		if (! is_array($diff)) {
 			throw new RuntimeException('The stored field comparison is malformed. Nothing was changed.');
@@ -340,12 +348,14 @@ final class RestoreService
 		$optionName = (string) $mutation->option_name;
 		$sentinel   = new \stdClass();
 		$current    = get_option($optionName, $sentinel);
+		$this->siteBoundary->assertCurrentSite();
 		if ($current === $sentinel || ! is_array($current)) {
 			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
 			throw $this->runtimeFailure("Conflict: {$optionName} no longer contains the captured settings array. Nothing was restored.");
 		}
 
 		$currentAutoload = $this->optionMetadata->autoloadFor($optionName);
+		$this->siteBoundary->assertCurrentSite();
 		$expectedAutoload = isset($mutation->new_autoload) ? (string) $mutation->new_autoload : null;
 		if (
 			null !== $expectedAutoload
@@ -372,7 +382,9 @@ final class RestoreService
 
 		$autoloadFlag = $this->autoloadFlag($currentAutoload);
 		try {
+			$this->siteBoundary->assertCurrentSite();
 			$updated = update_option($optionName, $patched, $autoloadFlag);
+			$this->siteBoundary->assertCurrentSite();
 			$stored  = get_option($optionName, $sentinel);
 			if ($stored === $sentinel || ! $this->codec->semanticallyEqual($stored, $patched)) {
 				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
@@ -381,7 +393,9 @@ final class RestoreService
 			unset($updated);
 		} catch (Throwable $error) {
 			try {
+				$this->siteBoundary->assertCurrentSite();
 				update_option($optionName, $current, $autoloadFlag);
+				$this->siteBoundary->assertCurrentSite();
 				$compensatedValue = get_option($optionName, $sentinel);
 				$compensatedAutoload = $this->optionMetadata->autoloadFor($optionName);
 				if (
@@ -553,8 +567,10 @@ final class RestoreService
 
 	private function assertCurrentState(string $optionName, string $expectedPayload, ?string $expectedAutoload): void
 	{
+		$this->siteBoundary->assertCurrentSite();
 		$sentinel = new \stdClass();
 		$current  = get_option($optionName, $sentinel);
+		$this->siteBoundary->assertCurrentSite();
 
 		if ($this->codec->isMissing($expectedPayload)) {
 			if ($current !== $sentinel) {
@@ -571,6 +587,7 @@ final class RestoreService
 		}
 
 		$currentAutoload = $this->optionMetadata->autoloadFor($optionName);
+		$this->siteBoundary->assertCurrentSite();
 		if (
 			null !== $expectedAutoload
 			&& $this->autoloadMode($expectedAutoload) !== $this->autoloadMode($currentAutoload)
@@ -582,9 +599,12 @@ final class RestoreService
 
 	private function applyState(string $optionName, string $payload, ?string $autoload): void
 	{
+		$this->siteBoundary->assertCurrentSite();
 		$sentinel        = new \stdClass();
 		$current         = get_option($optionName, $sentinel);
+		$this->siteBoundary->assertCurrentSite();
 		$currentAutoload = $this->optionMetadata->autoloadFor($optionName);
+		$this->siteBoundary->assertCurrentSite();
 		$currentEncoded  = $current === $sentinel
 			? $this->codec->missing()
 			: $this->codec->encode($current, $optionName);
@@ -629,8 +649,10 @@ final class RestoreService
 
 	private function writeState(string $optionName, string $payload, ?string $autoload): void
 	{
+		$this->siteBoundary->assertCurrentSite();
 		$sentinel = new \stdClass();
 		$current  = get_option($optionName, $sentinel);
+		$this->siteBoundary->assertCurrentSite();
 
 		if ($this->codec->isMissing($payload)) {
 			if ($current !== $sentinel) {
@@ -654,7 +676,9 @@ final class RestoreService
 
 	private function assertAppliedState(string $optionName, string $payload, ?string $expectedAutoload): void
 	{
+		$this->siteBoundary->assertCurrentSite();
 		$storedAutoload = $this->optionMetadata->autoloadFor($optionName);
+		$this->siteBoundary->assertCurrentSite();
 		if ($this->codec->isMissing($payload)) {
 			if (null !== $storedAutoload) {
 				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
@@ -666,6 +690,7 @@ final class RestoreService
 
 		$sentinel = new \stdClass();
 		$stored   = get_option($optionName, $sentinel);
+		$this->siteBoundary->assertCurrentSite();
 		if (
 			null === $storedAutoload
 			|| $stored === $sentinel

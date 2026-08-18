@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ConfigOps\Execution;
 
+use ConfigOps\Multisite\SiteScope;
 use RuntimeException;
 use wpdb;
 
@@ -16,9 +17,13 @@ final class OperationLock
 {
 	private const LIFETIME = 900;
 	private const OPTION_PREFIX = 'configops_operation_lock_';
+	private readonly SiteScope $siteScope;
+	private readonly string $optionsTable;
 
-	public function __construct(private readonly wpdb $database)
+	public function __construct(private readonly wpdb $database, ?SiteScope $siteScope = null)
 	{
+		$this->siteScope    = $siteScope ?? SiteScope::current();
+		$this->optionsTable = $database->options;
 	}
 
 	/**
@@ -28,6 +33,10 @@ final class OperationLock
 	 */
 	public function run(string $scope, callable $operation): mixed
 	{
+		if (! $this->siteScope->isCurrent()) {
+			throw new RuntimeException('ConfigOps refused to acquire a lock while WordPress is switched to another site.');
+		}
+
 		$option = $this->optionName($scope);
 		$token  = wp_generate_uuid4();
 
@@ -36,9 +45,13 @@ final class OperationLock
 		}
 
 		try {
+			if (! $this->siteScope->isCurrent()) {
+				throw new RuntimeException('ConfigOps refused to continue after the lock changed WordPress site context.');
+			}
+
 			return $operation();
 		} finally {
-			$this->release($option, $token);
+			$this->siteScope->run(fn (): null => $this->releaseInOwningSite($option, $token));
 		}
 	}
 
@@ -65,7 +78,7 @@ final class OperationLock
 
 		$replaced = $this->database->query(
 			$this->database->prepare(
-				"UPDATE {$this->database->options} SET option_value = %s WHERE option_name = %s AND option_value = %s",
+				"UPDATE {$this->optionsTable} SET option_value = %s WHERE option_name = %s AND option_value = %s",
 				maybe_serialize($lock),
 				$option,
 				$raw
@@ -95,7 +108,7 @@ final class OperationLock
 
 		$deleted = $this->database->query(
 			$this->database->prepare(
-				"DELETE FROM {$this->database->options} WHERE option_name = %s AND option_value = %s",
+				"DELETE FROM {$this->optionsTable} WHERE option_name = %s AND option_value = %s",
 				$option,
 				$raw
 			)
@@ -105,11 +118,18 @@ final class OperationLock
 		}
 	}
 
+	private function releaseInOwningSite(string $option, string $token): null
+	{
+		$this->release($option, $token);
+
+		return null;
+	}
+
 	private function rawValue(string $option): ?string
 	{
 		$value = $this->database->get_var(
 			$this->database->prepare(
-				"SELECT option_value FROM {$this->database->options} WHERE option_name = %s",
+				"SELECT option_value FROM {$this->optionsTable} WHERE option_name = %s",
 				$option
 			)
 		);

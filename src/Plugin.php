@@ -40,6 +40,8 @@ use ConfigOps\Noise\NoiseClassifier;
 use ConfigOps\Privacy\PrivacyPolicy;
 use ConfigOps\Restore\RestoreService;
 use ConfigOps\Maintenance\HistoryRetention;
+use ConfigOps\Multisite\SiteBoundaryGuard;
+use ConfigOps\Multisite\SiteScope;
 
 final class Plugin
 {
@@ -54,7 +56,9 @@ final class Plugin
 		$schema->maybeUpgrade();
 		(new CapabilityManager())->maybeInstall();
 
+		$siteScope = SiteScope::current();
 		$captures  = new CaptureRepository($wpdb);
+		$siteBoundary = new SiteBoundaryGuard($siteScope, $captures);
 		$captures->reconcileIntegrityFallback();
 		self::registerIntegrityFallbackNotice($captures);
 		$mutations = new MutationRepository($wpdb);
@@ -80,14 +84,14 @@ final class Plugin
 		$source    = new SourceAttributor(CONFIGOPS_PATH);
 		$request   = new RequestContext();
 		$evidenceNotices = new EvidenceNoticeStore();
-		$automatic = new AutomaticRecorder($captures, $evidenceNotices, $request);
+		$automatic = new AutomaticRecorder($captures, $evidenceNotices, $request, $siteBoundary);
 		$automatic->register();
-		$operationLock = new OperationLock($wpdb);
+		$operationLock = new OperationLock($wpdb, $siteScope);
 		$restoreAudits = new RestoreAuditRepository($wpdb);
 		(new HistoryRetention($wpdb, $operationLock))->register();
 		(new PrivacyPolicy())->register();
 
-		(new SqlWriteSentry($wpdb, $captures, $signals, $source, $request, $adapters, $automatic))->register();
+		(new SqlWriteSentry($wpdb, $captures, $signals, $source, $request, $adapters, $automatic, $siteBoundary))->register();
 
 		$observer = new MutationObserver(
 			$captures,
@@ -100,7 +104,8 @@ final class Plugin
 			$source,
 			$request,
 			new IntentContext(),
-			$automatic
+			$automatic,
+			$siteBoundary
 		);
 		$observer->register();
 
@@ -111,9 +116,10 @@ final class Plugin
 			$metadata,
 			$operationLock,
 			$adapters,
-			$restoreAudits
+			$restoreAudits,
+			$siteBoundary
 		);
-		$commands  = new CaptureCommands($captures, $restore, $automatic);
+		$commands  = new CaptureCommands($captures, $restore, $automatic, $siteBoundary);
 		$presenter = new ReviewPresenter($adapters);
 		$payloads  = new AdminPayloadFactory(
 			$captures,
@@ -124,8 +130,8 @@ final class Plugin
 			$restoreAudits
 		);
 
-		(new RestController($captures, $mutations, $commands, $payloads, $evidenceNotices))->register();
-		(new AdminController($captures, $commands, new FlashNoticeStore(), $payloads))->register();
+		(new RestController($captures, $mutations, $commands, $payloads, $evidenceNotices, $siteBoundary))->register();
+		(new AdminController($captures, $commands, new FlashNoticeStore(), $payloads, $siteBoundary))->register();
 	}
 
 	public static function boot(): void

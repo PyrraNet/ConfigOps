@@ -1,0 +1,16 @@
+{
+  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "steps": [
+    {
+      "step": "enableMultisite"
+    },
+    {
+      "step": "runPHP",
+      "code": "<?php $path = '/wordpress/wp-config.php'; $lines = file($path); $clean = array(); foreach ($lines as $line) { if (! str_contains($line, 'WP_ALLOW_MULTISITE')) { $clean[] = $line; } } file_put_contents($path, implode('', $clean));"
+    },
+    {
+      "step": "activatePlugin",
+      "pluginPath": "configops/configops.php"
+    }
+  ]
+}

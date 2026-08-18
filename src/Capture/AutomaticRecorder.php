@@ -12,6 +12,8 @@ namespace ConfigOps\Capture;
 use ConfigOps\Api\RestRoutes;
 use ConfigOps\Admin\EvidenceNoticeStore;
 use ConfigOps\Database\CaptureRepository;
+use ConfigOps\Multisite\SiteBoundaryGuard;
+use ConfigOps\Multisite\SiteScope;
 use Throwable;
 
 final class AutomaticRecorder
@@ -20,12 +22,15 @@ final class AutomaticRecorder
 	private bool $startAttempted = false;
 	private bool $finalized = false;
 	private bool $suppressed = false;
+	private readonly SiteBoundaryGuard $siteBoundary;
 
 	public function __construct(
 		private readonly CaptureRepository $captures,
 		private readonly EvidenceNoticeStore $notices,
-		private readonly RequestContext $request
+		private readonly RequestContext $request,
+		?SiteBoundaryGuard $siteBoundary = null
 	) {
+		$this->siteBoundary = $siteBoundary ?? new SiteBoundaryGuard(SiteScope::current(), $captures);
 	}
 
 	public function register(): void
@@ -55,6 +60,10 @@ final class AutomaticRecorder
 	 */
 	public function sessionId(bool $createAutomatic = true): ?int
 	{
+		if (! $this->siteBoundary->acceptsCurrentSite($this->automaticSessionId)) {
+			return null;
+		}
+
 		$activeId = $this->captures->activeId();
 		if (null !== $activeId) {
 			return $activeId;
@@ -85,6 +94,20 @@ final class AutomaticRecorder
 		if ($this->finalized || null === $this->automaticSessionId) {
 			return;
 		}
+		if (! $this->siteBoundary->acceptsCurrentSite($this->automaticSessionId)) {
+			$this->siteBoundary->runInOwningSite(fn (): null => $this->finalizeInOwningSite());
+
+			return;
+		}
+
+		$this->finalizeInOwningSite();
+	}
+
+	private function finalizeInOwningSite(): null
+	{
+		if ($this->finalized || null === $this->automaticSessionId) {
+			return null;
+		}
 		$this->finalized = true;
 
 		try {
@@ -107,6 +130,8 @@ final class AutomaticRecorder
 			$this->notices->push($this->request->actorId(), $this->automaticSessionId);
 			$this->report($error, 'automatic_capture_finalize_failed');
 		}
+
+		return null;
 	}
 
 	private function isEligible(): bool

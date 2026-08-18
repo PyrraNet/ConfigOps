@@ -14,6 +14,8 @@ use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\MutationRepository;
 use ConfigOps\Database\OptionMetadataRepository;
 use ConfigOps\Diff\NestedDiff;
+use ConfigOps\Multisite\SiteBoundaryGuard;
+use ConfigOps\Multisite\SiteScope;
 use Throwable;
 
 final class MutationObserver
@@ -37,6 +39,7 @@ final class MutationObserver
 	 *   id: int,
 	 *   session_id: int,
 	 *   request_id: string,
+	 *   site_id: int,
 	 *   option: string,
 	 *   owner: string,
 	 *   before: EncodedValue,
@@ -47,6 +50,7 @@ final class MutationObserver
 	 */
 	private ?array $aggregate = null;
 	private readonly IntentContext $intent;
+	private readonly SiteBoundaryGuard $siteBoundary;
 
 	public function __construct(
 		private readonly CaptureRepository $captures,
@@ -59,9 +63,11 @@ final class MutationObserver
 		private readonly SourceAttributor $source,
 		private readonly RequestContext $request,
 		?IntentContext $intent = null,
-		private readonly ?AutomaticRecorder $automatic = null
+		private readonly ?AutomaticRecorder $automatic = null,
+		?SiteBoundaryGuard $siteBoundary = null
 	) {
 		$this->intent = $intent ?? new IntentContext();
+		$this->siteBoundary = $siteBoundary ?? new SiteBoundaryGuard(SiteScope::current(), $captures);
 	}
 
 	public function register(): void
@@ -77,43 +83,44 @@ final class MutationObserver
 	public function beforeAdd(string $option, mixed $value): void
 	{
 		unset($value);
+		$key = $this->pendingKey($option);
 
 		if ($this->internalOptions->isInternal($option)) {
-			unset($this->pendingAdds[$option]);
+			unset($this->pendingAdds[$key]);
 			return;
 		}
 
 		$sessionId = $this->sessionId();
 		if (null === $sessionId) {
-			unset($this->pendingAdds[$option]);
+			unset($this->pendingAdds[$key]);
 			return;
 		}
 
 		// Pin ownership before WordPress writes. The corresponding after-hook may
 		// run after another request has already moved the capture to `stopping`.
-		$this->pendingAdds[$option] = $sessionId;
+		$this->pendingAdds[$key] = $sessionId;
 	}
 
 	public function beforeUpdate(mixed $value, string $option, mixed $oldValue): mixed
 	{
 		unset($oldValue);
+		$key = $this->pendingKey($option);
 
 		if ($this->internalOptions->isInternal($option)) {
-			unset($this->pendingUpdates[$option]);
+			unset($this->pendingUpdates[$key]);
 
 			return $value;
 		}
-
 		$sessionId = $this->sessionId();
 		if (null === $sessionId) {
-			unset($this->pendingUpdates[$option]);
+			unset($this->pendingUpdates[$key]);
 
 			return $value;
 		}
 
-		$this->pendingUpdates[$option] = array('session_id' => $sessionId, 'autoload' => null);
+		$this->pendingUpdates[$key] = array('session_id' => $sessionId, 'autoload' => null);
 		try {
-			$this->pendingUpdates[$option]['autoload'] = $this->optionMetadata->autoloadFor($option);
+			$this->pendingUpdates[$key]['autoload'] = $this->optionMetadata->autoloadFor($option);
 		} catch (Throwable $error) {
 			$this->reportCaptureError($error, $option, $sessionId);
 		}
@@ -123,9 +130,13 @@ final class MutationObserver
 
 	public function onAdded(string $option, mixed $value): void
 	{
-		$sessionId = $this->pendingAdds[$option] ?? null;
-		unset($this->pendingAdds[$option]);
+		$key = $this->pendingKey($option);
+		$sessionId = $this->pendingAdds[$key] ?? null;
+		unset($this->pendingAdds[$key]);
 		if ($this->internalOptions->isInternal($option) || null === $sessionId) {
+			return;
+		}
+		if (! $this->siteBoundary->acceptsCurrentSite($sessionId)) {
 			return;
 		}
 
@@ -145,9 +156,13 @@ final class MutationObserver
 
 	public function onUpdated(string $option, mixed $oldValue, mixed $value): void
 	{
-		$pending = $this->pendingUpdates[$option] ?? null;
-		unset($this->pendingUpdates[$option]);
+		$key = $this->pendingKey($option);
+		$pending = $this->pendingUpdates[$key] ?? null;
+		unset($this->pendingUpdates[$key]);
 		if ($this->internalOptions->isInternal($option) || null === $pending) {
+			return;
+		}
+		if (! $this->siteBoundary->acceptsCurrentSite($pending['session_id'])) {
 			return;
 		}
 
@@ -167,15 +182,15 @@ final class MutationObserver
 
 	public function beforeDelete(string $option): void
 	{
+		$key = $this->pendingKey($option);
 		if ($this->internalOptions->isInternal($option)) {
-			unset($this->pendingDeletes[$option]);
+			unset($this->pendingDeletes[$key]);
 
 			return;
 		}
-
 		$sessionId = $this->sessionId();
 		if (null === $sessionId) {
-			unset($this->pendingDeletes[$option]);
+			unset($this->pendingDeletes[$key]);
 
 			return;
 		}
@@ -186,7 +201,7 @@ final class MutationObserver
 			$before = $this->codec->isEntireOptionSensitive($option)
 				? $this->codec->redacted()
 				: $this->codec->encode(get_option($option), $option);
-			$this->pendingDeletes[$option] = array(
+			$this->pendingDeletes[$key] = array(
 				'before'   => $before,
 				'autoload' => $this->optionMetadata->autoloadFor($option),
 				'session_id' => $sessionId,
@@ -198,9 +213,13 @@ final class MutationObserver
 
 	public function onDeleted(string $option): void
 	{
-		$pending = $this->pendingDeletes[$option] ?? null;
-		unset($this->pendingDeletes[$option]);
+		$key = $this->pendingKey($option);
+		$pending = $this->pendingDeletes[$key] ?? null;
+		unset($this->pendingDeletes[$key]);
 		if ($this->internalOptions->isInternal($option) || null === $pending) {
+			return;
+		}
+		if (! $this->siteBoundary->acceptsCurrentSite($pending['session_id'])) {
 			return;
 		}
 
@@ -226,6 +245,10 @@ final class MutationObserver
 		?string $oldAutoload,
 		?string $newAutoload
 	): void {
+		if (! $this->siteBoundary->acceptsCurrentSite($sessionId)) {
+			return;
+		}
+
 		$requestId = $this->request->id();
 		$source    = $this->source->capture();
 		$owner     = $this->coalescingOwner($source);
@@ -234,6 +257,7 @@ final class MutationObserver
 			&& null !== $owner
 			&& $aggregate['session_id'] === $sessionId
 			&& $aggregate['request_id'] === $requestId
+			&& $aggregate['site_id'] === $this->siteBoundary->scope()->siteId()
 			&& $aggregate['option'] === $option
 			&& $aggregate['owner'] === $owner;
 		$baseline       = $canCoalesce ? $aggregate['before'] : $before;
@@ -339,6 +363,7 @@ final class MutationObserver
 			'id'              => $mutationId,
 			'session_id'      => $sessionId,
 			'request_id'      => $requestId,
+			'site_id'         => $this->siteBoundary->scope()->siteId(),
 			'option'          => $option,
 			'owner'           => $owner,
 			'before'          => $baseline,
@@ -382,7 +407,7 @@ final class MutationObserver
 		}
 
 		try {
-			$this->captures->recordCaptureError($sessionId, 'option_capture_failed');
+			$this->siteBoundary->recordCaptureError($sessionId, 'option_capture_failed');
 		} catch (Throwable $integrityError) {
 			try {
 				do_action('configops_capture_integrity_error', $integrityError, $option, $sessionId);
@@ -402,8 +427,18 @@ final class MutationObserver
 
 	private function sessionId(bool $createAutomatic = true): ?int
 	{
-		return null !== $this->automatic
-			? $this->automatic->sessionId($createAutomatic)
-			: $this->captures->activeId();
+		if (null !== $this->automatic) {
+			return $this->automatic->sessionId($createAutomatic);
+		}
+		if (! $this->siteBoundary->acceptsCurrentSite()) {
+			return null;
+		}
+
+		return $this->captures->activeId();
+	}
+
+	private function pendingKey(string $option): string
+	{
+		return $this->siteBoundary->key($option);
 	}
 }

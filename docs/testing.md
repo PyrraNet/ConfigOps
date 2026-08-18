@@ -1,6 +1,6 @@
 # Test and coverage evidence
 
-ConfigOps treats coverage as a release floor, not as a safety claim. CI fails when the merged PHP line coverage for tracked production files under `src/**/*.php` is below 70%. Access control, API, observation, persistence, locking, retention, references, release, and restore code has a separate 75% aggregate floor, so well-tested presentation code cannot hide weak trust boundaries.
+ConfigOps treats coverage as a release floor, not as a safety claim. CI fails when the merged PHP line coverage for tracked production files under `src/**/*.php` is below 70%. Access control, API, observation, persistence, locking, retention, Multisite scoping, references, release, and restore code has a separate 75% aggregate floor, so well-tested presentation code cannot hide weak trust boundaries.
 
 Run the same isolated gate locally:
 
@@ -31,6 +31,8 @@ Every PHP behavioral suite installs a production error trap before ConfigOps loa
 ## Runtime and platform matrix
 
 PHP 8.2 is the oldest supported runtime. The full parser, unit/fuzz, hostile-input, and WordPress integration suites run on PHP 8.2, 8.3, 8.4, and 8.5. Exact WP Mail SMTP and Yoast contracts plus their browser save/review/undo flows run at both ends of that range. Native MySQL and MariaDB jobs split the minimum and maximum PHP versions, while the Xdebug evidence remains pinned to PHP 8.3 for reproducibility. A locked PHPCompatibilityWP scan independently inspects every PHP file for 8.2–8.5 syntax and API hazards. Composer and npm advisory audits reject known high-impact vulnerabilities in test and build tooling.
+
+A separate real-Multisite contract creates a second WordPress site and performs an Options API write after `switch_to_blog()`. On every supported PHP/WordPress matrix entry, it proves that the host write succeeds, ConfigOps restores the caller's blog-switch position, the originating capture becomes incomplete exactly once, and the foreign value never enters its mutation table. Run it locally with `npm run test:multisite`.
 
 PHP 8.1 and older are deliberately not advertised: they no longer receive upstream security fixes. A lifecycle gate expires the PHP 8.2 support claim after 2026-12-31 and forces the minimum to be reviewed and retested. The release archive is built twice in CI and both SHA-256 digests must match before Plugin Check sees it.
 

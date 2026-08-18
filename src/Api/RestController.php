@@ -14,6 +14,8 @@ use ConfigOps\Admin\EvidenceNoticeStore;
 use ConfigOps\Command\CaptureCommands;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\MutationRepository;
+use ConfigOps\Multisite\SiteBoundaryGuard;
+use ConfigOps\Multisite\SiteScope;
 use Throwable;
 use WP_Error;
 use WP_REST_Request;
@@ -22,13 +24,17 @@ use WP_REST_Server;
 
 final class RestController
 {
+	private readonly SiteBoundaryGuard $siteBoundary;
+
 	public function __construct(
 		private readonly CaptureRepository $captures,
 		private readonly MutationRepository $mutations,
 		private readonly CaptureCommands $commands,
 		private readonly AdminPayloadFactory $payloads,
-		private readonly ?EvidenceNoticeStore $evidenceNotices = null
+		private readonly ?EvidenceNoticeStore $evidenceNotices = null,
+		?SiteBoundaryGuard $siteBoundary = null
 	) {
+		$this->siteBoundary = $siteBoundary ?? new SiteBoundaryGuard(SiteScope::current(), $captures);
 	}
 
 	public function register(): void
@@ -127,7 +133,7 @@ final class RestController
 		$route = array(
 			'methods'             => $methods,
 			'callback'            => array($this, $callback),
-			'permission_callback' => static fn (): bool => current_user_can($capability),
+			'permission_callback' => fn (): bool => $this->siteBoundary->isCurrentSite() && current_user_can($capability),
 		);
 		if (! empty($args)) {
 			$route['args'] = $args;

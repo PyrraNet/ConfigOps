@@ -215,6 +215,16 @@ jobs:
           --mount=tests/fixtures/configops-hostile-fixture:/wordpress/wp-content/plugins/configops-hostile-fixture
           -- /wordpress/wp-content/plugins/configops/tests/integration.php
 
+      - name: Run Multisite boundary checks
+        run: >-
+          node_modules/.bin/wp-playground-cli php
+          --php=${{ matrix.php }}
+          --wp=${{ matrix.wordpress }}
+          --site-url=http://configops.test
+          --blueprint=tests/multisite.blueprint.json
+          --mount=.:/wordpress/wp-content/plugins/configops
+          -- /wordpress/wp-content/plugins/configops/tests/multisite-integration.php
+
   adapters:
     name: Real plugin contracts and user flows / PHP ${{ matrix.php }}
     runs-on: ubuntu-latest

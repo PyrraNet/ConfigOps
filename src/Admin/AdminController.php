@@ -13,19 +13,24 @@ use ConfigOps\Api\RestRoutes;
 use ConfigOps\Capture\IntentContext;
 use ConfigOps\Command\CaptureCommands;
 use ConfigOps\Database\CaptureRepository;
+use ConfigOps\Multisite\SiteBoundaryGuard;
+use ConfigOps\Multisite\SiteScope;
 use Throwable;
 use WP_Admin_Bar;
 
 final class AdminController
 {
 	private const PAGE = 'configops';
+	private readonly SiteBoundaryGuard $siteBoundary;
 
 	public function __construct(
 		private readonly CaptureRepository $captures,
 		private readonly CaptureCommands $commands,
 		private readonly FlashNoticeStore $notices,
-		private readonly AdminPayloadFactory $payloads
+		private readonly AdminPayloadFactory $payloads,
+		?SiteBoundaryGuard $siteBoundary = null
 	) {
+		$this->siteBoundary = $siteBoundary ?? new SiteBoundaryGuard(SiteScope::current(), $captures);
 	}
 
 	public function register(): void
@@ -43,6 +48,10 @@ final class AdminController
 
 	public function addMenu(): void
 	{
+		if (! $this->siteBoundary->isCurrentSite()) {
+			return;
+		}
+
 		add_menu_page(
 			__('ConfigOps', 'configops'),
 			__('ConfigOps', 'configops'),
@@ -56,6 +65,10 @@ final class AdminController
 
 	public function enqueueAdminAssets(string $hookSuffix): void
 	{
+		if (! $this->siteBoundary->isCurrentSite()) {
+			return;
+		}
+
 		$activeId = $this->captures->activeId();
 		$isConfigOps = 'toplevel_page_' . self::PAGE === $hookSuffix;
 		$canObserve = current_user_can('configops_capture');
@@ -116,6 +129,10 @@ final class AdminController
 
 	public function enqueueToolbarAssets(): void
 	{
+		if (! $this->siteBoundary->isCurrentSite()) {
+			return;
+		}
+
 		if (is_admin_bar_showing() && null !== $this->captures->activeId()) {
 			$this->enqueueStyles();
 		}
@@ -123,7 +140,7 @@ final class AdminController
 
 	public function addToolbarNode(WP_Admin_Bar $adminBar): void
 	{
-		if (! current_user_can('configops_capture')) {
+		if (! $this->siteBoundary->isCurrentSite() || ! current_user_can('configops_capture')) {
 			return;
 		}
 
@@ -154,6 +171,7 @@ final class AdminController
 
 	public function render(): void
 	{
+		$this->siteBoundary->assertCurrentSite();
 		if (! current_user_can('configops_view')) {
 			wp_die(esc_html__('You are not allowed to view ConfigOps.', 'configops'));
 		}

@@ -12,6 +12,8 @@ namespace ConfigOps\Capture;
 use ConfigOps\Adapter\AdapterRegistry;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\DatabaseWriteSignalRepository;
+use ConfigOps\Multisite\SiteBoundaryGuard;
+use ConfigOps\Multisite\SiteScope;
 use Throwable;
 use wpdb;
 
@@ -22,6 +24,8 @@ final class SqlWriteSentry
 	/** @var array<string, int> */
 	private array $signalIds = array();
 	private bool $observing = false;
+	private readonly SiteBoundaryGuard $siteBoundary;
+	private readonly string $siteTablePrefix;
 
 	public function __construct(
 		private readonly wpdb $database,
@@ -30,8 +34,11 @@ final class SqlWriteSentry
 		private readonly SourceAttributor $source,
 		private readonly RequestContext $request,
 		private readonly ?AdapterRegistry $adapters = null,
-		private readonly ?AutomaticRecorder $automatic = null
+		private readonly ?AutomaticRecorder $automatic = null,
+		?SiteBoundaryGuard $siteBoundary = null
 	) {
+		$this->siteBoundary  = $siteBoundary ?? new SiteBoundaryGuard(SiteScope::current(), $captures);
+		$this->siteTablePrefix = $database->prefix;
 	}
 
 	public function register(): void
@@ -99,7 +106,7 @@ final class SqlWriteSentry
 
 	private function isOwnTable(string $table): bool
 	{
-		return str_starts_with($table, $this->database->prefix . 'configops_');
+		return str_starts_with($table, $this->siteTablePrefix . 'configops_');
 	}
 
 	private function isManagedOptionsApiWrite(string $table): bool
@@ -149,7 +156,9 @@ final class SqlWriteSentry
 	private function record(int $sessionId, string $operation, string $table, ?array $source = null): void
 	{
 		$source ??= $this->source->capture();
-		$signature = implode('|', array((string) $sessionId, $operation, $table, $source['type'], $source['component'], $source['file'], (string) $source['line']));
+		$signature = $this->siteBoundary->key(
+			implode('|', array((string) $sessionId, $operation, $table, $source['type'], $source['component'], $source['file'], (string) $source['line']))
+		);
 		if (isset($this->signalIds[$signature])) {
 			$this->signals->incrementOccurrence($this->signalIds[$signature]);
 			$this->captures->incrementWriteSignalCount($sessionId);
@@ -161,7 +170,7 @@ final class SqlWriteSentry
 			$operation = 'overflow';
 			$table = '[additional writes omitted]';
 			$source = array('type' => 'unknown', 'component' => 'signal-budget-exceeded', 'file' => '', 'line' => 0);
-			$signature = 'overflow|' . $sessionId;
+			$signature = $this->siteBoundary->key('overflow|' . $sessionId);
 			if (isset($this->signalIds[$signature])) {
 				$this->signals->incrementOccurrence($this->signalIds[$signature]);
 				$this->captures->incrementWriteSignalCount($sessionId);
@@ -194,7 +203,7 @@ final class SqlWriteSentry
 		}
 
 		try {
-			$this->captures->recordCaptureError($sessionId, 'database_write_capture_failed');
+			$this->siteBoundary->recordCaptureError($sessionId, 'database_write_capture_failed');
 		} catch (Throwable) {
 			// Failure to persist the warning must not escape into the host query.
 		}
@@ -208,8 +217,13 @@ final class SqlWriteSentry
 
 	private function sessionId(): ?int
 	{
-		return null !== $this->automatic
-			? $this->automatic->sessionId(false)
-			: $this->captures->activeId();
+		if (null !== $this->automatic) {
+			return $this->automatic->sessionId(false);
+		}
+		if (! $this->siteBoundary->acceptsCurrentSite()) {
+			return null;
+		}
+
+		return $this->captures->activeId();
 	}
 }
