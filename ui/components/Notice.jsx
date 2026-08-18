@@ -7,7 +7,7 @@ export default function Notice({ notice }) {
 	}
 
 	return (
-		<div className={`notice notice-${notice.kind === 'error' ? 'error' : 'success'} configops-notice`} role={notice.kind === 'error' ? 'alert' : 'status'}>
+		<div className={`notice notice-${notice.kind === 'error' ? 'error' : 'success'} is-dismissible configops-notice`} role={notice.kind === 'error' ? 'alert' : 'status'}>
 			<p>{notice.text}</p>
 			<button type="button" className="notice-dismiss" onClick={dismissNotice}>
 				<span className="screen-reader-text">{__('Dismiss this notice.', 'configops')}</span>

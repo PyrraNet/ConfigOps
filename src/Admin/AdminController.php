@@ -91,6 +91,7 @@ final class AdminController
 				$this->assetVersion('assets/automatic-feedback.js'),
 				true
 			);
+			wp_set_script_translations('configops-automatic-feedback', 'configops');
 			$feedback = wp_json_encode(
 				array(
 					'endpoint' => rest_url(RestRoutes::NAMESPACE . '/evidence'),
@@ -110,6 +111,7 @@ final class AdminController
 				$this->assetVersion('assets/ui/runtime.js'),
 				true
 			);
+			wp_set_script_translations('configops-runtime', 'configops');
 		}
 	}
 
@@ -282,7 +284,8 @@ final class AdminController
 
 	private function assetVersion(string $relativePath): string
 	{
-		$modified = filemtime(CONFIGOPS_PATH . '/' . $relativePath);
+		$path     = CONFIGOPS_PATH . '/' . $relativePath;
+		$modified = is_file($path) ? filemtime($path) : false;
 
 		return false === $modified ? CONFIGOPS_VERSION : CONFIGOPS_VERSION . '-' . $modified;
 	}

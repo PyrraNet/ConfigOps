@@ -32,7 +32,7 @@
     "test:integration": "wp-playground-cli php --php=8.3 --mount=.:/wordpress/wp-content/plugins/configops --mount=tests/fixtures/configops-hostile-fixture:/wordpress/wp-content/plugins/configops-hostile-fixture -- /wordpress/wp-content/plugins/configops/tests/integration.php",
     "test:minimum": "wp-playground-cli php --php=8.2 --wp=7.0 --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/lint.php && wp-playground-cli php --php=8.2 --wp=7.0 --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/run.php && wp-playground-cli php --php=8.2 --wp=7.0 --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/adversarial.php && wp-playground-cli php --php=8.2 --wp=7.0 --mount=.:/wordpress/wp-content/plugins/configops --mount=tests/fixtures/configops-hostile-fixture:/wordpress/wp-content/plugins/configops-hostile-fixture -- /wordpress/wp-content/plugins/configops/tests/integration.php",
     "test:adapters": "wp-playground-cli php --php=8.3 --wp=latest --blueprint=tests/adapters.blueprint.json --mount=.:/wordpress/wp-content/plugins/configops -- /wordpress/wp-content/plugins/configops/tests/adapters-integration.php",
-    "test:coverage": "bash tests/coverage/run-docker.sh",
+    "test:coverage": "npm run build:ui && bash tests/coverage/run-docker.sh",
     "test:coverage:report": "node tests/coverage/report.mjs --minimum=70 --critical-minimum=75",
     "test:adapter-ui": "node tests/adapters-user-flow.mjs",
     "test:visual": "node tests/visual-check.mjs",

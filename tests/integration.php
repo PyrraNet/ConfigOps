@@ -1554,9 +1554,19 @@ $assert(
 	&& wp_script_is('configops-automatic-feedback', 'enqueued'),
 	'An authorized active capture should load its bounded admin observer outside the ConfigOps screen.'
 );
+$automaticFeedbackScript = wp_scripts()->registered['configops-automatic-feedback'] ?? null;
+$assert(
+	$automaticFeedbackScript && 'configops' === ($automaticFeedbackScript->textdomain ?? ''),
+	'Automatic evidence should register its JavaScript translations with the ConfigOps text domain.'
+);
 $freshCaptures->stop();
 $adminController->enqueueAdminAssets('toplevel_page_configops');
 $assert(wp_script_is('configops-runtime', 'enqueued'), 'The ConfigOps screen should load its review runtime explicitly.');
+$runtimeScript = wp_scripts()->registered['configops-runtime'] ?? null;
+$assert(
+	$runtimeScript && 'configops' === ($runtimeScript->textdomain ?? ''),
+	'The review runtime should register its JavaScript translations with the ConfigOps text domain.'
+);
 $assert($adminCapture > 0, 'The admin asset boundary must execute against a persisted capture.');
 
 $flashNotices = new \ConfigOps\Admin\FlashNoticeStore();

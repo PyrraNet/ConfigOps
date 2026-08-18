@@ -127,6 +127,11 @@ try {
 	}
 	await page.getByText(/Settings were successfully saved/i).waitFor();
 	await stopCapture();
+	assert.equal(
+		await page.locator('.configops-notice.is-dismissible .notice-dismiss').count(),
+		1,
+		'The capture notice must reserve WordPress dismissal space so its text cannot collide with the close control.',
+	);
 
 	const mailReview = page.locator('#configops-review-island');
 	assert.equal(await mailReview.getByText('SMTP password', { exact: true }).count(), 1, 'The chosen SMTP password should be identified exactly once.');
