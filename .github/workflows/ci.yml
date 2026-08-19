@@ -68,7 +68,7 @@ jobs:
           playground_pid=$!
           trap 'kill "$playground_pid" 2>/dev/null || true' EXIT
           bash tests/wait-for-http.sh \
-            http://127.0.0.1:9403/wp-login.php \
+            http://127.0.0.1:9403/wp-content/configops-playground-ready.txt \
             /tmp/configops-playground-preview.log \
             npm run test:preview
 

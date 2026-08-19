@@ -121,6 +121,12 @@ if (
 if (!previewBlueprintSource.includes('Change the sender email, save, then inspect what WordPress actually wrote.')) {
 	fail('Playground Blueprint is missing its guided demo instruction');
 }
+if (!previewSteps.some((step) => (
+	step?.step === 'writeFile'
+	&& step.path === '/wordpress/wp-content/configops-playground-ready.txt'
+))) {
+	fail('Playground Blueprint must publish its final readiness marker');
+}
 if (!/^Stable tag:\s+\d+(?:\.\d+)*$/m.test(readme)) {
 	fail('WordPress Stable tag must contain only numbers and periods');
 }

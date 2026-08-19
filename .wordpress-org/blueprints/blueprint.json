@@ -131,6 +131,11 @@
       "step": "writeFile",
       "path": "/wordpress/wp-content/mu-plugins/configops-playground-noise.php",
       "data": "<?php\n/**\n * Keeps WordPress' one-time browser capability probe out of the guided save.\n */\n\ndeclare(strict_types=1);\n\nadd_filter(\n\t'configops_automatic_recording_enabled',\n\tstatic function (bool $enabled): bool {\n\t\t$action = isset($_REQUEST['action']) ? sanitize_key(wp_unslash($_REQUEST['action'])) : '';\n\n\t\treturn 'wp-compression-test' === $action ? false : $enabled;\n\t},\n\tPHP_INT_MAX\n);\n"
+    },
+    {
+      "step": "writeFile",
+      "path": "/wordpress/wp-content/configops-playground-ready.txt",
+      "data": "ConfigOps Playground Blueprint ready.\n"
     }
   ]
 }

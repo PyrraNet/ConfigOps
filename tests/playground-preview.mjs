@@ -18,14 +18,21 @@ page.setDefaultTimeout(45_000);
 page.setDefaultNavigationTimeout(60_000);
 
 try {
-	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wp-mail-smtp`, { waitUntil: 'domcontentloaded' });
-	assert.match(page.url(), /\/wp-admin\/admin\.php\?page=wp-mail-smtp/, 'The preview must land on the guided settings screen.');
-
 	const instruction = page.getByText(
 		'Change the sender email, save, then inspect what WordPress actually wrote.',
 		{ exact: true },
 	);
-	await instruction.waitFor();
+	let guidedLandingReady = false;
+	for (let attempt = 0; attempt < 12; attempt += 1) {
+		await page.goto(`${baseUrl}/wp-admin/admin.php?page=wp-mail-smtp`, { waitUntil: 'domcontentloaded' });
+		if (await instruction.isVisible({ timeout: 5_000 }).catch(() => false)) {
+			guidedLandingReady = true;
+			break;
+		}
+		await page.waitForTimeout(1_000);
+	}
+	assert.equal(guidedLandingReady, true, 'The preview must finish booting on the guided settings screen.');
+	assert.match(page.url(), /\/wp-admin\/admin\.php\?page=wp-mail-smtp/, 'The preview must land on the guided settings screen.');
 	await page.waitForTimeout(1_000);
 	assert.equal(
 		await page.locator('.configops-evidence-card').count(),

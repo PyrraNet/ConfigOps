@@ -18,7 +18,10 @@ if [[ ! "$attempts" =~ ^[1-9][0-9]*$ ]] || ((attempts > 600)); then
 fi
 
 for ((attempt = 1; attempt <= attempts; attempt++)); do
-	if curl --fail --silent --location "$url" > /dev/null; then
+	# A WordPress login URL may redirect to the Blueprint landing page. The
+	# redirect itself proves the server is ready; following it would load the
+	# entire admin screen before the browser test and can exhaust the timeout.
+	if curl --fail --silent --max-time 10 "$url" > /dev/null; then
 		if "$@"; then
 			exit 0
 		else
