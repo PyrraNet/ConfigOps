@@ -89,5 +89,10 @@ wp plugin install 'https://downloads.wordpress.org/plugin/wp-mail-smtp.4.9.0.zip
 wp plugin install 'https://downloads.wordpress.org/plugin/wordpress-seo.28.2.zip' --activate --quiet
 collect tests/adapters-integration.php adapters
 
+wp plugin deactivate configops --quiet
+wp core multisite-convert --title='ConfigOps coverage network'
+wp plugin activate configops --network --quiet
+collect tests/multisite-integration.php multisite
+
 cd "$repository_root"
 node tests/coverage/report.mjs --minimum=70 --critical-minimum=75

@@ -11,6 +11,7 @@ require_once __DIR__ . '/production-error-trap.php';
 
 $wordpressRoot = rtrim((string) (getenv('CONFIGOPS_WP_ROOT') ?: '/wordpress'), '/');
 require_once $wordpressRoot . '/wp-load.php';
+require_once ABSPATH . 'wp-admin/includes/plugin.php';
 
 if (! is_multisite()) {
 	throw new RuntimeException('The Multisite integration check requires an enabled WordPress network.');
@@ -27,9 +28,15 @@ $assertions = 0;
 $assert = static function (bool $condition, string $message) use (&$assertions): void {
 	++$assertions;
 	if (! $condition) {
+		fwrite(STDERR, "Multisite assertion failed: {$message}\n");
 		throw new RuntimeException($message);
 	}
 };
+
+$assert(
+	is_plugin_active_for_network('configops/configops.php'),
+	'The Multisite contract must exercise a real network activation.'
+);
 
 $originSiteId = get_current_blog_id();
 $originNetworkId = get_current_network_id();
@@ -56,6 +63,19 @@ $assert($foreignSiteId > 0 && $foreignSiteId !== $originSiteId, 'The Multisite f
 
 $assert(switch_to_blog($foreignSiteId), 'The integration check should enter the target site.');
 $assert($foreignSiteId === get_current_blog_id(), 'The target site should be current before its option write.');
+$assert(
+	10 === (int) get_option('configops_schema_version', 0),
+	'A network-active ConfigOps installation should provision storage state for a newly initialized site.'
+);
+$foreignAdministrator = get_role('administrator');
+$assert(
+	$foreignAdministrator && $foreignAdministrator->has_cap('configops_capture'),
+	'A newly initialized site should receive the site-local ConfigOps capabilities.'
+);
+$assert(
+	false !== wp_next_scheduled(\ConfigOps\Maintenance\HistoryRetention::HOOK),
+	'A newly initialized site should schedule its own scoped history retention.'
+);
 $saved = add_option('boundary_target_setting', 'foreign-site-value', '', false);
 $assert($saved, 'The unsupported cross-site host write must still succeed normally.');
 $assert(
@@ -384,4 +404,132 @@ $assert(
 $assert(restore_current_blog(), 'The legacy migration check should restore the origin site.');
 $assert($originSiteId === get_current_blog_id(), 'All Multisite storage checks should leave WordPress on the origin site.');
 
-fwrite(STDOUT, "ConfigOps Multisite boundary checks passed ({$assertions} assertions).\n");
+$deletedSiteId = wpmu_create_blog(
+	$domain,
+	'/configops-deleted/',
+	'ConfigOps deletion cleanup target',
+	1,
+	array('public' => 0),
+	$originNetworkId
+);
+if (is_wp_error($deletedSiteId)) {
+	throw new RuntimeException('Could not create the site-deletion fixture: ' . $deletedSiteId->get_error_message());
+}
+$deletedSiteId = (int) $deletedSiteId;
+$deletedPrefix = $wpdb->get_blog_prefix($deletedSiteId);
+$assert(switch_to_blog($deletedSiteId), 'The site-deletion check should enter its disposable site.');
+$deletedCaptures = new \ConfigOps\Database\CaptureRepository($wpdb, \ConfigOps\Multisite\SiteScope::current());
+$deletedSessionId = $deletedCaptures->start('Deleted site fixture', 0, '/wp-admin/options-general.php');
+$assert($deletedSessionId > 0, 'The site-deletion fixture should persist scoped evidence before cleanup.');
+$createdLegacyTable = $wpdb->query(
+	"CREATE TABLE `{$deletedPrefix}configops_capture_sessions` (`id` bigint(20) unsigned NOT NULL, PRIMARY KEY (`id`))"
+);
+$assert(false !== $createdLegacyTable, 'The deletion fixture should create one retained legacy site table.');
+$assert(restore_current_blog(), 'The site-deletion check should restore the origin site before deletion.');
+$deletedSite = wp_delete_site($deletedSiteId);
+$assert(! is_wp_error($deletedSite), 'WordPress should delete the disposable Multisite fixture.');
+$remainingDeletedEvidence = (int) $wpdb->get_var(
+	$wpdb->prepare(
+		"SELECT COUNT(*) FROM `{$wpdb->base_prefix}configops_capture_sessions` WHERE network_id = %d AND blog_id = %d",
+		$originNetworkId,
+		$deletedSiteId
+	)
+);
+$assert(0 === $remainingDeletedEvidence, 'Deleting a site must remove its rows from shared ConfigOps storage.');
+$assert(
+	null === $wpdb->get_var(
+		$wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($deletedPrefix . 'configops_capture_sessions'))
+	),
+	'Deleting a site must remove any retained legacy ConfigOps tables for that site.'
+);
+$assert(null === get_site($deletedSiteId), 'The disposable site should no longer exist after its cleanup contract runs.');
+
+$originLifecycleSession = $captures->start('Network deactivation origin fixture', 0, '/wp-admin/options-general.php');
+$originLifecycleAutomatic = $captures->startAutomatic('Network deactivation origin automatic fixture', 0, '/wp-admin/options-general.php');
+$assert(switch_to_blog($foreignSiteId), 'The network-deactivation check should enter the second site.');
+$foreignLifecycleCaptures = new \ConfigOps\Database\CaptureRepository($wpdb, \ConfigOps\Multisite\SiteScope::current());
+$foreignLifecycleSession = $foreignLifecycleCaptures->start('Network deactivation foreign fixture', 0, '/wp-admin/options-general.php');
+$foreignLifecycleAutomatic = $foreignLifecycleCaptures->startAutomatic('Network deactivation foreign automatic fixture', 0, '/wp-admin/options-general.php');
+$assert(restore_current_blog(), 'The network-deactivation check should restore the origin site.');
+
+\ConfigOps\Plugin::deactivate(true);
+$originInterrupted = $captures->find($originLifecycleSession);
+$originAutomaticInterrupted = $captures->find($originLifecycleAutomatic);
+$assert(
+	$originInterrupted
+	&& 'interrupted' === (string) $originInterrupted->status
+	&& 'plugin_deactivated' === (string) $originInterrupted->last_error_code
+	&& $originAutomaticInterrupted
+	&& 'interrupted' === (string) $originAutomaticInterrupted->status
+	&& 'plugin_deactivated' === (string) $originAutomaticInterrupted->last_error_code
+	&& false === get_option('configops_active_capture_id', false)
+	&& false === wp_next_scheduled(\ConfigOps\Maintenance\HistoryRetention::HOOK),
+	'Network deactivation should interrupt the origin capture, clear its pointer, and unschedule retention.'
+);
+$assert(switch_to_blog($foreignSiteId), 'The network-deactivation verification should enter the second site.');
+$foreignInterrupted = $foreignLifecycleCaptures->find($foreignLifecycleSession);
+$foreignAutomaticInterrupted = $foreignLifecycleCaptures->find($foreignLifecycleAutomatic);
+$assert(
+	$foreignInterrupted
+	&& 'interrupted' === (string) $foreignInterrupted->status
+	&& 'plugin_deactivated' === (string) $foreignInterrupted->last_error_code
+	&& $foreignAutomaticInterrupted
+	&& 'interrupted' === (string) $foreignAutomaticInterrupted->status
+	&& 'plugin_deactivated' === (string) $foreignAutomaticInterrupted->last_error_code
+	&& false === get_option('configops_active_capture_id', false)
+	&& false === wp_next_scheduled(\ConfigOps\Maintenance\HistoryRetention::HOOK),
+	'Network deactivation should interrupt and unschedule every site in the current network.'
+);
+$assert(restore_current_blog(), 'The network-deactivation verification should restore the origin site.');
+
+\ConfigOps\Plugin::activate(true);
+$uninstallSites = array($originSiteId, $foreignSiteId, $legacySiteId);
+foreach ($uninstallSites as $uninstallSiteId) {
+	$switched = $uninstallSiteId !== get_current_blog_id();
+	if ($switched) {
+		$assert(switch_to_blog($uninstallSiteId), 'The uninstall fixture should enter each retained site.');
+	}
+	(new \ConfigOps\Admin\FlashNoticeStore())->put('multisite-uninstall-fixture');
+	add_option('configops_operation_lock_multisite_uninstall_fixture', array('token' => 'fixture', 'expires_at' => time() + 60), '', false);
+	$siteAdministrator = get_role('administrator');
+	$assert(
+		10 === (int) get_option('configops_schema_version', 0)
+		&& $siteAdministrator
+		&& $siteAdministrator->has_cap('configops_view')
+		&& false !== wp_next_scheduled(\ConfigOps\Maintenance\HistoryRetention::HOOK),
+		'Network activation should provision every existing site before the uninstall contract runs.'
+	);
+	if ($switched) {
+		$assert(restore_current_blog(), 'The uninstall fixture should restore the origin after each site.');
+	}
+}
+
+$legacyPrefix = $wpdb->get_blog_prefix($legacySiteId);
+\ConfigOps\Uninstall::run();
+foreach ($uninstallSites as $uninstallSiteId) {
+	$switched = $uninstallSiteId !== get_current_blog_id();
+	if ($switched) {
+		$assert(switch_to_blog($uninstallSiteId), 'The uninstall verification should enter each retained site.');
+	}
+	$siteAdministrator = get_role('administrator');
+	$remainingTransient = get_transient('configops_flash_' . get_current_user_id());
+	$assert(false === get_option('configops_schema_version', false), "Uninstall should remove schema state from site {$uninstallSiteId}.");
+	$assert(false === $remainingTransient, "Uninstall should remove transients from site {$uninstallSiteId}.");
+	$assert(false === get_option('configops_operation_lock_multisite_uninstall_fixture', false), "Uninstall should remove locks from site {$uninstallSiteId}.");
+	$assert(false === wp_next_scheduled(\ConfigOps\Maintenance\HistoryRetention::HOOK), "Uninstall should remove retention from site {$uninstallSiteId}.");
+	$assert($siteAdministrator && ! $siteAdministrator->has_cap('configops_view'), "Uninstall should remove capabilities from site {$uninstallSiteId}.");
+	if ($switched) {
+		$assert(restore_current_blog(), 'The uninstall verification should restore the origin after each site.');
+	}
+}
+foreach (array('configops_restore_runs', 'configops_write_signals', 'configops_mutations', 'configops_capture_sessions') as $suffix) {
+	$sharedTable = $wpdb->base_prefix . $suffix;
+	$legacyTable = $legacyPrefix . $suffix;
+	$assert(
+		null === $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($sharedTable)))
+		&& null === $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($legacyTable))),
+		'Uninstall should remove both shared and retained per-site legacy ConfigOps tables.'
+	);
+}
+
+fwrite(STDOUT, "ConfigOps Multisite boundary and lifecycle checks passed ({$assertions} assertions).\n");

@@ -8,12 +8,13 @@ Run the same isolated gate locally:
 npm run test:coverage
 ```
 
-The command builds a pinned WordPress 7.0 / PHP 8.3 container with Xdebug, starts a temporary MariaDB 11.4 database, installs the exact supported WP Mail SMTP 4.9.0 and Yoast SEO 28.2 releases, and then merges four independent fragments:
+The command builds a pinned WordPress 7.0 / PHP 8.3 container with Xdebug, starts a temporary MariaDB 11.4 database, installs the exact supported WP Mail SMTP 4.9.0 and Yoast SEO 28.2 releases, and then merges five independent fragments:
 
 - unit and deterministic fuzz checks;
 - adversarial input and hostile value-shape checks;
 - WordPress observation, persistence, concurrency, privacy, retention, and restore integration checks;
-- real adapter-contract checks.
+- real adapter-contract checks;
+- network-active Multisite isolation, lifecycle, migration, site-deletion, and uninstall checks.
 
 The source manifest comes from Git-tracked PHP files. This keeps unrelated local work out of a published metric, while ensuring every production file joins the gate as soon as it is committed. The collector loads all production declarations with Xdebug's unused- and dead-code analysis enabled, so files or branches a test never reaches remain uncovered instead of silently disappearing.
 
@@ -32,7 +33,7 @@ Every PHP behavioral suite installs a production error trap before ConfigOps loa
 
 PHP 8.2 is the oldest supported runtime. The full parser, unit/fuzz, hostile-input, and WordPress integration suites run on PHP 8.2, 8.3, 8.4, and 8.5. Exact WP Mail SMTP and Yoast contracts plus their browser save/review/undo flows run at both ends of that range. Native MySQL and MariaDB jobs split the minimum and maximum PHP versions, while the Xdebug evidence remains pinned to PHP 8.3 for reproducibility. A locked PHPCompatibilityWP scan independently inspects every PHP file for 8.2–8.5 syntax and API hazards. Composer and npm advisory audits reject known high-impact vulnerabilities in test and build tooling.
 
-A separate real-Multisite contract creates multiple WordPress sites. On every supported PHP/WordPress matrix entry, it proves that a host write after `switch_to_blog()` succeeds while the originating capture becomes incomplete exactly once; normal site-local repositories then persist independent captures with the same option name in shared tables, reject cross-site reads and restore attempts, and preserve their network/blog identities. The same suite builds a schema-v9 per-site fixture and verifies collision-safe, idempotent migration of sessions, mutations, unmanaged-write signals, restore audits, active pointers, and integrity fallbacks. Run it locally with `npm run test:multisite`.
+A separate real-Multisite contract network-activates ConfigOps and creates multiple WordPress sites. On every supported PHP/WordPress matrix entry, it proves that new sites receive their local schema marker, capabilities, and retention schedule; a host write after `switch_to_blog()` succeeds while the originating capture becomes incomplete exactly once; and normal site-local repositories persist independent captures with the same option name in shared tables, reject cross-site reads and restore attempts, and preserve their network/blog identities. The same suite verifies collision-safe, idempotent migration from schema v9, network-wide interruption and cron cleanup on deactivation, removal of shared and legacy evidence when a site is deleted, and complete per-site plus shared-storage cleanup on uninstall. Run it locally with `npm run test:multisite`.
 
 PHP 8.1 and older are deliberately not advertised: they no longer receive upstream security fixes. A lifecycle gate expires the PHP 8.2 support claim after 2026-12-31 and forces the minimum to be reviewed and retested. The release archive is built twice in CI and both SHA-256 digests must match before Plugin Check sees it.
 

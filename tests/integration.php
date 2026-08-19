@@ -784,14 +784,17 @@ $captures->stop();
 
 $interruptedSession = $captures->start('Interrupted lifecycle check', 0, '/wp-admin/options-general.php');
 update_option('fixture_interrupted', 'changed', false);
-$assert($interruptedSession === $captures->interruptActive('plugin_deactivated'), 'Deactivation should explicitly close the active capture.');
+\ConfigOps\Plugin::deactivate(false);
 $interruptedCapture = $captures->find($interruptedSession);
 $assert(
 	'interrupted' === (string) $interruptedCapture->status
 	&& 1 === (int) $interruptedCapture->capture_error_count
 	&& 'plugin_deactivated' === (string) $interruptedCapture->last_error_code,
-	'An interrupted capture must remain visibly incomplete after the plugin returns.'
+	'Site-local deactivation should explicitly close the active capture and leave it visibly incomplete.'
 );
+$assert(false === wp_next_scheduled(\ConfigOps\Maintenance\HistoryRetention::HOOK), 'Site-local deactivation should remove its retention schedule.');
+\ConfigOps\Plugin::activate(false);
+$assert(false !== wp_next_scheduled(\ConfigOps\Maintenance\HistoryRetention::HOOK), 'Site-local activation should restore its retention schedule.');
 $assert(null === $captures->activeId(), 'An interrupted capture must never resume implicitly after reactivation.');
 $interruptedRestoreRejected = false;
 try {

@@ -2,6 +2,15 @@
 
 ConfigOps follows semantic versioning. While the major version is `0`, adapter contracts and stored evidence may still evolve between minor releases; migrations must always fail closed.
 
+## Unreleased
+
+### Added
+
+- A network-active, site-local Multisite lifecycle for existing and newly initialized sites, including per-site capabilities, schema migration, and retention scheduling.
+- Network-wide deactivation that interrupts open evidence and clears scheduled retention without crossing site boundaries.
+- Site-deletion and uninstall cleanup for site-scoped shared rows, retained legacy tables, local options, transient cache entries, capabilities, and cron events.
+- A real network-activation contract covering 100 Multisite isolation, migration, lifecycle, deletion, and uninstall assertions, also included in release coverage evidence.
+
 ## 0.3.1 — 2026-08-18
 
 The delivery and maintainability hardening release.

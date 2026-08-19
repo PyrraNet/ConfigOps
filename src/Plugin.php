@@ -41,6 +41,7 @@ use ConfigOps\Privacy\PrivacyPolicy;
 use ConfigOps\Restore\RestoreService;
 use ConfigOps\Maintenance\HistoryRetention;
 use ConfigOps\Multisite\SiteBoundaryGuard;
+use ConfigOps\Multisite\SiteLifecycle;
 use ConfigOps\Multisite\SiteScope;
 
 final class Plugin
@@ -132,6 +133,7 @@ final class Plugin
 
 		(new RestController($captures, $mutations, $commands, $payloads, $evidenceNotices, $siteBoundary))->register();
 		(new AdminController($captures, $commands, new FlashNoticeStore(), $payloads, $siteBoundary))->register();
+		(new SiteLifecycle($wpdb))->register();
 	}
 
 	public static function boot(): void
@@ -148,31 +150,18 @@ final class Plugin
 		}
 	}
 
-	public static function activate(): void
+	public static function activate(bool $networkWide = false): void
 	{
 		global $wpdb;
 
-		(new Schema($wpdb))->install();
-		(new CapabilityManager())->install();
-		HistoryRetention::schedule();
+		(new SiteLifecycle($wpdb))->activate($networkWide);
 	}
 
-	public static function deactivate(): void
+	public static function deactivate(bool $networkWide = false): void
 	{
 		global $wpdb;
 
-		try {
-			(new CaptureRepository($wpdb))->interruptActive('plugin_deactivated');
-		} catch (\Throwable $error) {
-			// A deactivation must not strand WordPress. The active pointer is removed
-			// by the repository before it reports an interrupted-session write error.
-			try {
-				do_action('configops_deactivation_error', $error);
-			} catch (\Throwable) {
-				// Extension diagnostics cannot break deactivation.
-			}
-		}
-		HistoryRetention::unschedule();
+		(new SiteLifecycle($wpdb))->deactivate($networkWide);
 	}
 
 	/**

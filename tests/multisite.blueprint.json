@@ -9,8 +9,8 @@
       "code": "<?php $path = '/wordpress/wp-config.php'; $lines = file($path); $clean = array(); foreach ($lines as $line) { if (! str_contains($line, 'WP_ALLOW_MULTISITE')) { $clean[] = $line; } } file_put_contents($path, implode('', $clean));"
     },
     {
-      "step": "activatePlugin",
-      "pluginPath": "configops/configops.php"
+      "step": "runPHP",
+      "code": "<?php require_once '/wordpress/wp-load.php'; require_once ABSPATH . 'wp-admin/includes/plugin.php'; $result = activate_plugin('configops/configops.php', '', true); if (is_wp_error($result)) { throw new RuntimeException($result->get_error_message()); }"
     }
   ]
 }

@@ -11,6 +11,8 @@ namespace ConfigOps;
 
 use ConfigOps\Access\CapabilityManager;
 use ConfigOps\Maintenance\HistoryRetention;
+use ConfigOps\Multisite\SiteContextRunner;
+use Throwable;
 use wpdb;
 
 final class Uninstall
@@ -23,10 +25,25 @@ final class Uninstall
 			return;
 		}
 
-		wp_clear_scheduled_hook(HistoryRetention::HOOK);
-		self::removeCapabilities();
-		self::removeOptions($wpdb);
-		self::dropTables($wpdb);
+		$sites = new SiteContextRunner();
+		foreach ($sites->siteIds() as $siteId) {
+			try {
+				$sites->run(
+					$siteId,
+					static function () use ($wpdb): void {
+						wp_clear_scheduled_hook(HistoryRetention::HOOK);
+						self::removeCapabilities();
+						self::removeOptions($wpdb);
+						self::dropLegacyTables($wpdb);
+					}
+				);
+			} catch (Throwable $error) {
+				self::reportCleanupError($error, $siteId);
+			}
+		}
+
+		self::removeSharedOptions($wpdb);
+		self::dropSharedTables($wpdb);
 	}
 
 	private static function removeCapabilities(): void
@@ -46,6 +63,8 @@ final class Uninstall
 
 	private static function removeOptions(wpdb $database): void
 	{
+		self::removeFlashTransients();
+
 		foreach (
 			array(
 				'configops_schema_version',
@@ -81,29 +100,46 @@ final class Uninstall
 				$prefixes[3]
 			)
 		);
-		$database->query(
-			$database->prepare(
-				"DELETE FROM {$quotedOptions}
-				WHERE SUBSTR(option_name, 1, %d) = %s
-					OR SUBSTR(option_name, 1, %d) = %s
-					OR SUBSTR(option_name, 1, %d) = %s
-					OR SUBSTR(option_name, 1, %d) = %s",
-				strlen($prefixes[0]),
-				$prefixes[0],
-				strlen($prefixes[1]),
-				$prefixes[1],
-				strlen($prefixes[2]),
-				$prefixes[2],
-				strlen($prefixes[3]),
-				$prefixes[3]
-			)
-		);
 		foreach (is_array($dynamicOptions) ? $dynamicOptions : array() as $option) {
-			wp_cache_delete((string) $option, 'options');
+			$option = (string) $option;
+			if (str_starts_with($option, '_transient_configops_flash_')) {
+				delete_transient(substr($option, strlen('_transient_')));
+				continue;
+			}
+			if (str_starts_with($option, '_transient_timeout_configops_flash_')) {
+				delete_transient(substr($option, strlen('_transient_timeout_')));
+				continue;
+			}
+			delete_option((string) $option);
 		}
 		wp_cache_delete('alloptions', 'options');
 		wp_cache_delete('notoptions', 'options');
+	}
 
+	private static function removeFlashTransients(): void
+	{
+		delete_transient('configops_flash_0');
+		$offset = 0;
+		do {
+			$userIds = get_users(
+				array(
+					'fields'  => 'ids',
+					'number'  => 100,
+					'offset'  => $offset,
+					'orderby' => 'ID',
+					'order'   => 'ASC',
+				)
+			);
+			$userIds = array_values(array_filter(array_map('absint', is_array($userIds) ? $userIds : array())));
+			foreach ($userIds as $userId) {
+				delete_transient('configops_flash_' . $userId);
+			}
+			$offset += count($userIds);
+		} while (100 === count($userIds));
+	}
+
+	private static function removeSharedOptions(wpdb $database): void
+	{
 		$baseOptions = '`' . str_replace('`', '``', (string) ($database->base_prefix ?: $database->prefix) . 'options') . '`';
 		$database->query(
 			$database->prepare(
@@ -113,7 +149,22 @@ final class Uninstall
 		);
 	}
 
-	private static function dropTables(wpdb $database): void
+	private static function dropLegacyTables(wpdb $database): void
+	{
+		$basePrefix = (string) ($database->base_prefix ?: $database->prefix);
+		if ((string) $database->prefix === $basePrefix) {
+			return;
+		}
+
+		self::dropTablesWithPrefix($database, (string) $database->prefix);
+	}
+
+	private static function dropSharedTables(wpdb $database): void
+	{
+		self::dropTablesWithPrefix($database, (string) ($database->base_prefix ?: $database->prefix));
+	}
+
+	private static function dropTablesWithPrefix(wpdb $database, string $prefix): void
 	{
 		foreach (
 			array(
@@ -123,10 +174,19 @@ final class Uninstall
 				'configops_capture_sessions',
 			) as $suffix
 		) {
-			$table       = (string) ($database->base_prefix ?: $database->prefix) . $suffix;
+			$table       = $prefix . $suffix;
 			$quotedTable = '`' . str_replace('`', '``', $table) . '`';
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Identifier is composed only from wpdb::prefix and a fixed suffix, then quoted.
 			$database->query("DROP TABLE IF EXISTS {$quotedTable}");
+		}
+	}
+
+	private static function reportCleanupError(Throwable $error, int $siteId): void
+	{
+		try {
+			do_action('configops_uninstall_error', $error, $siteId);
+		} catch (Throwable) {
+			// Uninstall should continue cleaning the remaining sites.
 		}
 	}
 }

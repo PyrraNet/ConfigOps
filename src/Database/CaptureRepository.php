@@ -279,6 +279,34 @@ final class CaptureRepository
 		return $updated > 0 ? $id : null;
 	}
 
+	public function interruptOpen(string $code = 'capture_interrupted'): int
+	{
+		$code = substr(sanitize_key($code), 0, 64) ?: 'capture_interrupted';
+		$updated = $this->database->query(
+			$this->storage->prepare(
+				"UPDATE {$this->table}
+				SET status = 'interrupted',
+					capture_error_count = capture_error_count + 1,
+					last_error_code = %s,
+					last_error_at = %s,
+					ended_at = %s
+				WHERE {$this->storage->clause()} AND status IN ('starting', 'active', 'stopping')",
+				$code,
+				current_time('mysql', true),
+				current_time('mysql', true)
+			)
+		);
+
+		delete_option(self::ACTIVE_OPTION);
+		$this->invalidateActiveSession();
+
+		if (false === $updated) {
+			throw new RuntimeException('Open capture sessions could not be closed safely.');
+		}
+
+		return (int) $updated;
+	}
+
 	public function activeId(): ?int
 	{
 		$session = $this->activeSession();
