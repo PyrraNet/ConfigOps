@@ -23,7 +23,7 @@ ConfigOps is a local configuration evidence layer. It is not a database backup, 
 
 ## Install
 
-To inspect the workflow before installing anything, open the [disposable ConfigOps live demo](https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fplugins.svn.wordpress.org%2Fconfigops%2Fassets%2Fblueprints%2Fblueprint.json). It starts with ConfigOps and WP Mail SMTP active, then guides one sender-email save through Evidence, Review, and Undo.
+To inspect the workflow before installing anything, open the [disposable ConfigOps live demo](https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2FPyrraNet%2FConfigOps%2Fv0.4.2%2F.wordpress-org%2Fblueprints%2Fblueprint.json). It starts with ConfigOps and WP Mail SMTP active, then guides one sender-email save through Evidence, Review, and Undo.
 
 1. Obtain `configops-0.4.2.zip` from a trusted release channel.
 2. In WordPress, open **Plugins → Add Plugin → Upload Plugin**.

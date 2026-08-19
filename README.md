@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fplugins.svn.wordpress.org%2Fconfigops%2Fassets%2Fblueprints%2Fblueprint.json">Try the live demo</a>
+  <a href="https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2FPyrraNet%2FConfigOps%2Fv0.4.2%2F.wordpress-org%2Fblueprints%2Fblueprint.json">Try the live demo</a>
   &nbsp;·&nbsp;
   <a href="https://configops.pyrra.net/docs/">Read the operations &amp; safety docs</a>
 </p>
