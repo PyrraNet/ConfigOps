@@ -1,6 +1,6 @@
 {
   "name": "configops",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "type": "module",
   "description": "The undo and evidence layer for WordPress settings.",
@@ -36,11 +36,13 @@
     "test:coverage": "npm run build:ui && bash tests/coverage/run-docker.sh",
     "test:coverage:report": "node tests/coverage/report.mjs --minimum=70 --critical-minimum=75",
     "test:adapter-ui": "node tests/adapters-user-flow.mjs",
+    "test:preview": "node tests/playground-preview.mjs",
     "test:visual": "node tests/visual-check.mjs",
     "test:network-visual": "node tests/network-visual-check.mjs",
     "test": "npm run build:plugin && npm run check:ui-budget && npm run check:runtime-policy && npm run test:ui && npm run lint:php && npm run test:unit && npm run test:adversarial && npm run test:integration && npm run test:multisite && npm run test:adapters"
   },
   "devDependencies": {
+    "@wp-playground/blueprints": "3.1.49",
     "@wp-playground/cli": "3.1.49",
     "esbuild": "0.28.2",
     "playwright": "1.62.1",

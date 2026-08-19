@@ -24,7 +24,7 @@ Automatic observation is limited to authorized administrative, REST, and WP-CLI 
 
 ConfigOps uses dedicated WordPress tables for observation sessions, mutations, value-free write signals, and restore audit runs. The internal table identifiers retain `capture` for schema compatibility. On Multisite the shared tables use the network base prefix, and every site-owned row is pinned to its network and blog identity. Network evidence reserves blog ID zero and uses separate network-owned state. Evidence remains in the WordPress database.
 
-The REST interface is local to WordPress, scope- and capability-gated, and returns private `no-store` responses. Network routes additionally require `manage_network_options`. There is no ConfigOps account, cloud collector, or remote control plane in 0.4.1.
+The REST interface is local to WordPress, scope- and capability-gated, and returns private `no-store` responses. Network routes additionally require `manage_network_options`. There is no ConfigOps account, cloud collector, or remote control plane in 0.4.2.
 
 ## Retention
 

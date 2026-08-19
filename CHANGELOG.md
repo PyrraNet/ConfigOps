@@ -4,6 +4,23 @@ ConfigOps follows semantic versioning. While the major version is `0`, adapter c
 
 ## Unreleased
 
+## 0.4.2 — 2026-08-19
+
+The guided WordPress Playground preview release.
+
+### Shipped
+
+- A public WordPress.org Blueprint that installs and activates ConfigOps plus the exact supported WP Mail SMTP 4.9.0 release, signs in, and lands directly on the sender settings screen.
+- A small in-product demo instruction and a prepared settings baseline that make one sender-email edit produce one focused Evidence Card and one reviewable decision.
+- Preview-only suppression for known first-load setup writes, so WordPress and WP Mail SMTP initialization cannot masquerade as the visitor's change.
+- A browser release gate that exercises the complete public path: guided landing, normal settings save, Evidence Card, exact review, guarded field undo, and baseline verification.
+
+### Verified against
+
+- The current official Playground Blueprint schema and WordPress.org's 100 KiB preview-asset limit.
+- A fresh six-worker WordPress Playground instance using WordPress latest, PHP 8.3, ConfigOps from WordPress.org, and WP Mail SMTP Free 4.9.0.
+- The deterministic release archive, release metadata contract, WordPress Plugin Check, and complete ConfigOps test suite.
+
 ## 0.4.1 — 2026-08-19
 
 The WordPress.org project-link visibility patch.

@@ -1,0 +1,136 @@
+{
+  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "landingPage": "/wp-admin/admin.php?page=wp-mail-smtp",
+  "preferredVersions": {
+    "php": "8.3",
+    "wp": "latest"
+  },
+  "features": {
+    "networking": true
+  },
+  "login": {
+    "username": "admin",
+    "password": "password"
+  },
+  "steps": [
+    {
+      "step": "setSiteOptions",
+      "options": {
+        "blogname": "ConfigOps live demo",
+        "wp_mail_smtp_activation_prevent_redirect": true
+      }
+    },
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "url",
+        "url": "https://downloads.wordpress.org/plugin/wp-mail-smtp.4.9.0.zip",
+        "caption": "Installing the supported WP Mail SMTP demo"
+      },
+      "options": {
+        "activate": true,
+        "humanReadableName": "WP Mail SMTP 4.9.0"
+      }
+    },
+    {
+      "step": "setSiteOptions",
+      "options": {
+        "wp_mail_smtp": {
+          "mail": {
+            "from_email": "admin@localhost.com",
+            "from_email_force": true,
+            "from_name": "ConfigOps live demo",
+            "from_name_force": false,
+            "return_path": true,
+            "mailer": "mail"
+          },
+          "general": {
+            "summary_report_email_disabled": false
+          },
+          "sendlayer": {
+            "api_key": ""
+          },
+          "smtpcom": {
+            "api_key": "",
+            "channel": ""
+          },
+          "sendinblue": {
+            "api_key": "",
+            "domain": ""
+          },
+          "elasticemail": {
+            "api_key": ""
+          },
+          "gmail": {
+            "client_id": "",
+            "client_secret": ""
+          },
+          "mailgun": {
+            "api_key": "",
+            "domain": "",
+            "region": "US"
+          },
+          "mailjet": {
+            "api_key": "",
+            "secret_key": ""
+          },
+          "mailersend": {
+            "api_key": "",
+            "has_pro_plan": false
+          },
+          "mandrill": {
+            "api_key": ""
+          },
+          "postmark": {
+            "server_api_token": "",
+            "message_stream": ""
+          },
+          "resend": {
+            "api_key": ""
+          },
+          "sendgrid": {
+            "api_key": "",
+            "domain": ""
+          },
+          "smtp2go": {
+            "api_key": ""
+          },
+          "sparkpost": {
+            "api_key": "",
+            "region": "US"
+          },
+          "smtp": {
+            "host": "",
+            "encryption": "none",
+            "port": 0,
+            "autotls": "yes",
+            "auth": "yes",
+            "user": "",
+            "pass": ""
+          }
+        }
+      }
+    },
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "wordpress.org/plugins",
+        "slug": "configops"
+      },
+      "options": {
+        "activate": true,
+        "humanReadableName": "ConfigOps"
+      }
+    },
+    {
+      "step": "writeFile",
+      "path": "/wordpress/wp-content/mu-plugins/configops-playground-guide.php",
+      "data": "<?php\n/**\n * Guides the disposable ConfigOps WordPress.org Playground preview.\n */\n\ndeclare(strict_types=1);\n\nconst CONFIGOPS_PLAYGROUND_READY_OPTION = 'configops_playground_ready';\n\nadd_filter(\n\t'option_active_plugins',\n\tstatic function ($plugins): array {\n\t\t$active = is_array($plugins) ? $plugins : array();\n\t\t$required = array(\n\t\t\t'configops/configops.php',\n\t\t\t'wp-mail-smtp/wp_mail_smtp.php',\n\t\t);\n\n\t\tforeach ($required as $plugin) {\n\t\t\tif (is_file(WP_PLUGIN_DIR . '/' . $plugin) && ! in_array($plugin, $active, true)) {\n\t\t\t\t$active[] = $plugin;\n\t\t\t}\n\t\t}\n\n\t\treturn $active;\n\t},\n\tPHP_INT_MIN\n);\n\nadd_filter(\n\t'configops_automatic_recording_enabled',\n\tstatic function (bool $enabled): bool {\n\t\t$page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';\n\t\t$method = isset($_SERVER['REQUEST_METHOD']) ? strtoupper(sanitize_key(wp_unslash($_SERVER['REQUEST_METHOD']))) : 'GET';\n\n\t\treturn 'wp-mail-smtp' === $page && 'GET' === $method ? false : $enabled;\n\t}\n);\n\nadd_action(\n\t'admin_init',\n\tstatic function (): void {\n\t\t$page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';\n\t\tif ('wp-mail-smtp' !== $page || ! current_user_can('manage_options')) {\n\t\t\treturn;\n\t\t}\n\n\t\twp_cache_delete(CONFIGOPS_PLAYGROUND_READY_OPTION, 'options');\n\t\twp_cache_delete('notoptions', 'options');\n\t\tif (get_option(CONFIGOPS_PLAYGROUND_READY_OPTION, false)) {\n\t\t\treturn;\n\t\t}\n\n\t\tdelete_option('configops_pending_evidence_' . get_current_user_id());\n\t\tupdate_option(CONFIGOPS_PLAYGROUND_READY_OPTION, '1', false);\n\t}\n);\n\nadd_action(\n\t'admin_footer',\n\tstatic function (): void {\n\t\t$page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';\n\t\tif ('wp-mail-smtp' !== $page || ! current_user_can('manage_options')) {\n\t\t\treturn;\n\t\t}\n\t\t?>\n\t\t<script>\n\t\t(() => {\n\t\t\tconst host = document.querySelector('#wpbody-content');\n\t\t\tif (!host || host.querySelector('.configops-playground-guide')) return;\n\t\t\tconst guide = document.createElement('div');\n\t\t\tguide.className = 'notice notice-info configops-playground-guide';\n\t\t\tguide.setAttribute('role', 'note');\n\t\t\tguide.innerHTML = '<p><strong>Change the sender email, save, then inspect what WordPress actually wrote.</strong></p>';\n\t\t\thost.prepend(guide);\n\t\t})();\n\t\t</script>\n\t\t<?php\n\t}\n);\n"
+    },
+    {
+      "step": "writeFile",
+      "path": "/wordpress/wp-content/mu-plugins/configops-playground-noise.php",
+      "data": "<?php\n/**\n * Keeps WordPress' one-time browser capability probe out of the guided save.\n */\n\ndeclare(strict_types=1);\n\nadd_filter(\n\t'configops_automatic_recording_enabled',\n\tstatic function (bool $enabled): bool {\n\t\t$action = isset($_REQUEST['action']) ? sanitize_key(wp_unslash($_REQUEST['action'])) : '';\n\n\t\treturn 'wp-compression-test' === $action ? false : $enabled;\n\t},\n\tPHP_INT_MAX\n);\n"
+    }
+  ]
+}

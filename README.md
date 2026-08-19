@@ -8,12 +8,14 @@
 <p align="center"><strong>The undo layer for WordPress settings.</strong></p>
 
 <p align="center">
-  v0.4.1
+  v0.4.2
   &nbsp;·&nbsp; Automatic observation
   &nbsp;·&nbsp; No account required
 </p>
 
 <p align="center">
+  <a href="https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fplugins.svn.wordpress.org%2Fconfigops%2Fassets%2Fblueprints%2Fblueprint.json">Try the live demo</a>
+  &nbsp;·&nbsp;
   <a href="https://configops.pyrra.net/docs/">Read the operations &amp; safety docs</a>
 </p>
 

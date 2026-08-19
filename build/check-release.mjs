@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { validateBlueprint } from '@wp-playground/blueprints';
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const fail = (message) => {
@@ -23,6 +24,10 @@ const docsConfig = read('docs/.vitepress/config.mjs');
 const docsHome = read('docs/.vitepress/theme/components/DocsHome.vue');
 const docsRelease = read(`docs/releases/${packageJson.version}.md`);
 const wordpressReleaseWorkflow = read('.github/workflows/wordpress-org-release.yml');
+const previewBlueprintPath = new URL('../.wordpress-org/blueprints/blueprint.json', import.meta.url);
+const previewBlueprintSource = fs.readFileSync(previewBlueprintPath, 'utf8');
+const previewBlueprint = JSON.parse(previewBlueprintSource);
+const previewBlueprintValidation = validateBlueprint(previewBlueprint);
 
 const headerVersion = match(plugin, /^ \* Version:\s+([^\s]+)$/m, 'plugin header version');
 const constantVersion = match(plugin, /^define\('CONFIGOPS_VERSION', '([^']+)'\);$/m, 'CONFIGOPS_VERSION');
@@ -90,6 +95,31 @@ if (packageJson.private !== true) {
 }
 if (!security.includes('felix@pyrra.net')) {
 	fail('SECURITY.md must use felix@pyrra.net as the private reporting channel');
+}
+if (Buffer.byteLength(previewBlueprintSource) > 100 * 1024) {
+	fail('WordPress.org Playground Blueprint exceeds the 100 KiB directory limit');
+}
+if (!previewBlueprintValidation.valid) {
+	fail(`WordPress.org Playground Blueprint is invalid: ${JSON.stringify(previewBlueprintValidation.errors)}`);
+}
+if (
+	previewBlueprint.$schema !== 'https://playground.wordpress.net/blueprint-schema.json'
+	|| previewBlueprint.landingPage !== '/wp-admin/admin.php?page=wp-mail-smtp'
+	|| previewBlueprint.login?.username !== 'admin'
+	|| previewBlueprint.login?.password !== 'password'
+) {
+	fail('Playground Blueprint must log in and land on the guided WP Mail SMTP screen');
+}
+const previewSteps = Array.isArray(previewBlueprint.steps) ? previewBlueprint.steps : [];
+const previewPluginInstalls = previewSteps.filter((step) => step?.step === 'installPlugin');
+if (
+	!previewPluginInstalls.some((step) => step.pluginData?.resource === 'wordpress.org/plugins' && step.pluginData?.slug === 'configops' && step.options?.activate === true)
+	|| !previewPluginInstalls.some((step) => step.pluginData?.url === 'https://downloads.wordpress.org/plugin/wp-mail-smtp.4.9.0.zip' && step.options?.activate === true)
+) {
+	fail('Playground Blueprint must activate ConfigOps and the exact supported WP Mail SMTP release');
+}
+if (!previewBlueprintSource.includes('Change the sender email, save, then inspect what WordPress actually wrote.')) {
+	fail('Playground Blueprint is missing its guided demo instruction');
 }
 if (!/^Stable tag:\s+\d+(?:\.\d+)*$/m.test(readme)) {
 	fail('WordPress Stable tag must contain only numbers and periods');

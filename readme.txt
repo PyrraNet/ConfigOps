@@ -4,7 +4,7 @@ Tags: settings, configuration, rollback, history, developer tools
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 8.2
-Stable tag: 0.4.1
+Stable tag: 0.4.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,6 +131,12 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 4. Review a real Network Settings change in Network Admin with explicit network-wide scope, add/update undo boundaries, and guarded mutation undo.
 
 == Changelog ==
+
+= 0.4.2 =
+
+* Adds a guided WordPress Playground preview that opens WP Mail SMTP with ConfigOps active and ready to observe one sender-email change.
+* Adds an end-to-end release gate for the public demo's direct landing, focused Evidence Card, Review, and conflict-checked Undo flow.
+* Keeps runtime behavior and the version 0.4 Multisite support contract unchanged.
 
 = 0.4.1 =
 
