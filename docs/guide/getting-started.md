@@ -1,6 +1,6 @@
 ---
 title: Get started
-description: Install ConfigOps 0.4.0 and review an automatically observed WordPress or Network Settings change.
+description: Install ConfigOps 0.4.1 and review an automatically observed WordPress or Network Settings change.
 ---
 
 # Get started
@@ -9,7 +9,7 @@ ConfigOps automatically observes configuration mutations made by authorized admi
 
 ## Requirements
 
-| Contract | Supported in 0.4.0 |
+| Contract | Supported in 0.4.1 |
 | --- | --- |
 | WordPress | 7.0 or newer, single-site or network-active Multisite |
 | PHP | 8.2, 8.3, 8.4, or 8.5 |
@@ -23,7 +23,7 @@ ConfigOps is a local configuration evidence layer. It is not a database backup, 
 
 ## Install
 
-1. Obtain `configops-0.4.0.zip` from a trusted release channel.
+1. Obtain `configops-0.4.1.zip` from a trusted release channel.
 2. In WordPress, open **Plugins → Add Plugin → Upload Plugin**.
 3. Select the archive, install it, and activate **ConfigOps**.
 4. Open **ConfigOps** in the WordPress admin menu.

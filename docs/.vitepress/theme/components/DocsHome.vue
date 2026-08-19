@@ -14,7 +14,7 @@ import wordmarkDark from '../../../../assets/brand/configops-wordmark-dark.svg';
 					<img :src="wordmarkLight" width="232" height="52" alt="ConfigOps">
 				</picture>
 				<span aria-hidden="true"></span>
-				<p>Documentation · 0.4.0</p>
+				<p>Documentation · 0.4.1</p>
 			</div>
 			<p class="co-kicker">Change intelligence for WordPress</p>
 			<h1 id="co-home-title">The undo button<br>WordPress forgot.</h1>

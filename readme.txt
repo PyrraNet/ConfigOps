@@ -4,7 +4,7 @@ Tags: settings, configuration, rollback, history, developer tools
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 8.2
-Stable tag: 0.4.0
+Stable tag: 0.4.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -15,6 +15,8 @@ See what a settings save changed and reverse only the values that are still safe
 = The undo button WordPress forgot =
 
 WordPress shows you the settings form. ConfigOps shows you what the save actually changed.
+
+Visit the [ConfigOps website](https://configops.pyrra.net/) or read the [documentation](https://configops.pyrra.net/docs/).
 
 Change a supported WordPress or plugin setting as usual. ConfigOps automatically opens an isolated observation for that save, groups the resulting writes, and reduces repeated writes to the same option into the original-to-final change.
 
@@ -129,6 +131,11 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 4. Review a real Network Settings change in Network Admin with explicit network-wide scope, add/update undo boundaries, and guarded mutation undo.
 
 == Changelog ==
+
+= 0.4.1 =
+
+* Adds visible links to the ConfigOps website and documentation on the WordPress.org plugin page.
+* Keeps the runtime behavior and Multisite support contract unchanged from 0.4.0.
 
 = 0.4.0 =
 

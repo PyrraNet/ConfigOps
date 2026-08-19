@@ -8,7 +8,7 @@
 <p align="center"><strong>The undo layer for WordPress settings.</strong></p>
 
 <p align="center">
-  v0.4.0
+  v0.4.1
   &nbsp;·&nbsp; Automatic observation
   &nbsp;·&nbsp; No account required
 </p>

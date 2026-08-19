@@ -4,6 +4,19 @@ ConfigOps follows semantic versioning. While the major version is `0`, adapter c
 
 ## Unreleased
 
+## 0.4.1 — 2026-08-19
+
+The WordPress.org project-link visibility patch.
+
+### Shipped
+
+- Visible links to the ConfigOps website and documentation near the top of the WordPress.org plugin description.
+- The existing plugin homepage metadata remains `https://configops.pyrra.net/`; runtime behavior and the 0.4 Multisite support contract are unchanged.
+
+### Verified against
+
+- The deterministic release archive, release metadata contract, WordPress Plugin Check, and complete ConfigOps test suite.
+
 ## 0.4.0 — 2026-08-19
 
 The Multisite evidence and guarded Network Admin undo release.
