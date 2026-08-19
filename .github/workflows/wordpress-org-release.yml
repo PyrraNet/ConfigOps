@@ -131,10 +131,15 @@ jobs:
         with:
           dry-run: true
         env:
+          # The pinned action currently checks for non-empty credentials before
+          # branching into dry-run mode. Invalid fixed values keep this job
+          # credential-free and still make an accidental commit impossible.
+          SVN_USERNAME: configops-dry-run
+          SVN_PASSWORD: invalid-dry-run-credential
           SLUG: configops
           VERSION: ${{ needs.prepare.outputs.version }}
           BUILD_DIR: ${{ github.workspace }}/.wporg-build/configops
-          ASSETS_DIR: ${{ github.workspace }}/.wordpress-org
+          ASSETS_DIR: .wordpress-org
 
   deploy:
     name: Deploy published release
@@ -166,7 +171,7 @@ jobs:
           SLUG: configops
           VERSION: ${{ needs.prepare.outputs.version }}
           BUILD_DIR: ${{ github.workspace }}/.wporg-build/configops
-          ASSETS_DIR: ${{ github.workspace }}/.wordpress-org
+          ASSETS_DIR: .wordpress-org
 
       - name: Attach verified archive to GitHub release
         env:
