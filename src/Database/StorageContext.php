@@ -9,25 +9,26 @@ declare(strict_types=1);
 
 namespace ConfigOps\Database;
 
+use ConfigOps\Multisite\EvidenceScope;
 use ConfigOps\Multisite\SiteScope;
 use wpdb;
 
 final readonly class StorageContext
 {
-	private SiteScope $siteScope;
+	private EvidenceScope $evidenceScope;
 	private string $tablePrefix;
 
 	public function __construct(
 		private wpdb $database,
-		?SiteScope $siteScope = null
+		?EvidenceScope $evidenceScope = null
 	) {
-		$this->siteScope   = $siteScope ?? SiteScope::current();
+		$this->evidenceScope = $evidenceScope ?? SiteScope::current();
 		$this->tablePrefix = (string) ($database->base_prefix ?: $database->prefix);
 	}
 
-	public function siteScope(): SiteScope
+	public function evidenceScope(): EvidenceScope
 	{
-		return $this->siteScope;
+		return $this->evidenceScope;
 	}
 
 	public function table(string $suffix): string
@@ -37,12 +38,12 @@ final readonly class StorageContext
 
 	public function networkId(): int
 	{
-		return $this->siteScope->networkId();
+		return $this->evidenceScope->networkId();
 	}
 
 	public function blogId(): int
 	{
-		return $this->siteScope->siteId();
+		return $this->evidenceScope->siteId();
 	}
 
 	/**

@@ -117,7 +117,7 @@ export const selectSession = async (id) => {
 		return;
 	}
 
-	const selected = await runPending(`select-session-${id}`, () => fetchState(id));
+	const selected = await runPending(`select-session-${id}`, () => fetchState(id, snapshot.scope));
 	if (selected) {
 		const url = new URL(window.location.href);
 		url.searchParams.set('page', 'configops');
@@ -135,7 +135,7 @@ export const loadMoreMutations = async () => {
 
 	await runPending(
 		'load-more',
-		() => fetchMutationPage(selectedId, cursor),
+		() => fetchMutationPage(selectedId, cursor, snapshot.scope),
 		(page) => ({
 			...snapshot,
 			review: {
@@ -155,7 +155,7 @@ export const hydrateReview = async () => {
 
 	await runPending(
 		'hydrate-review',
-		() => fetchMutationPage(selectedId, 0),
+		() => fetchMutationPage(selectedId, 0, snapshot.scope),
 		(review) => ({ ...snapshot, review }),
 		{ review: { ...snapshot.review, deferred: false } },
 	);

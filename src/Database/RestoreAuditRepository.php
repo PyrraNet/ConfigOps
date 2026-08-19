@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace ConfigOps\Database;
 
-use ConfigOps\Multisite\SiteScope;
+use ConfigOps\Multisite\EvidenceScope;
 use RuntimeException;
 use wpdb;
 
@@ -18,9 +18,9 @@ final class RestoreAuditRepository
 	private string $table;
 	private readonly StorageContext $storage;
 
-	public function __construct(private readonly wpdb $database, ?SiteScope $siteScope = null)
+	public function __construct(private readonly wpdb $database, ?EvidenceScope $evidenceScope = null)
 	{
-		$this->storage = new StorageContext($this->database, $siteScope);
+		$this->storage = new StorageContext($this->database, $evidenceScope);
 		$this->table   = $this->storage->table('configops_restore_runs');
 	}
 

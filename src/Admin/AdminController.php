@@ -65,7 +65,7 @@ final class AdminController
 
 	public function enqueueAdminAssets(string $hookSuffix): void
 	{
-		if (! $this->siteBoundary->isCurrentSite()) {
+		if (is_network_admin() || ! $this->siteBoundary->isCurrentSite()) {
 			return;
 		}
 
@@ -140,7 +140,7 @@ final class AdminController
 
 	public function addToolbarNode(WP_Admin_Bar $adminBar): void
 	{
-		if (! $this->siteBoundary->isCurrentSite() || ! current_user_can('configops_capture')) {
+		if (is_network_admin() || ! $this->siteBoundary->isCurrentSite() || ! current_user_can('configops_capture')) {
 			return;
 		}
 

@@ -1,11 +1,11 @@
 # Architecture decision: Observer first
 
-Status: accepted for Iteration 0; automatic-observation delivery amended for 0.3.1
-Date: 2026-08-13
+Status: accepted for Iteration 0; automatic delivery amended for 0.3.1 and network evidence for 0.4.0
+Date: 2026-08-19
 
 ## Decision
 
-ConfigOps starts as a native WordPress plugin whose supported floor is PHP 8.2. The product boundary is one local WordPress site, request-local automatic observations plus optional named Change Sessions, Options API mutations, semantic nested diffs, provenance, and compensating restore.
+ConfigOps is a native WordPress plugin whose supported floor is PHP 8.2. Its site boundary is request-local automatic observations plus optional named Change Sessions, Options API mutations, semantic nested diffs, provenance, and compensating restore. On a network-active Multisite installation, the 0.4 boundary also observes Network Options API mutations into a separate, read-only Network Admin ledger.
 
 JavaScript is the interaction layer and may later observe labels, field names, tabs, and client-side requests, but only the PHP observer can assert that WordPress actually persisted a mutation. The wp-admin interface uses code-split React islands over a capability-gated REST boundary. There is no Node service, monolithic SPA, cloud account, or remote control plane in the evidence layer.
 
@@ -19,12 +19,12 @@ PHP 8.2 is the oldest branch in the 0.3.1 runtime contract. The full parser, uni
 
 | Concern | Observer authority | Later extension |
 | --- | --- | --- |
-| Persisted mutation | WordPress Options API hooks; value-free signal for unmanaged writes | Adapter-owned custom tables and APIs |
+| Persisted mutation | Site and Network Options API hooks; value-free signal for unmanaged site writes | Adapter-owned custom tables and APIs |
 | Human intent | Request-local automatic observation, optional session name, request context, and value-free admin-field correlation | Deeper fetch/REST correlation and reviewed adapter suggestions |
 | Value semantics | Type-preserving codec, JSON Pointer diff, versioned field schemas, and bounded local media/content references | Cross-site semantic resolution and release transforms |
 | Noise | Conservative built-in rules plus pinned WP Mail SMTP and Yoast contracts | Registry fixtures and adapter normalization |
 | Secrets | Redact before persistence; preserve during field-level undo | Secret references and target-local resolution |
-| Rollback | Conflict-checked full or adapter-backed field undo | Adapter-declared safety and verification |
+| Rollback | Conflict-checked full or adapter-backed field undo for site settings; network evidence is read-only | Network-specific conflict, audit, and compensation contracts |
 | Storage | Dedicated session, mutation, write-signal, and restore-run tables | Packs, deployment runs, snapshots, and drift tables when used |
 | Local UI transport | Explicit REST resources and commands | Keep domain services independent from transport |
 | Fleet read model | Not present | GraphQL over asynchronously materialized fleet state |
@@ -46,10 +46,11 @@ PHP 8.2 is the oldest branch in the 0.3.1 runtime contract. The full parser, uni
 ## Hardening decisions
 
 - **The automatic boundary is request-local.** An authorized administrative request creates no row until its first Options API mutation. It then owns an independent automatic session, so concurrent saves cannot replace or absorb one another. Technical-only automatic observations are discarded from operator history.
-- **Evidence storage is globally addressable and site-scoped.** The four evidence tables use the WordPress installation's base prefix. Every row carries an immutable `network_id` and `blog_id`, and every repository query includes both values. This permits normal requests on different sites to share one scalable table set without exposing or modifying each other's evidence.
+- **Evidence storage is globally addressable and scope-isolated.** The four evidence tables use the WordPress installation's base prefix. Every row carries an immutable `network_id` and `blog_id`, and every repository query includes both values. Site evidence uses its real blog ID; network-owned evidence reserves blog ID `0`. This permits sites and their network to share one scalable table set without exposing or modifying each other's evidence.
 - **The runtime site boundary remains request-pinned.** ConfigOps captures the WordPress network and site identity at boot. If `switch_to_blog()` moves that same request elsewhere, observers and commands still fail closed instead of silently adopting the new site. A pinned capture receives one durable `cross_site_write_ignored` integrity warning, no cross-site value is persisted, and temporary recovery writes restore the caller's original blog-switch stack position.
+- **The network boundary is independently pinned.** Network observation is registered only when ConfigOps is network-active, requires `manage_network_options`, accepts only the current network ID, and stores its state in network options. The Network Admin ledger has separate read-only REST routes and never exposes site capture or restore commands.
 - **Legacy storage migration is additive and idempotent.** Rows in the former main-site tables are assigned to their original site in place. Existing per-site subsite tables are copied into shared storage with collision-safe ID remapping; mutation, write-signal, restore-audit, active-capture, and integrity-fallback references follow the new session IDs. Legacy tables are retained as a rollback source rather than deleted during upgrade.
-- **The plugin lifecycle follows the site boundary.** Network activation provisions existing sites in bounded batches, and a network-active installation provisions newly initialized sites after WordPress creates their roles and options. Network deactivation interrupts open captures and removes retention schedules for every site in that network. Site deletion removes its scoped rows from shared storage and includes retained legacy ConfigOps tables in WordPress's normal table cleanup; uninstall removes local options, transient cache entries, capabilities, cron events, and legacy tables across all remaining sites before dropping shared storage.
+- **The plugin lifecycle follows both scopes.** Network activation provisions existing sites in bounded batches, and a network-active installation provisions newly initialized sites after WordPress creates their roles and options. Network deactivation interrupts site- and network-owned evidence and removes retention schedules. Site deletion removes only that site's shared rows and retained legacy tables. Uninstall additionally removes ConfigOps network options before dropping shared storage.
 - **Named-session ownership is atomic.** The active-session option is acquired with `add_option()`, so two concurrent named-session starts cannot silently replace one another. Stale pointers self-heal.
 - **Named-session completion is verified.** Stop-time mutation and unmanaged-write summaries must be readable before a session can become completed. Storage failure leaves the Change Session active for a safe retry; deactivation closes it as interrupted and permanently incomplete.
 - **Named-session finalization is explicit.** Stop first moves the session through an atomic `stopping` state. Evidence that finishes after that boundary marks the observation incomplete; an abandoned stop self-recovers to interrupted after five minutes so it cannot strand the observer or masquerade as complete.
@@ -64,7 +65,7 @@ PHP 8.2 is the oldest branch in the 0.3.1 runtime contract. The full parser, uni
 - **Work is budgeted.** Value nodes, persisted payload size, diff operations, and backtraces have explicit upper bounds and disclose truncation or unsupported values.
 - **First paint cannot inherit history size.** The server bootstrap excludes mutation diffs. The ledger fetches cursor pages only near the viewport, with both row and encoded-response budgets.
 - **Large sessions are not loaded whole.** Admin review is paged and restore planning selects only required columns in bounded batches. It retains only the first and last state per option and refuses plans above 1,000 options or 64 MiB.
-- **Retention is bounded and resumable.** Daily cleanup removes at most 1,000 observations after 30 days, never selects active or unfinished sessions, marks each batch as deleting before child evidence is touched, and can safely resume after an interrupted cleanup without exposing a half-deleted review.
+- **Retention is bounded, scoped, and resumable.** Daily cleanup removes at most 1,000 observations per site or network scope after 30 days, never selects active or unfinished sessions, marks each batch as deleting before child evidence is touched, and can safely resume after an interrupted cleanup without exposing a half-deleted review.
 - **Hot reads have matching indexes.** Session review, stop-time recounts, and keyset restore iteration share a `(session_id, id)` index instead of degrading into table scans as history grows.
 - **Internal operations are invisible.** Schema, lock, capability, and flash-notice options never appear in observations.
 - **Error reporting is also isolated.** Even a third-party listener that throws during `configops_capture_error` cannot escape into the settings request being observed. If a ConfigOps table fails while WordPress still saves the host setting, a bounded, value-free emergency marker in `wp_options` makes the session incomplete after storage recovers; unresolved markers produce a persistent administrator warning.
@@ -81,7 +82,7 @@ PHP 8.2 is the oldest branch in the 0.3.1 runtime contract. The full parser, uni
 
 ## Admin direction
 
-The interface is a forensic change ledger: dense enough for professional review, calm enough to scan under incident pressure. Automatic evidence feedback provides the immediate entry point; Change History and named Change Sessions provide the deeper review surface. Future Packs, Plans, Policies, and Drift do not masquerade as inactive product tiles. The design avoids equal-card dashboards and decorative infrastructure diagrams.
+The interface is a forensic change ledger: dense enough for professional review, calm enough to scan under incident pressure. Automatic evidence feedback provides the immediate site entry point; Change History and named Change Sessions provide the deeper site review surface. Network Admin reuses the same evidence grammar behind a permanent scope band and omits controls it cannot safely honor. Future Packs, Plans, Policies, and Drift do not masquerade as inactive product tiles. The design avoids equal-card dashboards and decorative infrastructure diagrams.
 
 Three directions were considered:
 
@@ -93,10 +94,10 @@ The visual direction remains server-shell plus forensic instruments: a compact p
 
 ## Trust harness
 
-The deliberately hostile fixture plugin now exercises simple and nested options, typed WordPress IDs, secret redaction, transients, synchronous side effects, a versioned schema migration, AJAX metadata, direct SQL writes, and a neighboring plugin slug that shares the `configops` prefix. Integration contracts observe real attachment and content identities, render current availability, restore existing references, and refuse deleted targets before writing. Separate browser contracts install exact public releases of WP Mail SMTP and Yoast, operate their real settings screens inside bounded named Change Sessions, review the resulting evidence at desktop and mobile widths, undo safe fields, and verify the result back in each plugin. The automatic WordPress Core flow separately verifies immediate evidence feedback after a normal settings save. The exact-release contract additionally covers provider routing, less-obvious credential paths, dynamic social images, LLMs.txt page references, and missing-reference refusal.
+The deliberately hostile fixture plugin now exercises simple and nested options, typed WordPress IDs, secret redaction, transients, synchronous side effects, a versioned schema migration, AJAX metadata, direct SQL writes, and a neighboring plugin slug that shares the `configops` prefix. Integration contracts observe real attachment and content identities, render current availability, restore existing references, and refuse deleted targets before writing. Separate browser contracts install exact public releases of WP Mail SMTP and Yoast, operate their real settings screens inside bounded named Change Sessions, review the resulting evidence at desktop and mobile widths, undo safe fields, and verify the result back in each plugin. The automatic WordPress Core flow separately verifies immediate evidence feedback after a normal settings save. A network-active Chromium contract saves real Network Settings and verifies scoped, read-only review at desktop and mobile widths. The exact-release contract additionally covers provider routing, less-obvious credential paths, dynamic social images, LLMs.txt page references, and missing-reference refusal.
 
 Every tracked PHP file under `src/` is also part of a reproducible Xdebug line-coverage run against an isolated WordPress and MariaDB installation. Unit, hostile-input, integration, and exact-adapter fragments are merged into LCOV, Clover, and JSON evidence. Unvisited and dead-code lines remain in the denominator. CI fails below 70% globally or 75% across the trust-boundary namespaces rather than allowing presentation coverage or never-loaded production files to hide risk. The complete method and its limits are recorded in [testing.md](testing.md).
 
-## Next boundary
+## 0.4 boundary
 
-Version 0.3.1 runs exact-release contract and browser checks against WP Mail SMTP Free 4.9.0 and Yoast SEO Free 28.2 at both ends of the supported PHP range. The next product boundary should be based on repeated design-partner evidence across real settings screens—not a speculative fleet interface.
+The unreleased 0.4 line makes Network Admin evidence first-class without pretending that network restore is already proven. Network undo, named network sessions, cross-site aggregation, bulk operations, and fleet control require separate safety and product contracts.

@@ -16,13 +16,19 @@ use ConfigOps\Admin\AdminPayloadFactory;
 use ConfigOps\Admin\AdminController;
 use ConfigOps\Admin\EvidenceNoticeStore;
 use ConfigOps\Admin\FlashNoticeStore;
+use ConfigOps\Admin\NetworkAdminController;
+use ConfigOps\Admin\NetworkAdminPayloadFactory;
 use ConfigOps\Admin\ReviewPresenter;
+use ConfigOps\Api\NetworkRestController;
 use ConfigOps\Api\RestController;
 use ConfigOps\Capture\InternalOptionPolicy;
 use ConfigOps\Capture\AutomaticRecorder;
 use ConfigOps\Capture\HeuristicSensitiveValueDetector;
 use ConfigOps\Capture\IntentContext;
 use ConfigOps\Capture\MutationObserver;
+use ConfigOps\Capture\MutationRecorder;
+use ConfigOps\Capture\NetworkAutomaticRecorder;
+use ConfigOps\Capture\NetworkMutationObserver;
 use ConfigOps\Capture\RequestContext;
 use ConfigOps\Capture\SqlWriteSentry;
 use ConfigOps\Capture\SourceAttributor;
@@ -42,6 +48,7 @@ use ConfigOps\Restore\RestoreService;
 use ConfigOps\Maintenance\HistoryRetention;
 use ConfigOps\Multisite\SiteBoundaryGuard;
 use ConfigOps\Multisite\SiteLifecycle;
+use ConfigOps\Multisite\NetworkScope;
 use ConfigOps\Multisite\SiteScope;
 
 final class Plugin
@@ -133,6 +140,50 @@ final class Plugin
 
 		(new RestController($captures, $mutations, $commands, $payloads, $evidenceNotices, $siteBoundary))->register();
 		(new AdminController($captures, $commands, new FlashNoticeStore(), $payloads, $siteBoundary))->register();
+
+		if (self::networkFeaturesEnabled()) {
+			$networkScope = NetworkScope::current();
+			if ($siteScope->siteId() === (int) get_main_site_id($networkScope->networkId())) {
+				(new HistoryRetention($wpdb, $operationLock, $networkScope))->register();
+			}
+			$networkCaptures = new CaptureRepository($wpdb, $networkScope);
+			$networkMutations = new MutationRepository($wpdb, $networkScope);
+			$networkAutomatic = new NetworkAutomaticRecorder($networkCaptures, $request, $networkScope);
+			$networkAutomatic->register();
+			$networkRecorder = new MutationRecorder(
+				$networkCaptures,
+				$networkMutations,
+				$codec,
+				new NestedDiff(),
+				$adapters,
+				$source,
+				$request,
+				$networkScope,
+				new IntentContext()
+			);
+			(new NetworkMutationObserver(
+				$networkCaptures,
+				new InternalOptionPolicy(),
+				$codec,
+				$networkRecorder,
+				$networkAutomatic,
+				$networkScope
+			))->register();
+
+			$networkPayloads = new NetworkAdminPayloadFactory(
+				new AdminPayloadFactory(
+					$networkCaptures,
+					$networkMutations,
+					new DatabaseWriteSignalRepository($wpdb, $networkScope),
+					$presenter,
+					$adapters,
+					new RestoreAuditRepository($wpdb, $networkScope)
+				),
+				$networkScope
+			);
+			(new NetworkAdminController($networkPayloads, $networkScope))->register();
+			(new NetworkRestController($networkCaptures, $networkPayloads, $networkScope))->register();
+		}
 		(new SiteLifecycle($wpdb))->register();
 	}
 
@@ -170,6 +221,17 @@ final class Plugin
 	public static function capabilities(): array
 	{
 		return CapabilityManager::capabilities();
+	}
+
+	private static function networkFeaturesEnabled(): bool
+	{
+		if (! is_multisite()) {
+			return false;
+		}
+
+		$plugins = get_network_option((int) get_current_network_id(), 'active_sitewide_plugins', array());
+
+		return is_array($plugins) && isset($plugins[plugin_basename(CONFIGOPS_FILE)]);
 	}
 
 	private static function registerBootFailure(\Throwable $error): void

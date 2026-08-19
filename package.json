@@ -37,6 +37,7 @@
     "test:coverage:report": "node tests/coverage/report.mjs --minimum=70 --critical-minimum=75",
     "test:adapter-ui": "node tests/adapters-user-flow.mjs",
     "test:visual": "node tests/visual-check.mjs",
+    "test:network-visual": "node tests/network-visual-check.mjs",
     "test": "npm run build:plugin && npm run check:ui-budget && npm run check:runtime-policy && npm run test:ui && npm run lint:php && npm run test:unit && npm run test:adversarial && npm run test:integration && npm run test:multisite && npm run test:adapters"
   },
   "devDependencies": {

@@ -90,6 +90,12 @@ final readonly class SiteLifecycle
 				$this->report('configops_deactivation_error', $error, $networkId, $siteId);
 			}
 		}
+
+		try {
+			(new CaptureRepository($this->database, new NetworkScope($networkId)))->interruptOpen('plugin_deactivated');
+		} catch (Throwable $error) {
+			$this->report('configops_deactivation_error', $error, $networkId, 0);
+		}
 	}
 
 	/**

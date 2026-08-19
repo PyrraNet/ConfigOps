@@ -1,12 +1,13 @@
 const apiFetch = (options) => window.wp.apiFetch(options);
 const API_ROOT = '/configops/v1';
+const scopeRoot = (scope) => scope?.type === 'network' ? `${API_ROOT}/network` : API_ROOT;
 
-export const fetchState = (sessionId) => apiFetch({
-	path: `${API_ROOT}/state${sessionId ? `?session=${sessionId}` : ''}`,
+export const fetchState = (sessionId, scope) => apiFetch({
+	path: `${scopeRoot(scope)}/state${sessionId ? `?session=${sessionId}` : ''}`,
 });
 
-export const fetchMutationPage = (sessionId, after) => apiFetch({
-	path: `${API_ROOT}/captures/${sessionId}/mutations?after=${after}`,
+export const fetchMutationPage = (sessionId, after, scope) => apiFetch({
+	path: `${scopeRoot(scope)}/captures/${sessionId}/mutations?after=${after}`,
 });
 
 export const createCapture = (name) => apiFetch({

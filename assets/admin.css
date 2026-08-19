@@ -259,6 +259,27 @@ body.toplevel_page_configops #wpbody-content {
 	content: "";
 }
 
+.configops-network-scope {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	padding: 26px 0 24px;
+	border-bottom: 1px solid var(--co-border-strong);
+}
+
+.configops-network-scope h2 {
+	margin: 0;
+}
+
+.configops-network-scope dl {
+	display: flex;
+	gap: 26px;
+	margin: 0;
+}
+
+.configops-network-scope dd {
+	margin: 0;
+}
+
 .configops-hint {
 	position: relative;
 	display: inline-flex;
@@ -1635,6 +1656,8 @@ body.toplevel_page_configops #wpbody-content {
 	.configops-app-identity { gap: 10px; }
 	.configops-app-divider { height: 19px; }
 	.configops-appbar h1 { font-size: 14px; }
+	.configops-network-scope { grid-template-columns: 1fr; gap: 18px; padding: 22px 0; }
+	.configops-network-scope dl { justify-content: space-between; }
 
 	.configops-capture-form,
 	.configops-island-placeholder--controls { grid-template-columns: 1fr; }
@@ -1717,6 +1740,7 @@ body.toplevel_page_configops #wpbody-content {
 	.configops-app-divider { display: none; }
 	.configops-app-nav a { padding: 0 8px; font-size: 10px; }
 	.configops-app-nav a.is-current::after { right: 8px; left: 8px; }
+	.configops-network-scope dl { display: grid; grid-template-columns: repeat(3, 1fr); }
 	.configops-capture-command.is-recording { grid-template-columns: 1fr; }
 	.configops-recording-tally,
 	.configops-capture-command.is-recording > .button { grid-column: 1; grid-row: auto; }

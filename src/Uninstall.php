@@ -42,8 +42,25 @@ final class Uninstall
 			}
 		}
 
+		self::removeNetworkOptions();
 		self::removeSharedOptions($wpdb);
 		self::dropSharedTables($wpdb);
+	}
+
+	private static function removeNetworkOptions(): void
+	{
+		if (! is_multisite()) {
+			return;
+		}
+
+		$networkIds = get_networks(array('fields' => 'ids', 'number' => 0));
+		foreach (array_map('absint', is_array($networkIds) ? $networkIds : array()) as $networkId) {
+			if ($networkId <= 0) {
+				continue;
+			}
+			delete_network_option($networkId, 'configops_active_capture_id');
+			delete_network_option($networkId, 'configops_capture_integrity_fallback');
+		}
 	}
 
 	private static function removeCapabilities(): void

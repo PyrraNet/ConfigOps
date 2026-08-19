@@ -148,6 +148,174 @@ $assert(
 	'Automatic shutdown finalization must preserve the cross-site integrity warning as an interrupted observation.'
 );
 
+$networkScope = \ConfigOps\Multisite\NetworkScope::current();
+$networkCaptures = new \ConfigOps\Database\CaptureRepository($wpdb, $networkScope);
+$networkMutations = new \ConfigOps\Database\MutationRepository($wpdb, $networkScope);
+$assert(
+	$networkScope->isNetwork()
+	&& $networkScope->isCurrent()
+	&& $originNetworkId === $networkScope->networkId()
+	&& 0 === $networkScope->siteId(),
+	'Network evidence should use the current network identity and reserve blog ID zero.'
+);
+
+$networkPointerSession = $networkCaptures->start('Network state fixture', 1, '/wp-admin/network/settings.php');
+$assert(
+	$networkPointerSession === (int) get_network_option($originNetworkId, 'configops_active_capture_id', 0)
+	&& $networkPointerSession !== (int) get_option('configops_active_capture_id', 0),
+	'Network capture state must live in network options without colliding with the current site pointer.'
+);
+$assert(
+	$networkPointerSession === $networkCaptures->stop()
+	&& false === get_network_option($originNetworkId, 'configops_active_capture_id', false),
+	'Stopping a network-scoped capture should clear only its network-owned pointer.'
+);
+
+$networkAddedOption = 'network_evidence_fixture_added';
+$networkUpdatedOption = 'network_evidence_fixture_updated';
+$networkDeletedOption = 'network_evidence_fixture_deleted';
+delete_network_option($originNetworkId, $networkAddedOption);
+delete_network_option($originNetworkId, $networkUpdatedOption);
+delete_network_option($originNetworkId, $networkDeletedOption);
+$assert(
+	add_network_option($originNetworkId, $networkUpdatedOption, 'network-before')
+	&& add_network_option($originNetworkId, $networkDeletedOption, 'network-delete-before'),
+	'The network evidence fixture should seed values before observation is enabled.'
+);
+
+$allowNetworkContext = static fn (bool $allowed): bool => true;
+add_filter('configops_network_recording_context_allowed', $allowNetworkContext, 10, 2);
+$assert(
+	add_network_option($originNetworkId, $networkAddedOption, 'network-added')
+	&& update_network_option($originNetworkId, $networkUpdatedOption, 'network-after')
+	&& delete_network_option($originNetworkId, $networkDeletedOption),
+	'Network option writes should continue to use the native WordPress API while ConfigOps observes them.'
+);
+remove_filter('configops_network_recording_context_allowed', $allowNetworkContext, 10);
+
+$networkAutomaticSession = null;
+foreach ($networkCaptures->recent(10) as $candidate) {
+	if ('automatic' === (string) $candidate->capture_mode && 'active' === (string) $candidate->status) {
+		$networkAutomaticSession = $candidate;
+		break;
+	}
+}
+$assert(null !== $networkAutomaticSession, 'The first network option change should open one request-local network observation.');
+$networkAutomaticSessionId = (int) $networkAutomaticSession->id;
+$networkRows = $networkMutations->forSession($networkAutomaticSessionId);
+$networkRowsByOption = array_column($networkRows, null, 'option_name');
+$assert(
+	3 === count($networkRows)
+	&& isset($networkRowsByOption[$networkAddedOption], $networkRowsByOption[$networkUpdatedOption], $networkRowsByOption[$networkDeletedOption]),
+	'Network add, update, and delete operations should each produce scoped evidence.'
+);
+$assert(
+	$originNetworkId === (int) $networkAutomaticSession->network_id
+	&& 0 === (int) $networkAutomaticSession->blog_id
+	&& array_reduce(
+		$networkRows,
+		static fn (bool $valid, object $row): bool => $valid
+			&& $originNetworkId === (int) $row->network_id
+			&& 0 === (int) $row->blog_id,
+		true
+	),
+	'Every network session and mutation row should carry network identity with reserved blog ID zero.'
+);
+$assert(
+	str_contains((string) $networkRowsByOption[$networkUpdatedOption]->old_value, 'network-before')
+	&& str_contains((string) $networkRowsByOption[$networkUpdatedOption]->new_value, 'network-after'),
+	'Network updates should preserve their before and after values.'
+);
+$assert(
+	'delete' === (string) $networkRowsByOption[$networkDeletedOption]->mutation_type
+	&& 0 === (int) $networkRowsByOption[$networkDeletedOption]->restorable
+	&& str_contains((string) $networkRowsByOption[$networkDeletedOption]->old_value, 'previous network value unavailable')
+	&& ! str_contains((string) $networkRowsByOption[$networkDeletedOption]->old_value, 'network-delete-before'),
+	'Network deletes should be visible but non-restorable when WordPress does not expose the previous value.'
+);
+$assert(
+	null === $captures->find($networkAutomaticSessionId)
+	&& array() === $mutations->forSession($networkAutomaticSessionId),
+	'Site-scoped repositories must not resolve network-owned evidence from the shared tables.'
+);
+
+do_action('shutdown');
+$networkAutomaticSession = $networkCaptures->find($networkAutomaticSessionId);
+$assert(
+	$networkAutomaticSession
+	&& 'completed' === (string) $networkAutomaticSession->status
+	&& 3 === (int) $networkAutomaticSession->mutation_count,
+	'Network request shutdown should finalize the observed changes as one completed session.'
+);
+
+delete_network_option($originNetworkId, $networkAddedOption);
+delete_network_option($originNetworkId, $networkUpdatedOption);
+$assert(
+	3 === count($networkMutations->forSession($networkAutomaticSessionId)),
+	'A finalized network session must reject later same-request writes instead of mutating its evidence.'
+);
+
+do_action('rest_api_init');
+$networkStateResponse = rest_do_request(new \WP_REST_Request('GET', '/configops/v1/network/state'));
+$networkState = $networkStateResponse->get_data();
+$assert(
+	200 === $networkStateResponse->get_status()
+	&& is_array($networkState)
+	&& 'network' === (string) ($networkState['scope']['type'] ?? '')
+	&& $originNetworkId === (int) ($networkState['scope']['networkId'] ?? 0)
+	&& false === (bool) ($networkState['capabilities']['capture'] ?? true)
+	&& false === (bool) ($networkState['capabilities']['rollback'] ?? true),
+	'The Network Admin REST state should expose an explicitly read-only network scope.'
+);
+$networkMutationResponse = rest_do_request(
+	new \WP_REST_Request('GET', '/configops/v1/network/captures/' . $networkAutomaticSessionId . '/mutations')
+);
+$networkMutationPage = $networkMutationResponse->get_data();
+$assert(
+	200 === $networkMutationResponse->get_status()
+	&& is_array($networkMutationPage)
+	&& 3 === array_sum(array_map(
+		static fn (array $group): int => count($group['mutations'] ?? array()),
+		$networkMutationPage['groups'] ?? array()
+	)),
+	'The read-only network mutation route should return the complete scoped ledger page.'
+);
+$originalNetworkUserId = get_current_user_id();
+wp_set_current_user(0);
+$unauthorizedNetworkResponse = rest_do_request(new \WP_REST_Request('GET', '/configops/v1/network/state'));
+$assert(
+	in_array($unauthorizedNetworkResponse->get_status(), array(401, 403), true),
+	'Network evidence REST routes should reject requests without manage_network_options.'
+);
+wp_set_current_user($originalNetworkUserId);
+
+$expiredNetworkSession = $networkCaptures->start('Expired network history fixture', 1, '/wp-admin/network/settings.php');
+$assert($expiredNetworkSession === $networkCaptures->stop(), 'The retention fixture should create completed network evidence.');
+$expiredAt = gmdate('Y-m-d H:i:s', time() - 31 * DAY_IN_SECONDS);
+$updatedExpiredNetwork = $wpdb->update(
+	$wpdb->base_prefix . 'configops_capture_sessions',
+	array('ended_at' => $expiredAt),
+	array(
+		'id'         => $expiredNetworkSession,
+		'network_id' => $originNetworkId,
+		'blog_id'    => 0,
+	),
+	array('%s'),
+	array('%d', '%d', '%d')
+);
+$assert(1 === $updatedExpiredNetwork, 'The network retention fixture should become older than the default history window.');
+$networkRetention = new \ConfigOps\Maintenance\HistoryRetention(
+	$wpdb,
+	new \ConfigOps\Execution\OperationLock($wpdb, \ConfigOps\Multisite\SiteScope::current()),
+	$networkScope
+);
+$assert(
+	1 === $networkRetention->run()
+	&& null === $networkCaptures->find($expiredNetworkSession)
+	&& null !== $captures->find($automaticSessionId),
+	'Network retention should delete only expired blog-ID-zero evidence from its own network scope.'
+);
+
 $insertFixtureMutation = static function (
 	\ConfigOps\Database\MutationRepository $repository,
 	int $sessionId,
@@ -446,6 +614,8 @@ $assert(null === get_site($deletedSiteId), 'The disposable site should no longer
 
 $originLifecycleSession = $captures->start('Network deactivation origin fixture', 0, '/wp-admin/options-general.php');
 $originLifecycleAutomatic = $captures->startAutomatic('Network deactivation origin automatic fixture', 0, '/wp-admin/options-general.php');
+$networkLifecycleSession = $networkCaptures->start('Network deactivation scope fixture', 1, '/wp-admin/network/settings.php');
+$networkLifecycleAutomatic = $networkCaptures->startAutomatic('Network deactivation automatic scope fixture', 1, '/wp-admin/network/settings.php');
 $assert(switch_to_blog($foreignSiteId), 'The network-deactivation check should enter the second site.');
 $foreignLifecycleCaptures = new \ConfigOps\Database\CaptureRepository($wpdb, \ConfigOps\Multisite\SiteScope::current());
 $foreignLifecycleSession = $foreignLifecycleCaptures->start('Network deactivation foreign fixture', 0, '/wp-admin/options-general.php');
@@ -481,8 +651,29 @@ $assert(
 	'Network deactivation should interrupt and unschedule every site in the current network.'
 );
 $assert(restore_current_blog(), 'The network-deactivation verification should restore the origin site.');
+$networkInterrupted = $networkCaptures->find($networkLifecycleSession);
+$networkAutomaticInterrupted = $networkCaptures->find($networkLifecycleAutomatic);
+$assert(
+	$networkInterrupted
+	&& 'interrupted' === (string) $networkInterrupted->status
+	&& 'plugin_deactivated' === (string) $networkInterrupted->last_error_code
+	&& $networkAutomaticInterrupted
+	&& 'interrupted' === (string) $networkAutomaticInterrupted->status
+	&& 'plugin_deactivated' === (string) $networkAutomaticInterrupted->last_error_code
+	&& false === get_network_option($originNetworkId, 'configops_active_capture_id', false),
+	'Network deactivation should interrupt network-owned evidence and clear its network option pointer.'
+);
 
 \ConfigOps\Plugin::activate(true);
+$networkFallbackFixture = array(
+	'events'   => array('999' => array('code' => 'network_uninstall_fixture', 'at' => current_time('mysql', true))),
+	'overflow' => false,
+);
+update_network_option(
+	$originNetworkId,
+	\ConfigOps\Database\CaptureRepository::INTEGRITY_FALLBACK_OPTION,
+	$networkFallbackFixture
+);
 $uninstallSites = array($originSiteId, $foreignSiteId, $legacySiteId);
 foreach ($uninstallSites as $uninstallSiteId) {
 	$switched = $uninstallSiteId !== get_current_blog_id();
@@ -506,6 +697,15 @@ foreach ($uninstallSites as $uninstallSiteId) {
 
 $legacyPrefix = $wpdb->get_blog_prefix($legacySiteId);
 \ConfigOps\Uninstall::run();
+$assert(
+	false === get_network_option($originNetworkId, 'configops_active_capture_id', false)
+	&& false === get_network_option(
+		$originNetworkId,
+		\ConfigOps\Database\CaptureRepository::INTEGRITY_FALLBACK_OPTION,
+		false
+	),
+	'Uninstall should remove ConfigOps state stored in network options.'
+);
 foreach ($uninstallSites as $uninstallSiteId) {
 	$switched = $uninstallSiteId !== get_current_blog_id();
 	if ($switched) {

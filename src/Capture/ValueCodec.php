@@ -86,6 +86,17 @@ final class ValueCodec
 		return new EncodedValue($this->jsonEncode($node), '••••••••', false, true);
 	}
 
+	public function unavailable(string $label): EncodedValue
+	{
+		$label = trim(sanitize_text_field($label));
+		$node = array(
+			'type'  => 'unsupported',
+			'label' => '' === $label ? 'value unavailable' : $label,
+		);
+
+		return new EncodedValue($this->jsonEncode($node), '[' . $node['label'] . ']', false, false);
+	}
+
 	public function isEntireOptionSensitive(string $optionName): bool
 	{
 		return $this->sensitiveValues->isSensitive($optionName, array());

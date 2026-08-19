@@ -1,6 +1,6 @@
 <?php
 /**
- * Bounded retention for completed local capture evidence.
+ * Bounded retention for completed evidence in one immutable scope.
  *
  * @package ConfigOps
  */
@@ -11,6 +11,7 @@ namespace ConfigOps\Maintenance;
 
 use ConfigOps\Database\StorageContext;
 use ConfigOps\Execution\OperationLock;
+use ConfigOps\Multisite\EvidenceScope;
 use ConfigOps\Multisite\SiteScope;
 use RuntimeException;
 use wpdb;
@@ -26,9 +27,9 @@ final class HistoryRetention
 	public function __construct(
 		private readonly wpdb $database,
 		private readonly OperationLock $operationLock,
-		?SiteScope $siteScope = null
+		?EvidenceScope $evidenceScope = null
 	) {
-		$this->storage = new StorageContext($this->database, $siteScope);
+		$this->storage = new StorageContext($this->database, $evidenceScope ?? SiteScope::current());
 	}
 
 	public function register(): void

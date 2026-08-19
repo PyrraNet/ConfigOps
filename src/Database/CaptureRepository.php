@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ConfigOps\Database;
 
+use ConfigOps\Multisite\EvidenceScope;
 use ConfigOps\Multisite\SiteScope;
 use RuntimeException;
 use wpdb;
@@ -22,14 +23,24 @@ final class CaptureRepository
 
 	private string $table;
 	private readonly StorageContext $storage;
+	private readonly ScopedOptionStore $options;
 	private bool $activeResolved = false;
 	private bool $integrityFallbackChecked = false;
 	private ?object $activeSession = null;
 
-	public function __construct(private readonly wpdb $database, ?SiteScope $siteScope = null)
-	{
-		$this->storage = new StorageContext($this->database, $siteScope);
+	public function __construct(
+		private readonly wpdb $database,
+		?EvidenceScope $evidenceScope = null,
+		?ScopedOptionStore $options = null
+	) {
+		$evidenceScope ??= SiteScope::current();
+		$this->storage = new StorageContext($this->database, $evidenceScope);
 		$this->table   = $this->storage->table('configops_capture_sessions');
+		$this->options = $options ?? (
+			$evidenceScope->isNetwork()
+				? new NetworkOptionStore($evidenceScope->networkId())
+				: new SiteOptionStore()
+		);
 	}
 
 	public function start(string $name, int $actorId, string $initialUrl): int
@@ -58,7 +69,7 @@ final class CaptureRepository
 		}
 
 		$id = (int) $this->database->insert_id;
-		if (! add_option(self::ACTIVE_OPTION, $id, '', false)) {
+		if (! $this->options->add(self::ACTIVE_OPTION, $id)) {
 			$this->markDiscarded($id);
 			$this->invalidateActiveSession();
 
@@ -73,7 +84,7 @@ final class CaptureRepository
 			$this->storage->whereFormats(array('%d'))
 		);
 		if (false === $activated) {
-			delete_option(self::ACTIVE_OPTION);
+			$this->options->delete(self::ACTIVE_OPTION);
 			$this->markDiscarded($id);
 			$this->invalidateActiveSession();
 
@@ -239,7 +250,7 @@ final class CaptureRepository
 			);
 		}
 
-		delete_option(self::ACTIVE_OPTION);
+		$this->options->delete(self::ACTIVE_OPTION);
 		$this->invalidateActiveSession();
 
 		return $id;
@@ -247,7 +258,7 @@ final class CaptureRepository
 
 	public function interruptActive(string $code = 'capture_interrupted'): ?int
 	{
-		$id = (int) get_option(self::ACTIVE_OPTION, 0);
+		$id = (int) $this->options->get(self::ACTIVE_OPTION, 0);
 		if ($id <= 0) {
 			return null;
 		}
@@ -269,7 +280,7 @@ final class CaptureRepository
 			)
 		);
 
-		delete_option(self::ACTIVE_OPTION);
+		$this->options->delete(self::ACTIVE_OPTION);
 		$this->invalidateActiveSession();
 
 		if (false === $updated) {
@@ -297,7 +308,7 @@ final class CaptureRepository
 			)
 		);
 
-		delete_option(self::ACTIVE_OPTION);
+		$this->options->delete(self::ACTIVE_OPTION);
 		$this->invalidateActiveSession();
 
 		if (false === $updated) {
@@ -349,7 +360,7 @@ final class CaptureRepository
 			$this->reconcileIntegrityFallback();
 		}
 
-		$id = (int) get_option(self::ACTIVE_OPTION, 0);
+		$id = (int) $this->options->get(self::ACTIVE_OPTION, 0);
 		if (
 			$this->activeResolved
 			&& $this->activeSession
@@ -384,14 +395,14 @@ final class CaptureRepository
 					)
 				);
 				if (1 === $interrupted) {
-					delete_option(self::ACTIVE_OPTION);
+					$this->options->delete(self::ACTIVE_OPTION);
 				}
 			}
 
 			return null;
 		}
 		if (! $session || ! in_array((string) $session->status, array('active', 'starting'), true)) {
-			delete_option(self::ACTIVE_OPTION);
+			$this->options->delete(self::ACTIVE_OPTION);
 
 			return null;
 		}
@@ -405,7 +416,7 @@ final class CaptureRepository
 				$this->storage->whereFormats(array('%d'))
 			);
 			if (false === $recovered) {
-				delete_option(self::ACTIVE_OPTION);
+				$this->options->delete(self::ACTIVE_OPTION);
 				$this->markDiscarded($id);
 
 				return null;
@@ -675,7 +686,7 @@ final class CaptureRepository
 			)
 		);
 		if (1 === $interrupted) {
-			delete_option(self::ACTIVE_OPTION);
+			$this->options->delete(self::ACTIVE_OPTION);
 		}
 		$this->invalidateActiveSession();
 
@@ -704,7 +715,7 @@ final class CaptureRepository
 	 */
 	private function integrityFallbackLedger(): array
 	{
-		$stored = get_option(self::INTEGRITY_FALLBACK_OPTION, array());
+		$stored = $this->options->get(self::INTEGRITY_FALLBACK_OPTION, array());
 		$events = is_array($stored) && isset($stored['events']) && is_array($stored['events'])
 			? $stored['events']
 			: array();
@@ -735,12 +746,12 @@ final class CaptureRepository
 	private function storeIntegrityFallbackLedger(array $ledger): void
 	{
 		if (empty($ledger['events']) && ! $ledger['overflow']) {
-			delete_option(self::INTEGRITY_FALLBACK_OPTION);
+			$this->options->delete(self::INTEGRITY_FALLBACK_OPTION);
 
 			return;
 		}
 
-		update_option(self::INTEGRITY_FALLBACK_OPTION, $ledger, false);
+		$this->options->update(self::INTEGRITY_FALLBACK_OPTION, $ledger);
 	}
 
 	private function normalizeName(string $name): string

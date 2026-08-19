@@ -11,7 +11,7 @@ namespace ConfigOps\Multisite;
 
 use RuntimeException;
 
-final readonly class SiteScope
+final readonly class SiteScope implements EvidenceScope
 {
 	public function __construct(
 		private int $networkId,
@@ -38,6 +38,11 @@ final readonly class SiteScope
 	public function siteId(): int
 	{
 		return $this->siteId;
+	}
+
+	public function isNetwork(): bool
+	{
+		return false;
 	}
 
 	public function equals(self $other): bool

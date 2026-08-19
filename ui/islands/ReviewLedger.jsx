@@ -541,6 +541,9 @@ export default function ReviewLedger() {
 						<span className={selectedStatus.className}>
 							{selectedStatus.label}
 						</span>
+						{state.scope?.type === 'network' && (
+							<span className="is-network">{__('Network-wide', 'configops')}</span>
+						)}
 						<span>{selected.mode === 'automatic' ? __('Automatic change', 'configops') : __('Change session', 'configops')} <code>#{selected.id}</code></span>
 					</div>
 					<h2>{selected.name}</h2>
