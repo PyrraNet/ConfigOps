@@ -98,6 +98,7 @@ try {
 		['artifacts/configops-automatic-evidence-focus.png', 'screenshot-1.png'],
 		['artifacts/adapter-user-flows/wp-mail-smtp-observation-focus.png', 'screenshot-2.png'],
 		['artifacts/adapter-user-flows/yoast-observation-focus.png', 'screenshot-3.png'],
+		['artifacts/configops-network-admin-focus.png', 'screenshot-4.png'],
 	];
 
 	for (const filename of ['screenshot-1.png', 'screenshot-2.png', 'screenshot-3.png', 'screenshot-4.png']) {

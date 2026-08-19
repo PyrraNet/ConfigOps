@@ -22,6 +22,7 @@ const security = read('SECURITY.md');
 const docsConfig = read('docs/.vitepress/config.mjs');
 const docsHome = read('docs/.vitepress/theme/components/DocsHome.vue');
 const docsRelease = read(`docs/releases/${packageJson.version}.md`);
+const wordpressReleaseWorkflow = read('.github/workflows/wordpress-org-release.yml');
 
 const headerVersion = match(plugin, /^ \* Version:\s+([^\s]+)$/m, 'plugin header version');
 const constantVersion = match(plugin, /^define\('CONFIGOPS_VERSION', '([^']+)'\);$/m, 'CONFIGOPS_VERSION');
@@ -51,6 +52,17 @@ if (!readme.includes(`= ${headerVersion} =`)) {
 }
 if (!docsHome.includes(`Documentation · ${headerVersion}`) || !docsRelease.includes(`# ConfigOps ${headerVersion}`)) {
 	fail(`documentation does not identify the ${headerVersion} release`);
+}
+if (
+	!wordpressReleaseWorkflow.includes('types: [published]')
+	|| !wordpressReleaseWorkflow.includes("if: github.event_name == 'workflow_dispatch'")
+	|| !wordpressReleaseWorkflow.includes('dry-run: true')
+	|| !wordpressReleaseWorkflow.includes("if: github.event_name == 'release'")
+	|| !wordpressReleaseWorkflow.includes('name: wordpress-org')
+	|| !wordpressReleaseWorkflow.includes('SVN_USERNAME: ${{ secrets.SVN_USERNAME }}')
+	|| !wordpressReleaseWorkflow.includes('SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}')
+) {
+	fail('WordPress.org deployment must remain release-only, environment-gated, and dry-run safe');
 }
 if (/github\.com\/PyrraNet(?:\/ConfigOps)?/i.test(`${plugin}\n${githubReadme}\n${readme}`)) {
 	fail('public plugin metadata must not link to the private GitHub repository or organization page');
@@ -118,6 +130,7 @@ const directoryScreenshots = new Map([
 	['screenshot-1.png', { minWidth: 1200, minHeight: 800 }],
 	['screenshot-2.png', { minWidth: 1200, minHeight: 550 }],
 	['screenshot-3.png', { minWidth: 1200, minHeight: 350 }],
+	['screenshot-4.png', { minWidth: 1200, minHeight: 800 }],
 ]);
 
 for (const [requiredScreenshot, expected] of directoryScreenshots) {
@@ -130,8 +143,8 @@ for (const [requiredScreenshot, expected] of directoryScreenshots) {
 	if (actual.bytes > 10 * 1024 * 1024) fail(`${requiredScreenshot} exceeds the WordPress.org file-size limit`);
 }
 
-const staleScreenshot = new URL('../.wordpress-org/screenshot-4.png', import.meta.url);
-if (fs.existsSync(staleScreenshot)) fail('stale WordPress.org screenshot must be removed: screenshot-4.png');
+const staleScreenshot = new URL('../.wordpress-org/screenshot-5.png', import.meta.url);
+if (fs.existsSync(staleScreenshot)) fail('stale WordPress.org screenshot must be removed: screenshot-5.png');
 if (!read('LICENSE').includes('GNU GENERAL PUBLIC LICENSE\n                       Version 2')) {
 	fail('LICENSE does not contain the GPL version 2 text');
 }

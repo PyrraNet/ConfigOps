@@ -13,6 +13,7 @@ ConfigOps is suitable for production observation only when it sits inside ordina
 - Keep named Change Sessions short and scoped to one operator task.
 - Avoid upgrades, imports, bulk jobs, and deployments during a named Change Session.
 - Give `configops_rollback` to fewer people than `configops_view`.
+- On Multisite, reserve Network Admin evidence and undo for super administrators with `manage_network_options`.
 - Treat mail, authentication, URL, indexing, cache, and integration settings as staging-first changes.
 - Monitor WordPress/PHP logs and database write health.
 - Verify behavior after undo; do not rely on a success badge alone.
@@ -21,9 +22,9 @@ Automatic observation is limited to authorized administrative, REST, and WP-CLI 
 
 ## Local storage
 
-ConfigOps uses dedicated WordPress tables for observation sessions, mutations, value-free write signals, and restore audit runs. The internal table identifiers retain `capture` for schema compatibility. Table names receive the site’s configured WordPress prefix. Evidence remains in the site database.
+ConfigOps uses dedicated WordPress tables for observation sessions, mutations, value-free write signals, and restore audit runs. The internal table identifiers retain `capture` for schema compatibility. On Multisite the shared tables use the network base prefix, and every site-owned row is pinned to its network and blog identity. Network evidence reserves blog ID zero and uses separate network-owned state. Evidence remains in the WordPress database.
 
-The REST interface is local to WordPress, capability-gated, and returns private `no-store` responses. There is no ConfigOps account, cloud collector, or remote control plane in 0.3.1.
+The REST interface is local to WordPress, scope- and capability-gated, and returns private `no-store` responses. Network routes additionally require `manage_network_options`. There is no ConfigOps account, cloud collector, or remote control plane in 0.4.0.
 
 ## Retention
 
@@ -49,6 +50,8 @@ After installation or an incident, verify:
 5. A harmless conflict test refuses undo after the setting is changed again.
 6. WordPress and PHP logs contain no ConfigOps warnings, notices, or deprecations.
 7. The daily `configops_history_retention` event is scheduled.
+
+On Multisite, also verify one disposable site's evidence cannot be read from another site, **Network Admin → ConfigOps** identifies its network-wide scope, and a harmless Network Options update can be reviewed and undone by a super administrator.
 
 ## Incident response
 

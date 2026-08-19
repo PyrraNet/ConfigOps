@@ -30,12 +30,10 @@ jobs:
       - name: Reject high-impact tooling vulnerabilities
         run: npm audit --audit-level=high
 
-      - name: Install the documentation browser
-        run: npx playwright install --with-deps chromium
-
       - name: Build and exercise every documentation route
         env:
           DOCS_BASE: /docs/
+          CONFIGOPS_CHROME_PATH: /usr/bin/google-chrome
         run: npm run test:docs
 
   release-compliance:

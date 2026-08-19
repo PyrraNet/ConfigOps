@@ -1,6 +1,6 @@
 ---
 title: Get started
-description: Install ConfigOps 0.3.1 and review an automatically observed WordPress settings change.
+description: Install ConfigOps 0.4.0 and review an automatically observed WordPress or Network Settings change.
 ---
 
 # Get started
@@ -9,12 +9,12 @@ ConfigOps automatically observes configuration mutations made by authorized admi
 
 ## Requirements
 
-| Contract | Supported in 0.3.1 |
+| Contract | Supported in 0.4.0 |
 | --- | --- |
-| WordPress | 7.0 or newer, single-site |
+| WordPress | 7.0 or newer, single-site or network-active Multisite |
 | PHP | 8.2, 8.3, 8.4, or 8.5 |
 | Database | WordPress-supported MySQL or MariaDB; release CI exercises MySQL 8.4 and MariaDB 11.4 |
-| Access | A user with `configops_view` and `configops_capture`; administrators receive them on activation |
+| Access | Site users need the relevant ConfigOps capability; Network Admin evidence requires `manage_network_options` |
 | Browser | A current browser with JavaScript enabled for the review interface |
 
 ::: warning Scope
@@ -23,12 +23,14 @@ ConfigOps is a local configuration evidence layer. It is not a database backup, 
 
 ## Install
 
-1. Obtain `configops-0.3.1.zip` from a trusted release channel.
+1. Obtain `configops-0.4.0.zip` from a trusted release channel.
 2. In WordPress, open **Plugins → Add Plugin → Upload Plugin**.
 3. Select the archive, install it, and activate **ConfigOps**.
 4. Open **ConfigOps** in the WordPress admin menu.
 
 Activation creates the local evidence tables and grants the versioned ConfigOps capabilities to the administrator role. It does not create an account or send evidence to pyrra.
+
+On Multisite, use **Network Admin → Plugins** to network-activate ConfigOps. Existing and newly created sites receive isolated site evidence state. Super administrators can open **Network Admin → ConfigOps** for the separate network-wide ledger.
 
 ## Observe one settings save
 
@@ -38,6 +40,8 @@ Activation creates the local evidence tables and grants the versioned ConfigOps 
 4. Inspect the likely decision, technical writes, protected secrets, provenance, and undo eligibility.
 
 Automatic observations are request-local: concurrent admin requests do not share an observation boundary. For a planned task that spans several requests, start a named **Change Session** in ConfigOps, perform only that task, then stop and review it.
+
+Network Settings changes use a stricter boundary. ConfigOps records supported Network Options API mutations automatically, and complete additions or updates may expose mutation-level undo. Network deletes and whole-change undo remain unavailable.
 
 ## What success looks like
 

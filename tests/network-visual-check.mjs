@@ -93,6 +93,10 @@ try {
 	}
 	await page.goto(`${baseUrl}/wp-admin/network/admin.php?page=configops`, { waitUntil: 'networkidle' });
 	await page.getByText('Undone', { exact: true }).first().waitFor();
+	await page.screenshot({
+		path: new URL('configops-network-admin-focus.png', artifacts).pathname,
+		clip: { x: 0, y: 0, width: 1440, height: 1100 },
+	});
 	await page.setViewportSize({ width: 390, height: 844 });
 	const overflow = await page.evaluate(() => ({
 		clientWidth: document.documentElement.clientWidth,

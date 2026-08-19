@@ -8,7 +8,7 @@
 <p align="center"><strong>The undo layer for WordPress settings.</strong></p>
 
 <p align="center">
-  v0.3.1
+  v0.4.0
   &nbsp;·&nbsp; Automatic observation
   &nbsp;·&nbsp; No account required
 </p>
@@ -35,6 +35,8 @@ Change a supported WordPress or plugin setting as usual. ConfigOps opens one iso
 
 Named Change Sessions remain the focused mode for planned maintenance, support cases, and investigations that span several requests.
 
+On a network-active Multisite installation, every site keeps an isolated local ledger while Network Admin receives a separate network-wide evidence view. Complete Network Options additions and updates can be undone one mutation at a time after the same conflict and compensation checks; deletes remain review-only.
+
 ```diff
 WP Mail SMTP → Sender email
 - admin@localhost.test
@@ -52,6 +54,7 @@ Every undo is checked against the current value first. If the website changed ag
 | Integration | Tested release | Observe | Explain | Secrets | Undo |
 |---|---:|:---:|:---:|:---:|:---:|
 | WordPress Core | WordPress 7.0 | Supported | Field map + local references | Redacted | With limits |
+| WordPress Multisite | WordPress 7.0 | Sites + Network Options | Generic network evidence | Redacted | Network additions/updates |
 | WP Mail SMTP Free | 4.9.0 | Supported | Supported | Removed | With limits |
 | Yoast SEO Free | 28.2 | Supported | Supported | Removed | With limits |
 | Unknown plugins | — | Options API only | Needs review | Conservative | Only when proven safe |
@@ -67,7 +70,7 @@ The exact field coverage and limitations are available inside **ConfigOps → Pl
 
 Requires WordPress 7.0 or newer and PHP 8.2 or newer. PHP 8.2 is the oldest supported runtime; production sites should prefer a newer actively supported PHP branch.
 
-> **Version 0.3 scope:** ConfigOps is a local, single-site undo and evidence layer for supported settings—not a backup or a promise of transactional rollback. It does not deploy content, synchronize databases, manage fleets, or generically understand custom plugin tables.
+> **Version 0.4 scope:** ConfigOps supports both single-site WordPress and network-active Multisite. Site evidence remains isolated per site; Network Admin has network-wide Network Options evidence and guarded add/update undo. ConfigOps is not a backup, cross-site bulk console, fleet manager, or promise of transactional rollback.
 
 ## Safety model
 

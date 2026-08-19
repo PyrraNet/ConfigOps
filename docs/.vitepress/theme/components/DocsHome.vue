@@ -14,7 +14,7 @@ import wordmarkDark from '../../../../assets/brand/configops-wordmark-dark.svg';
 					<img :src="wordmarkLight" width="232" height="52" alt="ConfigOps">
 				</picture>
 				<span aria-hidden="true"></span>
-				<p>Documentation · 0.3.1</p>
+				<p>Documentation · 0.4.0</p>
 			</div>
 			<p class="co-kicker">Change intelligence for WordPress</p>
 			<h1 id="co-home-title">The undo button<br>WordPress forgot.</h1>
@@ -24,10 +24,10 @@ import wordmarkDark from '../../../../assets/brand/configops-wordmark-dark.svg';
 				<a class="co-action" :href="withBase('/security/failure-model')">Read the failure model</a>
 			</div>
 			<dl class="co-release-facts" aria-label="Release facts">
-				<div><dt>Release</dt><dd>0.3.1 delivery hardening</dd></div>
+				<div><dt>Release</dt><dd>0.4.0 Multisite evidence + network undo</dd></div>
 				<div><dt>Runtime</dt><dd>WordPress 7.0+ · PHP 8.2–8.5</dd></div>
 				<div><dt>Storage</dt><dd>Local database · no account</dd></div>
-				<div><dt>Evidence</dt><dd>77.69% production · 79.20% trust boundaries</dd></div>
+				<div><dt>Evidence</dt><dd>76.43% production · 78.11% trust boundaries</dd></div>
 			</dl>
 		</section>
 
@@ -35,18 +35,18 @@ import wordmarkDark from '../../../../assets/brand/configops-wordmark-dark.svg';
 			<header class="co-section-heading">
 				<p class="co-kicker">Actual product evidence · no mockup</p>
 				<h2 id="co-proof-title">Save normally. ConfigOps appears with the evidence.</h2>
-				<p>A WordPress Reading Settings save produced three writes: one likely decision and two housekeeping writes. Review and safe Undo appeared without starting a Change Session.</p>
+				<p>A WordPress Reading Settings save produced six writes: one likely decision and five housekeeping writes. Review and safe Undo appeared without starting a Change Session.</p>
 			</header>
 			<figure class="co-proof__figure">
 				<p class="co-proof__mobile-note">Automatic evidence card · tap for the full settings screen</p>
 				<a :href="reviewScreenshot" target="_blank" rel="noreferrer" aria-label="Open the full automatic ConfigOps evidence screenshot">
-					<img :src="reviewScreenshot" width="1440" height="1100" alt="WordPress Reading Settings after a normal save with a ConfigOps evidence card showing three observed writes, one likely decision, two housekeeping writes, Review, and Undo">
+					<img :src="reviewScreenshot" width="1440" height="1100" alt="WordPress Reading Settings after a normal save with a ConfigOps evidence card showing six observed writes, one likely decision, five housekeeping writes, Review, and Undo">
 				</a>
 				<figcaption>
 					<span>Automatic observation · WordPress Reading Settings</span>
-					<strong>3 writes</strong>
+					<strong>6 writes</strong>
 					<strong>1 likely decision</strong>
-					<strong>2 housekeeping</strong>
+					<strong>5 housekeeping</strong>
 					<a :href="reviewScreenshot" target="_blank" rel="noreferrer">Open full evidence ↗</a>
 				</figcaption>
 			</figure>

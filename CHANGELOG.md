@@ -4,7 +4,11 @@ ConfigOps follows semantic versioning. While the major version is `0`, adapter c
 
 ## Unreleased
 
-### Added
+## 0.4.0 — 2026-08-19
+
+The Multisite evidence and guarded Network Admin undo release.
+
+### Shipped
 
 - A network-active, site-local Multisite lifecycle for existing and newly initialized sites, including per-site capabilities, schema migration, and retention scheduling.
 - Network-wide deactivation that interrupts open evidence and clears scheduled retention without crossing site boundaries.
@@ -20,6 +24,13 @@ ConfigOps follows semantic versioning. While the major version is `0`, adapter c
 
 - Network undo is intentionally mutation-only: deletions remain review-only because WordPress exposes them after the previous value is gone; authority, plugin-lifecycle, and derived counter state require dedicated commands; and named network sessions plus whole-capture undo remain disabled.
 - Per-site ledgers remain site-local. Cross-site aggregation, bulk operations, fleet control, Packs, Policies, and Drift are not part of the 0.4 boundary.
+
+### Verified against
+
+- WordPress 7.0 and latest on PHP 8.2 through PHP 8.5.
+- 254 WordPress integration assertions, 132 Multisite assertions, and 51 exact adapter assertions.
+- Native MySQL 8.4 and MariaDB 11.4 integration lanes plus real desktop and mobile browser flows.
+- 76.43% tracked-production and 78.11% trust-boundary line coverage.
 
 ## 0.3.1 — 2026-08-18
 

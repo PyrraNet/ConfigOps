@@ -13,7 +13,7 @@ JavaScript is the interaction layer and may later observe labels, field names, t
 
 `update_option()` and its hooks execute inside PHP. Capturing old and new typed values, the current actor, request metadata, and the responsible call path is both more precise and cheaper in that same process. Reconstructing this from browser requests or database polling would lose internal writes, invent correlations, and complicate deployment.
 
-PHP 8.2 is the oldest branch in the 0.3.1 runtime contract. The full parser, unit, hostile-input, and integration path is exercised from PHP 8.2 through 8.5, and an automated lifecycle gate forces the minimum to be reviewed when its upstream security support ends. This keeps the compatibility claim explicit instead of letting an end-of-life runtime remain supported by inertia.
+PHP 8.2 is the oldest branch in the 0.4.0 runtime contract. The full parser, unit, hostile-input, and integration path is exercised from PHP 8.2 through 8.5, and an automated lifecycle gate forces the minimum to be reviewed when its upstream security support ends. This keeps the compatibility claim explicit instead of letting an end-of-life runtime remain supported by inertia.
 
 ## Boundaries
 

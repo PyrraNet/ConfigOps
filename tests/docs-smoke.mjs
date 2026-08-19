@@ -9,6 +9,11 @@ const configuredBase = process.env.DOCS_BASE || '/';
 const base = `/${configuredBase.replace(/^\/+|\/+$/g, '')}`.replace(/^\/$/, '');
 const site = `${origin}${base}`;
 const vitepress = fileURLToPath(new URL('../node_modules/vitepress/bin/vitepress.js', import.meta.url));
+const executablePath = process.env.CONFIGOPS_CHROME_PATH || (
+	'darwin' === process.platform
+		? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+		: undefined
+);
 const routes = [
 	'/',
 	'/guide/getting-started',
@@ -25,6 +30,7 @@ const routes = [
 	'/adapters',
 	'/frontend',
 	'/wordpress-org-release',
+	'/releases/0.4.0',
 	'/releases/0.3.1',
 	'/releases/0.3.0',
 	'/releases/0.2.0',
@@ -65,7 +71,7 @@ try {
 	}
 	if (!ready) throw new Error(`documentation preview did not start\n${serverOutput}`);
 
-	const browser = await chromium.launch({ headless: true });
+	const browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) });
 	try {
 		for (const profile of profiles) {
 			const context = await browser.newContext(profile);
@@ -103,13 +109,13 @@ try {
 					const home = await page.evaluate(() => ({
 						text: document.body.textContent || '',
 						hasCurrentReleaseLink: [...document.querySelectorAll('a')].some((link) => (
-							'v0.3.1' === link.textContent?.trim()
-							&& link.getAttribute('href')?.includes('/releases/0.3.1')
+							'v0.4.0' === link.textContent?.trim()
+							&& link.getAttribute('href')?.includes('/releases/0.4.0')
 						)),
 						proofAlt: document.querySelector('.co-proof__figure img')?.getAttribute('alt') || '',
 					}));
 					if (!home.hasCurrentReleaseLink) {
-						throw new Error(`${profile.name} home does not link the current 0.3.1 release`);
+						throw new Error(`${profile.name} home does not link the current 0.4.0 release`);
 					}
 					if (!home.text.includes('Save normally. ConfigOps appears with the evidence.')) {
 						throw new Error(`${profile.name} home does not lead with the automatic evidence proof`);

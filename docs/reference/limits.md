@@ -1,15 +1,16 @@
 ---
 title: Known limits
-description: Capabilities ConfigOps 0.3.1 deliberately does not claim.
+description: Capabilities ConfigOps 0.4.0 deliberately does not claim.
 ---
 
 # Known limits
 
-Version 0.3.1 is deliberately narrower than a configuration-management platform.
+Version 0.4.0 is deliberately narrower than a configuration-management platform.
 
 ## Not shipped
 
-- network settings, network-wide administration, cross-site bulk actions, or continuing one capture across `switch_to_blog()` transitions;
+- named network Change Sessions, whole-network-change undo, network option deletion undo, authority or plugin-lifecycle restoration, and derived network-counter undo;
+- cross-site aggregation, cross-site bulk actions, or continuing one site capture across `switch_to_blog()` transitions;
 - remote apply, cross-site synchronization, or fleet control;
 - generic rollback for plugin custom tables or direct SQL;
 - content, media-file, theme-file, or filesystem deployment;
@@ -18,7 +19,7 @@ Version 0.3.1 is deliberately narrower than a configuration-management platform.
 - generic semantic understanding for every WordPress plugin;
 - cloud storage, team accounts, approvals, drift monitoring, Policies, or Release Packs.
 
-ConfigOps pins each request to its originating WordPress site. If unsupported cross-site code calls `switch_to_blog()` and then writes configuration, ConfigOps ignores that value instead of attaching it to the wrong site's history. Any already-running capture is marked incomplete and cannot use whole-change undo.
+ConfigOps pins site observations to their originating WordPress site. If unsupported cross-site code calls `switch_to_blog()` and then writes configuration, ConfigOps ignores that value instead of attaching it to the wrong site's history. Any already-running site capture is marked incomplete and cannot use whole-change undo. Supported Network Options API changes use a separate network scope and never join a site's capture.
 
 ## Evidence limits
 
