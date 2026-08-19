@@ -229,11 +229,18 @@ final readonly class SiteLifecycle
 	private function report(string $hook, Throwable $error, int $networkId, int $siteId): void
 	{
 		try {
-			do_action(
-				$hook,
-				$error,
-				array('network_id' => $networkId, 'site_id' => $siteId)
-			);
+			$context = array('network_id' => $networkId, 'site_id' => $siteId);
+			switch ($hook) {
+				case 'configops_deactivation_error':
+					do_action('configops_deactivation_error', $error, $context);
+					break;
+				case 'configops_site_provisioning_error':
+					do_action('configops_site_provisioning_error', $error, $context);
+					break;
+				case 'configops_site_cleanup_error':
+					do_action('configops_site_cleanup_error', $error, $context);
+					break;
+			}
 		} catch (Throwable) {
 			// Lifecycle diagnostics must never replace the host operation.
 		}
