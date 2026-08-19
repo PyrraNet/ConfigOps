@@ -341,6 +341,7 @@ $assert('' === $coreAdapter->normalizeOptionValue('users_can_register', false), 
 $coreAddress = $coreAdapter->analyze('siteurl', array(array('path' => '/')));
 $assert('environment' === $coreAddress->classification && ! $coreAddress->allowsGenericRestore, 'WordPress addresses should remain review-only high-risk settings.');
 $assert('wordpress' === $coreAdapter->manifest()->componentType, 'The Core adapter should declare WordPress itself instead of pretending to be a plugin.');
+$assert('>=7.0 <7.2' === $coreAdapter->manifest()->testedVersion, 'The Core adapter should accept final WordPress 7.1 while failing closed for untested WordPress 7.2.');
 $assert(6 === count($coreAdapter->manifest()->capabilities), 'WordPress Core support should disclose every current product capability.');
 
 $mailAdapter = new WpMailSmtpAdapter();
@@ -438,6 +439,32 @@ $assert('Site icon' === ($coreMedia['changes'][0]['label'] ?? ''), 'Core site ic
 $assert('media' === ($coreMedia['changes'][0]['reference_type'] ?? ''), 'Core site icons should select the media resolver.');
 $assert('unset' === ($coreMedia['changes'][0]['before_reference']['status'] ?? ''), 'An empty media reference should retain an explicit unset state.');
 $assert('missing' === ($coreMedia['changes'][0]['after_reference']['status'] ?? ''), 'An unresolved media ID should remain visible as missing evidence.');
+$originalWordPressVersion = $GLOBALS['wp_version'] ?? null;
+$GLOBALS['wp_version'] = '7.1';
+$finalWordPress71Registry = new AdapterRegistry(array(new WordPressCoreAdapter()), new NoiseClassifier(), new HeuristicSensitiveValueDetector());
+$finalWordPress71 = $finalWordPress71Registry->analyze(
+	'posts_per_page',
+	array(array('op' => 'replace', 'path' => '/', 'before' => 10, 'after' => 12))
+);
+$assert(
+	'7.1' === $finalWordPress71['component_version'] && $finalWordPress71['allows_restore'],
+	'The final WordPress 7.1 version string should retain the tested Core explanation and guarded restore contract.'
+);
+$GLOBALS['wp_version'] = '7.2';
+$untestedWordPress72Registry = new AdapterRegistry(array(new WordPressCoreAdapter()), new NoiseClassifier(), new HeuristicSensitiveValueDetector());
+$untestedWordPress72 = $untestedWordPress72Registry->analyze(
+	'posts_per_page',
+	array(array('op' => 'replace', 'path' => '/', 'before' => 10, 'after' => 12))
+);
+$assert(
+	'7.2' === $untestedWordPress72['component_version'] && ! $untestedWordPress72['allows_restore'],
+	'An untested WordPress 7.2 version should keep evidence but disable automatic Core restore.'
+);
+if (null === $originalWordPressVersion) {
+	unset($GLOBALS['wp_version']);
+} else {
+	$GLOBALS['wp_version'] = $originalWordPressVersion;
+}
 $themeLogo = $registry->analyze(
 	'theme_mods_fixture',
 	array(array('op' => 'replace', 'path' => '/custom_logo', 'before' => 0, 'after' => 99999999))

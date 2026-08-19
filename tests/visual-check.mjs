@@ -53,13 +53,22 @@ try {
 	if (loginResponse.status() !== 302) {
 		throw new Error(`Could not authenticate the visual-flow user: ${loginResponse.status()}.`);
 	}
+	let dashboardReady = false;
+	for (let attempt = 0; attempt < 6 && !dashboardReady; attempt += 1) {
+		await page.goto(`${baseUrl}/wp-admin/`, { waitUntil: 'domcontentloaded' });
+		dashboardReady = await page.getByRole('heading', { name: 'Dashboard', exact: true }).isVisible().catch(() => false);
+	}
+	if (!dashboardReady) {
+		throw new Error('The authenticated WordPress dashboard did not become ready.');
+	}
 	let reviewReady = false;
 	for (let attempt = 0; attempt < 6 && !reviewReady; attempt += 1) {
 		await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops`, { waitUntil: 'domcontentloaded' });
 		reviewReady = await page.getByRole('heading', { name: 'Review changes', exact: true }).isVisible().catch(() => false);
 	}
 	if (!reviewReady) {
-		throw new Error('The authenticated ConfigOps review did not become ready.');
+		const diagnostic = await page.locator('body').innerText().catch(() => 'Body unavailable.');
+		throw new Error(`The authenticated ConfigOps review did not become ready at ${page.url()}: ${diagnostic.slice(0, 500)}`);
 	}
 	for (const removedCopy of ['See what WordPress changed.', 'Capture / Technical spike', 'Configuration control', 'Packs', 'Policies', 'Drift']) {
 		if (await page.getByText(removedCopy, { exact: true }).count()) {

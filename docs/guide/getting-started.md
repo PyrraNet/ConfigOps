@@ -1,6 +1,6 @@
 ---
 title: Get started
-description: Install ConfigOps 0.4.2 and review an automatically observed WordPress or Network Settings change.
+description: Install ConfigOps 0.4.3 and review an automatically observed WordPress or Network Settings change.
 ---
 
 # Get started
@@ -9,9 +9,9 @@ ConfigOps automatically observes configuration mutations made by authorized admi
 
 ## Requirements
 
-| Contract | Supported in 0.4.2 |
+| Contract | Supported in 0.4.3 |
 | --- | --- |
-| WordPress | 7.0 or newer, single-site or network-active Multisite |
+| WordPress | 7.0 or 7.1, single-site or network-active Multisite |
 | PHP | 8.2, 8.3, 8.4, or 8.5 |
 | Database | WordPress-supported MySQL or MariaDB; release CI exercises MySQL 8.4 and MariaDB 11.4 |
 | Access | Site users need the relevant ConfigOps capability; Network Admin evidence requires `manage_network_options` |
@@ -23,9 +23,9 @@ ConfigOps is a local configuration evidence layer. It is not a database backup, 
 
 ## Install
 
-To inspect the workflow before installing anything, open the [disposable ConfigOps live demo](https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2FPyrraNet%2FConfigOps%2Fv0.4.2%2F.wordpress-org%2Fblueprints%2Fblueprint.json). It starts with ConfigOps and WP Mail SMTP active, then guides one sender-email save through Evidence, Review, and Undo.
+To inspect the workflow before installing anything, open the [disposable ConfigOps live demo](https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2FPyrraNet%2FConfigOps%2Fv0.4.3%2F.wordpress-org%2Fblueprints%2Fblueprint.json). It starts with ConfigOps and WP Mail SMTP active, then guides one sender-email save through Evidence, Review, and Undo.
 
-1. Obtain `configops-0.4.2.zip` from a trusted release channel.
+1. Obtain `configops-0.4.3.zip` from a trusted release channel.
 2. In WordPress, open **Plugins → Add Plugin → Upload Plugin**.
 3. Select the archive, install it, and activate **ConfigOps**.
 4. Open **ConfigOps** in the WordPress admin menu.

@@ -1,17 +1,17 @@
 ---
 title: Support contracts
-description: Exact WordPress, PHP, database, Multisite, and plugin-adapter support for ConfigOps 0.4.2.
+description: Exact WordPress, PHP, database, Multisite, and plugin-adapter support for ConfigOps 0.4.3.
 ---
 
 # Support contracts
 
-Support means a tested contract, not a best-effort badge. Version 0.4.2 fails its release checks if its runtime metadata, Multisite boundaries, adapter fixtures, public Playground flow, compatibility scan, browser flows, or coverage boundaries drift.
+Support means a tested contract, not a best-effort badge. Version 0.4.3 fails its release checks if its runtime metadata, Multisite boundaries, adapter fixtures, public Playground flow, compatibility scan, browser flows, or coverage boundaries drift.
 
 ## Runtime matrix
 
 | Component | Supported contract | Release evidence |
 | --- | --- | --- |
-| WordPress | 7.0 or newer | WordPress 7.0 and latest in CI |
+| WordPress | 7.0–7.1 | WordPress 7.0, 7.1 RC4, and latest stable in CI |
 | PHP | 8.2–8.5 | Parser, unit, hostile-input, and WordPress integration paths across the matrix |
 | Database | WordPress-supported MySQL/MariaDB | Native MySQL 8.4 and MariaDB 11.4 integration lanes |
 | Browser UI | Current JavaScript-capable admin browser | Real Chromium site and Network Admin settings, review, and undo flows |
@@ -33,7 +33,7 @@ Network undo excludes authority and plugin-lifecycle state plus derived counters
 
 | Integration | Tested release | Observe | Explain | Secrets | Undo |
 | --- | ---: | :---: | :---: | :---: | :---: |
-| WordPress Core | 7.0 | Supported | Field map + local references | Redacted | With limits |
+| WordPress Core | 7.0–7.1 | Supported | Field map + local references | Redacted | With limits |
 | WP Mail SMTP Free | 4.9.0 | Supported | Exact schema | Removed before persistence | Full or safe field patch |
 | Yoast SEO Free | 28.2 | Supported | Exact schema | Removed before persistence | With field and reference limits |
 | Unknown plugins | — | Options API evidence | Needs review | Conservative heuristic | Only when generic evidence is fully safe |

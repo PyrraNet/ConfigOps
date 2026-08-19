@@ -2,9 +2,9 @@
 Contributors: pyrra
 Tags: settings, configuration, rollback, history, developer tools
 Requires at least: 7.0
-Tested up to: 7.0
+Tested up to: 7.1
 Requires PHP: 8.2
-Stable tag: 0.4.2
+Stable tag: 0.4.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,7 +59,7 @@ All evidence remains in the website database. ConfigOps does not send observatio
 
 The current release includes pinned adapters for:
 
-* WordPress Core 7.0
+* WordPress Core 7.0–7.1
 * WP Mail SMTP Free 4.9.0
 * Yoast SEO Free 28.2
 
@@ -131,6 +131,12 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 4. Review a real Network Settings change in Network Admin with explicit network-wide scope, add/update undo boundaries, and guarded mutation undo.
 
 == Changelog ==
+
+= 0.4.3 =
+
+* Adds a tested WordPress 7.1 Core compatibility contract for single-site and Multisite settings evidence, review, and guarded undo.
+* Extends the Core adapter through WordPress 7.1 while continuing to fail closed for untested WordPress 7.2 releases.
+* Adds permanent WordPress 7.1 release-candidate lanes across PHP, exact adapters, browser flows, MySQL, and MariaDB.
 
 = 0.4.2 =
 

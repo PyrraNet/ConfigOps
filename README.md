@@ -8,13 +8,13 @@
 <p align="center"><strong>The undo layer for WordPress settings.</strong></p>
 
 <p align="center">
-  v0.4.2
+  v0.4.3
   &nbsp;·&nbsp; Automatic observation
   &nbsp;·&nbsp; No account required
 </p>
 
 <p align="center">
-  <a href="https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2FPyrraNet%2FConfigOps%2Fv0.4.2%2F.wordpress-org%2Fblueprints%2Fblueprint.json">Try the live demo</a>
+  <a href="https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2FPyrraNet%2FConfigOps%2Fv0.4.3%2F.wordpress-org%2Fblueprints%2Fblueprint.json">Try the live demo</a>
   &nbsp;·&nbsp;
   <a href="https://configops.pyrra.net/docs/">Read the operations &amp; safety docs</a>
 </p>
@@ -55,8 +55,8 @@ Every undo is checked against the current value first. If the website changed ag
 
 | Integration | Tested release | Observe | Explain | Secrets | Undo |
 |---|---:|:---:|:---:|:---:|:---:|
-| WordPress Core | WordPress 7.0 | Supported | Field map + local references | Redacted | With limits |
-| WordPress Multisite | WordPress 7.0 | Sites + Network Options | Generic network evidence | Redacted | Network additions/updates |
+| WordPress Core | WordPress 7.0–7.1 | Supported | Field map + local references | Redacted | With limits |
+| WordPress Multisite | WordPress 7.0–7.1 | Sites + Network Options | Generic network evidence | Redacted | Network additions/updates |
 | WP Mail SMTP Free | 4.9.0 | Supported | Supported | Removed | With limits |
 | Yoast SEO Free | 28.2 | Supported | Supported | Removed | With limits |
 | Unknown plugins | — | Options API only | Needs review | Conservative | Only when proven safe |

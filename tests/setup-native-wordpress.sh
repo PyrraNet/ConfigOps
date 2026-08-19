@@ -5,6 +5,7 @@ set -euo pipefail
 : "${CONFIGOPS_NATIVE_WP_ROOT:?CONFIGOPS_NATIVE_WP_ROOT is required}"
 : "${CONFIGOPS_REPOSITORY_ROOT:?CONFIGOPS_REPOSITORY_ROOT is required}"
 : "${CONFIGOPS_PLUGIN_ZIP:=}"
+: "${CONFIGOPS_NATIVE_WP_VERSION:=7.0.4}"
 : "${CONFIGOPS_DB_HOST:=127.0.0.1:3306}"
 : "${CONFIGOPS_DB_NAME:=configops}"
 : "${CONFIGOPS_DB_USER:=configops}"
@@ -46,7 +47,7 @@ wp() {
 	php "$wp_cli" --path="$CONFIGOPS_NATIVE_WP_ROOT" "$@"
 }
 
-wp core download --version=7.0.3 --skip-content --quiet
+wp core download --version="$CONFIGOPS_NATIVE_WP_VERSION" --skip-content --quiet
 wp config create \
 	--dbname="$CONFIGOPS_DB_NAME" \
 	--dbuser="$CONFIGOPS_DB_USER" \

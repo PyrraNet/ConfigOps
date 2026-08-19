@@ -27,7 +27,7 @@ export default defineConfig({
 			{ text: 'Operate', link: '/guide/getting-started' },
 			{ text: 'Safety', link: '/security/secrets-privacy' },
 			{ text: 'Reference', link: '/reference/support' },
-			{ text: 'v0.4.2', link: '/releases/0.4.2' },
+			{ text: 'v0.4.3', link: '/releases/0.4.3' },
 		],
 		sidebar: [
 			{
@@ -67,6 +67,7 @@ export default defineConfig({
 			{
 				text: 'Releases',
 				items: [
+					{ text: '0.4.3', link: '/releases/0.4.3' },
 					{ text: '0.4.2', link: '/releases/0.4.2' },
 					{ text: '0.4.1', link: '/releases/0.4.1' },
 					{ text: '0.4.0', link: '/releases/0.4.0' },

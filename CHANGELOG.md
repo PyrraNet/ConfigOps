@@ -4,6 +4,23 @@ ConfigOps follows semantic versioning. While the major version is `0`, adapter c
 
 ## Unreleased
 
+## 0.4.3 — 2026-08-19
+
+The WordPress 7.1 compatibility release.
+
+### Shipped
+
+- A WordPress Core adapter contract covering final 7.0 and 7.1 versions while continuing to fail closed for untested 7.2 releases.
+- Permanent WordPress 7.1 RC4 test lanes for the full PHP behavior suite, exact WP Mail SMTP and Yoast contracts, real browser save/review/undo flows, and native MySQL and MariaDB.
+- WordPress.org, plugin-header, project, and operator-documentation metadata that consistently advertises the verified 7.1 ceiling.
+
+### Verified against
+
+- The official WordPress 7.1 RC4 package on PHP 8.2, 8.3, 8.4, and 8.5 test paths.
+- Single-site settings observation, exact Core/plugin adapter behavior, secret protection, review, conflict-checked undo, and browser workflows.
+- Network activation, isolated per-site evidence, Network Admin evidence and mutation undo, lifecycle, retention, migration, and uninstall boundaries.
+- Native MySQL 8.4 and MariaDB 11.4 release lanes, the deterministic release archive, and WordPress Plugin Check.
+
 ## 0.4.2 — 2026-08-19
 
 The guided WordPress Playground preview release.

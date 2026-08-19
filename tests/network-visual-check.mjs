@@ -3,6 +3,7 @@ import { chromium } from 'playwright-core';
 
 const baseUrl = process.env.CONFIGOPS_TEST_URL || 'http://configops.test';
 const executablePath = process.env.CONFIGOPS_CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const hostResolverRules = process.env.CONFIGOPS_TEST_HOST_RESOLVER_RULES || 'MAP configops.test 127.0.0.1';
 const artifacts = new URL('../artifacts/', import.meta.url);
 
 await mkdir(artifacts, { recursive: true });
@@ -10,7 +11,7 @@ await mkdir(artifacts, { recursive: true });
 const browser = await chromium.launch({
 	executablePath,
 	headless: true,
-	args: ['--host-resolver-rules=MAP configops.test 127.0.0.1'],
+	args: [`--host-resolver-rules=${hostResolverRules}`],
 });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
 const runtimeErrors = [];
@@ -19,13 +20,28 @@ page.on('pageerror', (error) => runtimeErrors.push(error.message));
 try {
 	const loginUrl = `${baseUrl}/wp-login.php`;
 	await page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
-	await page.locator('#user_login').fill('admin');
-	await page.locator('#user_pass').fill('password');
-	await page.locator('#wp-submit').click();
-	await page.waitForLoadState('networkidle');
+	await page.evaluate(async (redirectTo) => {
+		const body = new URLSearchParams({
+			log: 'admin',
+			pwd: 'password',
+			'wp-submit': 'Log In',
+			redirect_to: redirectTo,
+			testcookie: '1',
+		});
+		await fetch('/wp-login.php', {
+			method: 'POST',
+			body,
+			credentials: 'include',
+			redirect: 'manual',
+		});
+	}, `${baseUrl}/wp-admin/network/`);
 
 	await page.goto(`${baseUrl}/wp-admin/network/settings.php`, { waitUntil: 'networkidle' });
 	const networkName = page.locator('#site_name');
+	if (!await networkName.isVisible().catch(() => false)) {
+		const diagnostic = await page.locator('body').innerText().catch(() => 'Body unavailable.');
+		throw new Error(`Network Settings did not become ready at ${page.url()}: ${diagnostic.slice(0, 500)}`);
+	}
 	const previousName = await networkName.inputValue();
 	await networkName.fill(`${previousName} evidence`);
 	await page.locator('#submit').click();

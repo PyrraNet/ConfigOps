@@ -33,7 +33,7 @@ final class WordPressCoreAdapter extends AbstractOptionAdapter implements Option
 			'wordpress-core',
 			'WordPress Core',
 			'wp-includes/version.php',
-			'>=7.0 <7.1',
+			'>=7.0 <7.2',
 			1,
 			array(
 				array('id' => 'capture', 'label' => 'Find changes', 'level' => 'full', 'note' => 'The standard single-site General, Writing, Reading, Discussion, Media, and Permalink options are captured.'),
