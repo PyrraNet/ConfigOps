@@ -68,7 +68,7 @@ $configopsSiteUrl = get_admin_url(get_current_blog_id(), 'admin.php?page=configo
 			<dl>
 				<div><dt><?php esc_html_e('Network', 'configops'); ?></dt><dd>#<?php echo esc_html((string) ($bootstrap['scope']['networkId'] ?? 0)); ?></dd></div>
 				<div><dt><?php esc_html_e('Sites', 'configops'); ?></dt><dd><?php echo esc_html((string) ($bootstrap['scope']['siteCount'] ?? 0)); ?></dd></div>
-				<div><dt><?php esc_html_e('Mode', 'configops'); ?></dt><dd><?php esc_html_e('Read-only', 'configops'); ?></dd></div>
+				<div><dt><?php esc_html_e('Mode', 'configops'); ?></dt><dd><?php esc_html_e('Add/update undo', 'configops'); ?></dd></div>
 			</dl>
 		</section>
 	<?php endif; ?>

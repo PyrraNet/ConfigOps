@@ -133,8 +133,9 @@ final class AdminPayloadFactory
 			'selected'     => $selected ? $this->sessionPayload($selected, true) : null,
 			'review'       => $review,
 			'capabilities' => array(
-				'capture'  => current_user_can('configops_capture'),
-				'rollback' => current_user_can('configops_rollback'),
+				'capture'         => current_user_can('configops_capture'),
+				'rollback'        => current_user_can('configops_rollback'),
+				'sessionRollback' => current_user_can('configops_rollback'),
 			),
 			'notice'       => array(
 				'code' => sanitize_key($noticeCode),

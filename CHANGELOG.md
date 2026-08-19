@@ -10,14 +10,15 @@ ConfigOps follows semantic versioning. While the major version is `0`, adapter c
 - Network-wide deactivation that interrupts open evidence and clears scheduled retention without crossing site boundaries.
 - Site-deletion and uninstall cleanup for site-scoped shared rows, retained legacy tables, local options, transient cache entries, capabilities, and cron events.
 - Automatic observation of Network Options API changes made by authorized Network Admin, REST, and WP-CLI requests.
-- A capability-gated, read-only Network Admin evidence ledger with an explicit network scope, independently paged REST resources, and no site capture or undo controls.
+- A capability-gated Network Admin evidence ledger with an explicit network scope, independently paged REST resources, and mutation-level undo for complete additions and updates.
+- Conflict-checked Network Options undo with an atomic expiring network lock, append-first value-free audit records, post-write verification, and compensating recovery.
 - Network-owned state, interruption, 30-day retention, and uninstall cleanup isolated from every site's options and evidence rows.
-- A real network-activation contract covering 121 Multisite observation, isolation, REST, retention, migration, lifecycle, deletion, and uninstall assertions, also included in release coverage evidence.
-- A Chromium Network Settings save-and-review contract at desktop and mobile widths.
+- A real network-activation contract covering 132 Multisite observation, isolation, undo, compensation, audit, locking, REST, retention, migration, lifecycle, deletion, and uninstall assertions, also included in release coverage evidence.
+- A Chromium Network Settings save-review-undo contract at desktop and mobile widths.
 
 ### Deliberate boundaries
 
-- Network evidence is review-only in this slice: Network Admin undo and named network sessions remain disabled until their own conflict, audit, and compensation contracts exist.
+- Network undo is intentionally mutation-only: deletions remain review-only because WordPress exposes them after the previous value is gone; authority, plugin-lifecycle, and derived counter state require dedicated commands; and named network sessions plus whole-capture undo remain disabled.
 - Per-site ledgers remain site-local. Cross-site aggregation, bulk operations, fleet control, Packs, Policies, and Drift are not part of the 0.4 boundary.
 
 ## 0.3.1 — 2026-08-18

@@ -109,7 +109,10 @@ export const dismissNotice = () => {
 
 export const startCapture = (name) => runPending('start-capture', () => createCapture(name));
 export const stopCapture = () => runPending('stop-capture', stopActiveCapture);
-export const restoreMutation = (id) => runPending(`restore-mutation-${id}`, () => restoreMutationRequest(id));
+export const restoreMutation = (id) => runPending(
+	`restore-mutation-${id}`,
+	() => restoreMutationRequest(id, snapshot.scope),
+);
 export const restoreSession = (id) => runPending(`restore-session-${id}`, () => restoreSessionRequest(id));
 
 export const selectSession = async (id) => {

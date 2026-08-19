@@ -174,6 +174,11 @@ $assert(
 $networkAddedOption = 'network_evidence_fixture_added';
 $networkUpdatedOption = 'network_evidence_fixture_updated';
 $networkDeletedOption = 'network_evidence_fixture_deleted';
+$networkProtectedOption = 'active_sitewide_plugins';
+$networkProtectedBefore = get_network_option($originNetworkId, $networkProtectedOption, array());
+$networkProtectedBefore = is_array($networkProtectedBefore) ? $networkProtectedBefore : array();
+$networkProtectedAfter = $networkProtectedBefore;
+$networkProtectedAfter['configops-network-fixture/configops-network-fixture.php'] = time();
 delete_network_option($originNetworkId, $networkAddedOption);
 delete_network_option($originNetworkId, $networkUpdatedOption);
 delete_network_option($originNetworkId, $networkDeletedOption);
@@ -188,8 +193,9 @@ add_filter('configops_network_recording_context_allowed', $allowNetworkContext, 
 $assert(
 	add_network_option($originNetworkId, $networkAddedOption, 'network-added')
 	&& update_network_option($originNetworkId, $networkUpdatedOption, 'network-after')
-	&& delete_network_option($originNetworkId, $networkDeletedOption),
-	'Network option writes should continue to use the native WordPress API while ConfigOps observes them.'
+	&& delete_network_option($originNetworkId, $networkDeletedOption)
+	&& update_network_option($originNetworkId, $networkProtectedOption, $networkProtectedAfter),
+	'Network settings and lifecycle writes should continue to use the native WordPress API while ConfigOps observes them.'
 );
 remove_filter('configops_network_recording_context_allowed', $allowNetworkContext, 10);
 
@@ -205,9 +211,9 @@ $networkAutomaticSessionId = (int) $networkAutomaticSession->id;
 $networkRows = $networkMutations->forSession($networkAutomaticSessionId);
 $networkRowsByOption = array_column($networkRows, null, 'option_name');
 $assert(
-	3 === count($networkRows)
-	&& isset($networkRowsByOption[$networkAddedOption], $networkRowsByOption[$networkUpdatedOption], $networkRowsByOption[$networkDeletedOption]),
-	'Network add, update, and delete operations should each produce scoped evidence.'
+	4 === count($networkRows)
+	&& isset($networkRowsByOption[$networkAddedOption], $networkRowsByOption[$networkUpdatedOption], $networkRowsByOption[$networkDeletedOption], $networkRowsByOption[$networkProtectedOption]),
+	'Network add, update, delete, and lifecycle operations should each produce scoped evidence.'
 );
 $assert(
 	$originNetworkId === (int) $networkAutomaticSession->network_id
@@ -244,15 +250,8 @@ $networkAutomaticSession = $networkCaptures->find($networkAutomaticSessionId);
 $assert(
 	$networkAutomaticSession
 	&& 'completed' === (string) $networkAutomaticSession->status
-	&& 3 === (int) $networkAutomaticSession->mutation_count,
+	&& 4 === (int) $networkAutomaticSession->mutation_count,
 	'Network request shutdown should finalize the observed changes as one completed session.'
-);
-
-delete_network_option($originNetworkId, $networkAddedOption);
-delete_network_option($originNetworkId, $networkUpdatedOption);
-$assert(
-	3 === count($networkMutations->forSession($networkAutomaticSessionId)),
-	'A finalized network session must reject later same-request writes instead of mutating its evidence.'
 );
 
 do_action('rest_api_init');
@@ -264,8 +263,9 @@ $assert(
 	&& 'network' === (string) ($networkState['scope']['type'] ?? '')
 	&& $originNetworkId === (int) ($networkState['scope']['networkId'] ?? 0)
 	&& false === (bool) ($networkState['capabilities']['capture'] ?? true)
-	&& false === (bool) ($networkState['capabilities']['rollback'] ?? true),
-	'The Network Admin REST state should expose an explicitly read-only network scope.'
+	&& true === (bool) ($networkState['capabilities']['rollback'] ?? false)
+	&& false === (bool) ($networkState['capabilities']['sessionRollback'] ?? true),
+	'The Network Admin REST state should permit mutation undo without exposing capture or session-undo authority.'
 );
 $networkMutationResponse = rest_do_request(
 	new \WP_REST_Request('GET', '/configops/v1/network/captures/' . $networkAutomaticSessionId . '/mutations')
@@ -274,20 +274,178 @@ $networkMutationPage = $networkMutationResponse->get_data();
 $assert(
 	200 === $networkMutationResponse->get_status()
 	&& is_array($networkMutationPage)
-	&& 3 === array_sum(array_map(
+	&& 4 === array_sum(array_map(
 		static fn (array $group): int => count($group['mutations'] ?? array()),
 		$networkMutationPage['groups'] ?? array()
 	)),
-	'The read-only network mutation route should return the complete scoped ledger page.'
+	'The network mutation route should return the complete scoped ledger page.'
 );
+$networkPageMutations = array();
+foreach ($networkMutationPage['groups'] ?? array() as $group) {
+	$networkPageMutations = array_merge($networkPageMutations, $group['mutations'] ?? array());
+}
+$networkPageMutationsByOption = array_column($networkPageMutations, null, 'optionName');
+$assert(
+	true === ($networkPageMutationsByOption[$networkAddedOption]['restorable'] ?? false)
+	&& true === ($networkPageMutationsByOption[$networkUpdatedOption]['restorable'] ?? false)
+	&& false === ($networkPageMutationsByOption[$networkDeletedOption]['restorable'] ?? true)
+	&& false === ($networkPageMutationsByOption[$networkProtectedOption]['restorable'] ?? true)
+	&& str_contains(
+		(string) ($networkPageMutationsByOption[$networkProtectedOption]['undoUnavailableReason'] ?? ''),
+		'network authority, lifecycle, or derived state'
+	),
+	'Network payloads should offer full-value undo only for ordinary settings additions and updates.'
+);
+
+$updatedRestoreRequest = new \WP_REST_Request(
+	'POST',
+	'/configops/v1/network/mutations/' . (int) $networkRowsByOption[$networkUpdatedOption]->id . '/restore'
+);
+$networkRestoreLockOption = 'configops_operation_lock_' . hash('sha256', 'network:restore');
+add_network_option(
+	$originNetworkId,
+	$networkRestoreLockOption,
+	array('token' => 'abandoned', 'expires_at' => time() - 1)
+);
+$updatedRestoreResponse = rest_do_request($updatedRestoreRequest);
+$assert(
+	200 === $updatedRestoreResponse->get_status()
+	&& 'network-before' === get_network_option($originNetworkId, $networkUpdatedOption)
+	&& false === get_network_option($originNetworkId, $networkRestoreLockOption, false),
+	'Network update undo should recover an expired lock, restore the exact captured value, and release its own lock.'
+);
+
+$addedRestoreRequest = new \WP_REST_Request(
+	'POST',
+	'/configops/v1/network/mutations/' . (int) $networkRowsByOption[$networkAddedOption]->id . '/restore'
+);
+$forceNetworkDeleteFailure = static function (string $option, int $networkId) use ($networkAddedOption, $originNetworkId): void {
+	if ($networkAddedOption === $option && $originNetworkId === $networkId) {
+		throw new \RuntimeException('Injected network post-delete failure.');
+	}
+};
+add_action('delete_site_option', $forceNetworkDeleteFailure, PHP_INT_MAX, 2);
+$compensatedAddedRestoreResponse = rest_do_request($addedRestoreRequest);
+remove_action('delete_site_option', $forceNetworkDeleteFailure, PHP_INT_MAX);
+$assert(
+	409 === $compensatedAddedRestoreResponse->get_status()
+	&& 'network-added' === get_network_option($originNetworkId, $networkAddedOption),
+	'Network undo should reapply and verify the original current value after a post-write failure.'
+);
+$addedRestoreResponse = rest_do_request($addedRestoreRequest);
+$assert(
+	200 === $addedRestoreResponse->get_status()
+	&& false === get_network_option($originNetworkId, $networkAddedOption, false),
+	'Network addition undo should restore the captured absence of the option.'
+);
+
+$deletedRestoreRequest = new \WP_REST_Request(
+	'POST',
+	'/configops/v1/network/mutations/' . (int) $networkRowsByOption[$networkDeletedOption]->id . '/restore'
+);
+$deletedRestoreResponse = rest_do_request($deletedRestoreRequest);
+$assert(
+	409 === $deletedRestoreResponse->get_status()
+	&& false === get_network_option($originNetworkId, $networkDeletedOption, false),
+	'Network delete undo must fail closed because the previous value was unavailable at observation time.'
+);
+
+$protectedRestoreRequest = new \WP_REST_Request(
+	'POST',
+	'/configops/v1/network/mutations/' . (int) $networkRowsByOption[$networkProtectedOption]->id . '/restore'
+);
+$protectedRestoreResponse = rest_do_request($protectedRestoreRequest);
+$assert(
+	409 === $protectedRestoreResponse->get_status()
+	&& $networkProtectedAfter === get_network_option($originNetworkId, $networkProtectedOption),
+	'Network authority and lifecycle state should remain review-only even when its stored values are complete.'
+);
+
+$activeNetworkLock = array('token' => 'concurrent', 'expires_at' => time() + 60);
+add_network_option($originNetworkId, $networkRestoreLockOption, $activeNetworkLock);
+$lockedRestoreResponse = rest_do_request($updatedRestoreRequest);
+$lockedRestoreError = $lockedRestoreResponse->get_data();
+$assert(
+	409 === $lockedRestoreResponse->get_status()
+	&& is_array($lockedRestoreError)
+	&& str_contains((string) ($lockedRestoreError['message'] ?? ''), 'already changing this network configuration')
+	&& 'network-before' === get_network_option($originNetworkId, $networkUpdatedOption)
+	&& $activeNetworkLock === get_network_option($originNetworkId, $networkRestoreLockOption),
+	'An active token-owned network lock should reject overlapping undo without changing or releasing another request\'s lock.'
+);
+delete_network_option($originNetworkId, $networkRestoreLockOption);
+
+$conflictRestoreResponse = rest_do_request($updatedRestoreRequest);
+$assert(
+	409 === $conflictRestoreResponse->get_status()
+	&& 'network-before' === get_network_option($originNetworkId, $networkUpdatedOption),
+	'Replaying network undo after the target changed should stop on a conflict without another write.'
+);
+
+$networkAudits = new \ConfigOps\Database\RestoreAuditRepository($wpdb, $networkScope);
+$networkAuditRows = $networkAudits->forSession($networkAutomaticSessionId, 10);
+$networkAuditStatuses = array_count_values(array_map(static fn (object $row): string => (string) $row->status, $networkAuditRows));
+$networkAuditCodes = array_column($networkAuditRows, 'failure_code');
+$assert(
+	2 === ($networkAuditStatuses['succeeded'] ?? 0)
+	&& 4 === ($networkAuditStatuses['failed'] ?? 0)
+	&& 1 === ($networkAuditStatuses['compensated'] ?? 0)
+	&& in_array('apply_failed_compensated', $networkAuditCodes, true)
+	&& in_array('network_restore_unsupported', $networkAuditCodes, true)
+	&& in_array('network_restore_failed', $networkAuditCodes, true)
+	&& in_array('target_conflict', $networkAuditCodes, true)
+	&& array_reduce(
+		$networkAuditRows,
+		static fn (bool $valid, object $row): bool => $valid
+			&& $originNetworkId === (int) $row->network_id
+			&& 0 === (int) $row->blog_id,
+		true
+	),
+	'Every successful, compensated, locked, refused, and conflicting network undo should leave a scoped value-free audit record.'
+);
+$remainingNetworkLocks = (int) $wpdb->get_var(
+	$wpdb->prepare(
+		"SELECT COUNT(*) FROM {$wpdb->sitemeta}
+		WHERE site_id = %d AND meta_key LIKE %s",
+		$originNetworkId,
+		$wpdb->esc_like('configops_operation_lock_') . '%'
+	)
+);
+$assert(0 === $remainingNetworkLocks, 'Network restore should release its token-owned operation lock after every outcome.');
+
+$restoredMutationResponse = rest_do_request(
+	new \WP_REST_Request('GET', '/configops/v1/network/captures/' . $networkAutomaticSessionId . '/mutations')
+);
+$restoredMutationPage = $restoredMutationResponse->get_data();
+$restoredMutations = array();
+foreach (is_array($restoredMutationPage) ? ($restoredMutationPage['groups'] ?? array()) : array() as $group) {
+	$restoredMutations = array_merge($restoredMutations, $group['mutations'] ?? array());
+}
+$restoredMutationsByOption = array_column($restoredMutations, null, 'optionName');
+$assert(
+	'succeeded' === (string) ($restoredMutationsByOption[$networkAddedOption]['lastRestore']['status'] ?? '')
+	&& 'succeeded' === (string) ($restoredMutationsByOption[$networkUpdatedOption]['lastRestore']['status'] ?? '')
+	&& null === ($restoredMutationsByOption[$networkDeletedOption]['lastRestore'] ?? null),
+	'The Network Admin ledger should expose successful mutation audits without presenting a refused delete as undone.'
+);
+
 $originalNetworkUserId = get_current_user_id();
 wp_set_current_user(0);
 $unauthorizedNetworkResponse = rest_do_request(new \WP_REST_Request('GET', '/configops/v1/network/state'));
+$unauthorizedNetworkRestore = rest_do_request($deletedRestoreRequest);
 $assert(
-	in_array($unauthorizedNetworkResponse->get_status(), array(401, 403), true),
-	'Network evidence REST routes should reject requests without manage_network_options.'
+	in_array($unauthorizedNetworkResponse->get_status(), array(401, 403), true)
+	&& in_array($unauthorizedNetworkRestore->get_status(), array(401, 403), true),
+	'Network evidence and undo routes should reject requests without manage_network_options.'
 );
 wp_set_current_user($originalNetworkUserId);
+
+delete_network_option($originNetworkId, $networkUpdatedOption);
+update_network_option($originNetworkId, $networkProtectedOption, $networkProtectedBefore);
+$assert(
+	4 === count($networkMutations->forSession($networkAutomaticSessionId)),
+	'A finalized network session must reject later same-request undo and cleanup writes instead of mutating its evidence.'
+);
 
 $expiredNetworkSession = $networkCaptures->start('Expired network history fixture', 1, '/wp-admin/network/settings.php');
 $assert($expiredNetworkSession === $networkCaptures->stop(), 'The retention fixture should create completed network evidence.');
@@ -674,6 +832,12 @@ update_network_option(
 	\ConfigOps\Database\CaptureRepository::INTEGRITY_FALLBACK_OPTION,
 	$networkFallbackFixture
 );
+$networkLockFixture = 'configops_operation_lock_multisite_uninstall_fixture';
+add_network_option(
+	$originNetworkId,
+	$networkLockFixture,
+	array('token' => 'fixture', 'expires_at' => time() + 60)
+);
 $uninstallSites = array($originSiteId, $foreignSiteId, $legacySiteId);
 foreach ($uninstallSites as $uninstallSiteId) {
 	$switched = $uninstallSiteId !== get_current_blog_id();
@@ -703,7 +867,8 @@ $assert(
 		$originNetworkId,
 		\ConfigOps\Database\CaptureRepository::INTEGRITY_FALLBACK_OPTION,
 		false
-	),
+	)
+	&& false === get_network_option($originNetworkId, $networkLockFixture, false),
 	'Uninstall should remove ConfigOps state stored in network options.'
 );
 foreach ($uninstallSites as $uninstallSiteId) {

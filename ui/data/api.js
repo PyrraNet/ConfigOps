@@ -21,8 +21,8 @@ export const stopActiveCapture = () => apiFetch({
 	method: 'POST',
 });
 
-export const restoreMutationRequest = (mutationId) => apiFetch({
-	path: `${API_ROOT}/mutations/${mutationId}/restore`,
+export const restoreMutationRequest = (mutationId, scope) => apiFetch({
+	path: `${scopeRoot(scope)}/mutations/${mutationId}/restore`,
 	method: 'POST',
 });
 

@@ -43,14 +43,18 @@ try {
 	if (bootstrap.scope?.type !== 'network' || bootstrap.scope?.networkId < 1) {
 		throw new Error(`Network bootstrap did not retain its scope identity: ${JSON.stringify(bootstrap.scope)}.`);
 	}
-	if (bootstrap.capabilities?.capture !== false || bootstrap.capabilities?.rollback !== false) {
-		throw new Error('Network evidence must remain explicitly read-only in the client contract.');
+	if (
+		bootstrap.capabilities?.capture !== false
+		|| bootstrap.capabilities?.rollback !== true
+		|| bootstrap.capabilities?.sessionRollback !== false
+	) {
+		throw new Error('Network evidence must expose mutation undo without capture or whole-session controls.');
 	}
 	if (await page.locator('#configops-capture-island').count()) {
-		throw new Error('The read-only Network Admin view rendered site capture controls.');
+		throw new Error('The Network Admin view rendered site capture controls.');
 	}
-	if (!await page.getByText('Read-only', { exact: true }).isVisible()) {
-		throw new Error('The permanent network scope band does not disclose read-only mode.');
+	if (!await page.getByText('Add/update undo', { exact: true }).isVisible()) {
+		throw new Error('The permanent network scope band does not disclose the undo boundary.');
 	}
 	if (!await page.getByText('Network-wide', { exact: true }).isVisible()) {
 		throw new Error('The selected evidence does not disclose network-wide scope.');
@@ -61,14 +65,34 @@ try {
 	if (!await networkNameMutation.isVisible()) {
 		throw new Error('The real Network Settings save did not hydrate into the evidence ledger.');
 	}
-	if (await page.getByRole('button', { name: /Undo/ }).count()) {
-		throw new Error('The read-only network ledger exposed an undo action.');
+	if (await page.getByRole('button', { name: 'Undo capture', exact: true }).count()) {
+		throw new Error('The mutation-only network ledger exposed whole-capture undo.');
+	}
+	const undoButton = networkNameMutation.getByRole('button', { name: 'Undo this setting', exact: true });
+	if (!await undoButton.isVisible()) {
+		throw new Error('The restorable Network Settings update did not expose mutation undo.');
 	}
 	if (runtimeErrors.length > 0) {
 		throw new Error(`Network Admin emitted browser runtime errors: ${runtimeErrors.join(' | ')}`);
 	}
 
 	await page.screenshot({ path: new URL('configops-network-admin-desktop.png', artifacts).pathname, fullPage: true });
+	let confirmation = '';
+	page.once('dialog', async (dialog) => {
+		confirmation = dialog.message();
+		await dialog.accept();
+	});
+	await undoButton.click();
+	await networkNameMutation.getByText('Undone', { exact: true }).waitFor();
+	if (!confirmation.includes('network setting') || !confirmation.includes('current network value changed')) {
+		throw new Error(`Network undo did not disclose its conflict check: ${confirmation}`);
+	}
+	await page.goto(`${baseUrl}/wp-admin/network/settings.php`, { waitUntil: 'networkidle' });
+	if (await page.locator('#site_name').inputValue() !== previousName) {
+		throw new Error('Network mutation undo did not restore the prior Network Title.');
+	}
+	await page.goto(`${baseUrl}/wp-admin/network/admin.php?page=configops`, { waitUntil: 'networkidle' });
+	await page.getByText('Undone', { exact: true }).first().waitFor();
 	await page.setViewportSize({ width: 390, height: 844 });
 	const overflow = await page.evaluate(() => ({
 		clientWidth: document.documentElement.clientWidth,

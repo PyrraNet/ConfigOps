@@ -1,6 +1,6 @@
 <?php
 /**
- * Read-only evidence workspace inside WordPress Network Admin.
+ * Evidence and reviewed mutation undo inside WordPress Network Admin.
  *
  * @package ConfigOps
  */

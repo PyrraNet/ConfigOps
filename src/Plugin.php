@@ -41,15 +41,18 @@ use ConfigOps\Database\OptionMetadataRepository;
 use ConfigOps\Database\RestoreAuditRepository;
 use ConfigOps\Database\Schema;
 use ConfigOps\Diff\NestedDiff;
+use ConfigOps\Execution\NetworkOperationLock;
 use ConfigOps\Execution\OperationLock;
-use ConfigOps\Noise\NoiseClassifier;
-use ConfigOps\Privacy\PrivacyPolicy;
-use ConfigOps\Restore\RestoreService;
 use ConfigOps\Maintenance\HistoryRetention;
+use ConfigOps\Multisite\NetworkScope;
 use ConfigOps\Multisite\SiteBoundaryGuard;
 use ConfigOps\Multisite\SiteLifecycle;
-use ConfigOps\Multisite\NetworkScope;
 use ConfigOps\Multisite\SiteScope;
+use ConfigOps\Noise\NoiseClassifier;
+use ConfigOps\Privacy\PrivacyPolicy;
+use ConfigOps\Restore\NetworkRestorePolicy;
+use ConfigOps\Restore\NetworkRestoreService;
+use ConfigOps\Restore\RestoreService;
 
 final class Plugin
 {
@@ -170,6 +173,7 @@ final class Plugin
 				$networkScope
 			))->register();
 
+			$networkRestorePolicy = new NetworkRestorePolicy();
 			$networkPayloads = new NetworkAdminPayloadFactory(
 				new AdminPayloadFactory(
 					$networkCaptures,
@@ -179,10 +183,26 @@ final class Plugin
 					$adapters,
 					new RestoreAuditRepository($wpdb, $networkScope)
 				),
-				$networkScope
+				$networkScope,
+				$networkRestorePolicy
+			);
+			$networkRestore = new NetworkRestoreService(
+				$networkCaptures,
+				$networkMutations,
+				$codec,
+				new NetworkOperationLock($wpdb, $networkScope),
+				new RestoreAuditRepository($wpdb, $networkScope),
+				$networkScope,
+				$networkRestorePolicy
 			);
 			(new NetworkAdminController($networkPayloads, $networkScope))->register();
-			(new NetworkRestController($networkCaptures, $networkPayloads, $networkScope))->register();
+			(new NetworkRestController(
+				$networkCaptures,
+				$networkMutations,
+				$networkPayloads,
+				$networkRestore,
+				$networkScope
+			))->register();
 		}
 		(new SiteLifecycle($wpdb))->register();
 	}

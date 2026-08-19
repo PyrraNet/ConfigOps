@@ -105,7 +105,7 @@ Useful commands:
 npm run test:adversarial            # Hostile cookies, payloads, secrets, and value shapes
 npm run test:minimum                # Full PHP path on the oldest supported PHP 8.2 runtime
 npm run test:multisite              # Network observation plus Multisite isolation, retention, lifecycle, migration, and cleanup
-npm run test:network-visual         # Browser-check a running network-active Playground at configops.test
+npm run test:network-visual         # Browser-check Network Admin save, review, and undo at configops.test
 npm run test:coverage               # Fails below 70% overall or 75% trust-boundary line coverage
 npm run test:docs                   # Build and browser-check every documentation route
 npm run wp:cli -- plugin list       # Run WP-CLI in the container

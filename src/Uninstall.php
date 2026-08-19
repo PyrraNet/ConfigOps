@@ -42,17 +42,19 @@ final class Uninstall
 			}
 		}
 
-		self::removeNetworkOptions();
+		self::removeNetworkOptions($wpdb);
 		self::removeSharedOptions($wpdb);
 		self::dropSharedTables($wpdb);
 	}
 
-	private static function removeNetworkOptions(): void
+	private static function removeNetworkOptions(wpdb $database): void
 	{
 		if (! is_multisite()) {
 			return;
 		}
 
+		$lockPrefix = 'configops_operation_lock_';
+		$siteMeta = '`' . str_replace('`', '``', (string) $database->sitemeta) . '`';
 		$networkIds = get_networks(array('fields' => 'ids', 'number' => 0));
 		foreach (array_map('absint', is_array($networkIds) ? $networkIds : array()) as $networkId) {
 			if ($networkId <= 0) {
@@ -60,6 +62,18 @@ final class Uninstall
 			}
 			delete_network_option($networkId, 'configops_active_capture_id');
 			delete_network_option($networkId, 'configops_capture_integrity_fallback');
+			$locks = $database->get_col(
+				$database->prepare(
+					"SELECT meta_key FROM {$siteMeta}
+					WHERE site_id = %d AND SUBSTR(meta_key, 1, %d) = %s",
+					$networkId,
+					strlen($lockPrefix),
+					$lockPrefix
+				)
+			);
+			foreach (is_array($locks) ? $locks : array() as $lock) {
+				delete_network_option($networkId, (string) $lock);
+			}
 		}
 	}
 

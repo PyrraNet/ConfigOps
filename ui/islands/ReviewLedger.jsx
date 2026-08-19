@@ -173,7 +173,7 @@ const hasMissingRestoreReference = (changes) => changes.some((change) => (
 	&& change.before_reference?.current_status === 'missing'
 ));
 
-const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canRestore, busy, filter }) {
+const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canRestore, busy, filter, scopeType }) {
 	const { __ } = window.wp.i18n;
 	const sourceLabel = mutation.source.file || mutation.source.type;
 	const sourceOwner = mutation.adapter?.name || mutation.source.component || __('WordPress', 'configops');
@@ -201,7 +201,11 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 	const showReviewActions = filter !== 'noise';
 	const undoUnavailableExplanation = !showReviewActions
 		? ''
-		: missingRestoreReference
+		: scopeType === 'network' && mutation.type === 'delete'
+			? __('WordPress reports a network deletion only after the previous value is gone. ConfigOps keeps the evidence but cannot reconstruct that value for undo.', 'configops')
+			: mutation.undoUnavailableReason
+				? mutation.undoUnavailableReason
+			: missingRestoreReference
 			? __('The earlier referenced item no longer exists on this website. ConfigOps will not restore a broken local reference.', 'configops')
 			: !mutation.restorable && !mutation.redacted
 				? __('The adapter marks this as technical, unsupported, or outside its tested version range. ConfigOps keeps the evidence but will not guess during rollback.', 'configops')
@@ -320,7 +324,9 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 								disabled={busy}
 								aria-describedby={restoreDescriptionId}
 								onClick={() => {
-									const question = patchRestore
+									const question = scopeType === 'network'
+										? __('Undo this network setting? ConfigOps will stop if its current network value changed after the capture.', 'configops')
+										: patchRestore
 										? __('Undo only the supported, non-secret settings shown here? ConfigOps will preserve protected and technical values and stop if a visible setting changed again.', 'configops')
 										: __('Undo this setting? ConfigOps will stop if it has changed again since the capture.', 'configops');
 									if (window.confirm(question)) {
@@ -365,7 +371,7 @@ const DatabaseWriteSignal = window.wp.element.memo(function DatabaseWriteSignal(
 	);
 });
 
-const RequestGroup = window.wp.element.memo(function RequestGroup({ group, canRestore, pending, filter }) {
+const RequestGroup = window.wp.element.memo(function RequestGroup({ group, canRestore, pending, filter, scopeType }) {
 	const { __, sprintf } = window.wp.i18n;
 	const screenLabels = {
 		options: __('Saved WordPress settings', 'configops'),
@@ -428,6 +434,7 @@ const RequestGroup = window.wp.element.memo(function RequestGroup({ group, canRe
 						canRestore={canRestore}
 						busy={pending === `restore-mutation-${mutation.id}`}
 						filter={filter}
+						scopeType={scopeType}
 					/>
 				))}
 			</div>
@@ -468,7 +475,10 @@ export default function ReviewLedger() {
 	const visibleMissingRestoreReference = review.groups.some((group) => (
 		group.mutations.some((mutation) => hasMissingRestoreReference(mutation.diff))
 	));
-	const canRestoreSession = canRestore && review.summary.total > 0 && review.summary.allRestorable;
+	const canRestoreSession = canRestore
+		&& state.capabilities.sessionRollback !== false
+		&& review.summary.total > 0
+		&& review.summary.allRestorable;
 	const [filter, setFilter] = window.wp.element.useState('review');
 	const filteredGroups = window.wp.element.useMemo(() => {
 		const selectChanges = (mutation) => mutation.diff.filter((change) => {
@@ -673,7 +683,14 @@ export default function ReviewLedger() {
 
 			<div id="configops-change-list" aria-live="polite">
 				{filteredGroups.map((group) => (
-					<RequestGroup key={`${group.requestId}-${filter}`} group={group} canRestore={canRestore} pending={state.ui.pending} filter={filter} />
+					<RequestGroup
+						key={`${group.requestId}-${filter}`}
+						group={group}
+						canRestore={canRestore}
+						pending={state.ui.pending}
+						filter={filter}
+						scopeType={state.scope?.type || 'site'}
+					/>
 				))}
 			</div>
 

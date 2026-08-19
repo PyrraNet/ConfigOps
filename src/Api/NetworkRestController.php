@@ -1,6 +1,6 @@
 <?php
 /**
- * Read-only REST boundary for the current Network Admin evidence scope.
+ * REST boundary for evidence and reviewed undo in the current network scope.
  *
  * @package ConfigOps
  */
@@ -12,7 +12,10 @@ namespace ConfigOps\Api;
 use ConfigOps\Admin\AdminPayloadFactory;
 use ConfigOps\Admin\NetworkAdminPayloadFactory;
 use ConfigOps\Database\CaptureRepository;
+use ConfigOps\Database\MutationRepository;
 use ConfigOps\Multisite\NetworkScope;
+use ConfigOps\Restore\NetworkRestoreService;
+use Throwable;
 use WP_Error;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -22,7 +25,9 @@ final readonly class NetworkRestController
 {
 	public function __construct(
 		private CaptureRepository $captures,
+		private MutationRepository $mutations,
 		private NetworkAdminPayloadFactory $payloads,
+		private NetworkRestoreService $restore,
 		private NetworkScope $scope
 	) {
 	}
@@ -42,6 +47,18 @@ final readonly class NetworkRestController
 				'callback'            => array($this, 'state'),
 				'permission_callback' => array($this, 'authorized'),
 				'args'                => array('session' => array('type' => 'integer', 'minimum' => 1)),
+			)
+		);
+		register_rest_route(
+			RestRoutes::NAMESPACE,
+			'/network/mutations/(?P<id>\d+)/restore',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array($this, 'restoreMutation'),
+				'permission_callback' => array($this, 'authorized'),
+				'args'                => array(
+					'id' => array('type' => 'integer', 'minimum' => 1, 'required' => true),
+				),
 			)
 		);
 		register_rest_route(
@@ -90,6 +107,32 @@ final readonly class NetworkRestController
 
 		return $this->response(
 			$this->payloads->mutationPage($sessionId, (int) $request['after'], (int) $request['limit'])
+		);
+	}
+
+	public function restoreMutation(WP_REST_Request $request): WP_REST_Response|WP_Error
+	{
+		$mutation = $this->mutations->find((int) $request['id']);
+		if (! $mutation) {
+			return new WP_Error(
+				'configops_network_mutation_not_found',
+				__('The network mutation no longer exists.', 'configops'),
+				array('status' => 404)
+			);
+		}
+
+		try {
+			$this->restore->restoreMutation((int) $mutation->id);
+		} catch (Throwable $error) {
+			return new WP_Error(
+				'configops_network_restore_failed',
+				$error->getMessage(),
+				array('status' => 409)
+			);
+		}
+
+		return $this->response(
+			$this->payloads->state((int) $mutation->session_id, true, 'mutation-restored')
 		);
 	}
 
