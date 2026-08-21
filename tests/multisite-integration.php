@@ -259,13 +259,61 @@ $networkStateResponse = rest_do_request(new \WP_REST_Request('GET', '/configops/
 $networkState = $networkStateResponse->get_data();
 $assert(
 	200 === $networkStateResponse->get_status()
-	&& is_array($networkState)
-	&& 'network' === (string) ($networkState['scope']['type'] ?? '')
-	&& $originNetworkId === (int) ($networkState['scope']['networkId'] ?? 0)
-	&& false === (bool) ($networkState['capabilities']['capture'] ?? true)
-	&& true === (bool) ($networkState['capabilities']['rollback'] ?? false)
-	&& false === (bool) ($networkState['capabilities']['sessionRollback'] ?? true),
-	'The Network Admin REST state should permit mutation undo without exposing capture or session-undo authority.'
+		&& is_array($networkState)
+		&& 'network' === (string) ($networkState['scope']['type'] ?? '')
+		&& $originNetworkId === (int) ($networkState['scope']['networkId'] ?? 0)
+		&& true === (bool) ($networkState['capabilities']['capture'] ?? false)
+		&& true === (bool) ($networkState['capabilities']['rollback'] ?? false)
+		&& false === (bool) ($networkState['capabilities']['sessionRollback'] ?? true),
+	'The Network Admin REST state should permit named capture and mutation undo without exposing whole-session undo authority.'
+);
+
+$networkNamedOption = 'network_named_capture_fixture';
+delete_network_option($originNetworkId, $networkNamedOption);
+$networkStartRequest = new \WP_REST_Request('POST', '/configops/v1/network/captures');
+$networkStartRequest->set_param('name', 'Planned network maintenance');
+$networkStartResponse = rest_do_request($networkStartRequest);
+$networkStartState = $networkStartResponse->get_data();
+$networkNamedSessionId = (int) ($networkStartState['active']['id'] ?? 0);
+$assert(
+	200 === $networkStartResponse->get_status()
+	&& $networkNamedSessionId > 0
+	&& 'manual' === (string) ($networkStartState['active']['mode'] ?? '')
+	&& 'Planned network maintenance' === (string) ($networkStartState['active']['name'] ?? '')
+	&& $networkNamedSessionId === (int) get_network_option($originNetworkId, 'configops_active_capture_id', 0),
+	'Starting a named network session should atomically publish a network-owned active pointer.'
+);
+$concurrentNetworkStart = rest_do_request($networkStartRequest);
+$assert(
+	409 === $concurrentNetworkStart->get_status()
+	&& $networkNamedSessionId === (int) get_network_option($originNetworkId, 'configops_active_capture_id', 0),
+	'A second named network session must not replace the active session.'
+);
+$assert(
+	add_network_option($originNetworkId, $networkNamedOption, array('enabled' => true)),
+	'Network Options writes should continue normally during a named network session.'
+);
+$networkNamedRows = $networkMutations->forSession($networkNamedSessionId);
+$assert(
+	1 === count($networkNamedRows)
+	&& $networkNamedOption === (string) $networkNamedRows[0]->option_name
+	&& 'add' === (string) $networkNamedRows[0]->mutation_type
+	&& ! $networkCaptures->hasOpenAutomatic(),
+	'A named network session should own supported writes instead of opening an automatic observation.'
+);
+$networkStopResponse = rest_do_request(
+	new \WP_REST_Request('POST', '/configops/v1/network/captures/active/stop')
+);
+$networkStopState = $networkStopResponse->get_data();
+$networkNamedSession = $networkCaptures->find($networkNamedSessionId);
+$assert(
+	200 === $networkStopResponse->get_status()
+	&& $networkNamedSession
+	&& 'completed' === (string) $networkNamedSession->status
+	&& 1 === (int) $networkNamedSession->mutation_count
+	&& $networkNamedSessionId === (int) ($networkStopState['selected']['id'] ?? 0)
+	&& false === get_network_option($originNetworkId, 'configops_active_capture_id', false),
+	'Stopping a named network session should verify its evidence and clear only the network pointer.'
 );
 $networkMutationResponse = rest_do_request(
 	new \WP_REST_Request('GET', '/configops/v1/network/captures/' . $networkAutomaticSessionId . '/mutations')
@@ -433,14 +481,21 @@ $originalNetworkUserId = get_current_user_id();
 wp_set_current_user(0);
 $unauthorizedNetworkResponse = rest_do_request(new \WP_REST_Request('GET', '/configops/v1/network/state'));
 $unauthorizedNetworkRestore = rest_do_request($deletedRestoreRequest);
+$unauthorizedNetworkStart = rest_do_request($networkStartRequest);
+$unauthorizedNetworkStop = rest_do_request(
+	new \WP_REST_Request('POST', '/configops/v1/network/captures/active/stop')
+);
 $assert(
 	in_array($unauthorizedNetworkResponse->get_status(), array(401, 403), true)
-	&& in_array($unauthorizedNetworkRestore->get_status(), array(401, 403), true),
-	'Network evidence and undo routes should reject requests without manage_network_options.'
+	&& in_array($unauthorizedNetworkRestore->get_status(), array(401, 403), true)
+	&& in_array($unauthorizedNetworkStart->get_status(), array(401, 403), true)
+	&& in_array($unauthorizedNetworkStop->get_status(), array(401, 403), true),
+	'Network evidence, capture, and undo routes should reject requests without manage_network_options.'
 );
 wp_set_current_user($originalNetworkUserId);
 
 delete_network_option($originNetworkId, $networkUpdatedOption);
+delete_network_option($originNetworkId, $networkNamedOption);
 update_network_option($originNetworkId, $networkProtectedOption, $networkProtectedBefore);
 $assert(
 	4 === count($networkMutations->forSession($networkAutomaticSessionId)),

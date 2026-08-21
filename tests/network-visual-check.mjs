@@ -52,23 +52,23 @@ try {
 	if (!await page.locator('#adminmenu').getByRole('link', { name: 'ConfigOps', exact: true }).isVisible()) {
 		throw new Error('ConfigOps is missing from the Network Admin navigation.');
 	}
-	await page.waitForFunction(() => ['configops-sessions-island', 'configops-review-island']
-		.every((id) => document.getElementById(id)?.getAttribute('aria-busy') !== 'true'));
+		await page.waitForFunction(() => ['configops-capture-island', 'configops-sessions-island', 'configops-review-island']
+			.every((id) => document.getElementById(id)?.getAttribute('aria-busy') !== 'true'));
 
 	const bootstrap = await page.locator('#configops-bootstrap').evaluate((element) => JSON.parse(element.textContent || '{}'));
 	if (bootstrap.scope?.type !== 'network' || bootstrap.scope?.networkId < 1) {
 		throw new Error(`Network bootstrap did not retain its scope identity: ${JSON.stringify(bootstrap.scope)}.`);
 	}
 	if (
-		bootstrap.capabilities?.capture !== false
+			bootstrap.capabilities?.capture !== true
 		|| bootstrap.capabilities?.rollback !== true
 		|| bootstrap.capabilities?.sessionRollback !== false
 	) {
-		throw new Error('Network evidence must expose mutation undo without capture or whole-session controls.');
-	}
-	if (await page.locator('#configops-capture-island').count()) {
-		throw new Error('The Network Admin view rendered site capture controls.');
-	}
+			throw new Error('Network evidence must expose named capture and mutation undo without whole-session controls.');
+		}
+		if (!await page.locator('#configops-capture-island').isVisible()) {
+			throw new Error('The Network Admin view did not render its network capture controls.');
+		}
 	if (!await page.getByText('Add/update undo', { exact: true }).isVisible()) {
 		throw new Error('The permanent network scope band does not disclose the undo boundary.');
 	}

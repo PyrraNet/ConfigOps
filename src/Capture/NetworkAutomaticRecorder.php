@@ -19,6 +19,7 @@ final class NetworkAutomaticRecorder
 	private ?int $sessionId = null;
 	private bool $startAttempted = false;
 	private bool $finalized = false;
+	private bool $suppressed = false;
 
 	public function __construct(
 		private readonly CaptureRepository $captures,
@@ -32,15 +33,34 @@ final class NetworkAutomaticRecorder
 		add_action('shutdown', array($this, 'finalize'), PHP_INT_MAX);
 	}
 
+	/**
+	 * Finish a request-local observation before a ConfigOps command writes its
+	 * own state, then prevent another automatic session in the same request.
+	 */
+	public function suppress(): void
+	{
+		$this->suppressed = true;
+		if (null !== $this->sessionId && ! $this->finalized) {
+			$this->finalize();
+		}
+
+		$this->sessionId = null;
+	}
+
 	public function sessionId(int $networkId, bool $create = true): ?int
 	{
-		if ($this->finalized || ! $this->accepts($networkId)) {
+		if (! $this->accepts($networkId)) {
 			return null;
+		}
+
+		$activeId = $this->captures->activeId();
+		if (null !== $activeId) {
+			return $activeId;
 		}
 		if (null !== $this->sessionId) {
 			return $this->sessionId;
 		}
-		if (! $create || $this->startAttempted || ! $this->isEligible()) {
+		if ($this->finalized || $this->suppressed || ! $create || $this->startAttempted || ! $this->isEligible()) {
 			return null;
 		}
 

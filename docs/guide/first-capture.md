@@ -39,7 +39,7 @@ The PHP observer records server-side persistence. Browser observations can add t
 
 Each server request receives a local request ID. Consecutive writes by the same owner to the same option within that request are collapsed from the original baseline to the final result; a complete revert disappears from the final decision set.
 
-An automatic observation belongs to one request. A named Change Session is site-wide and not confined to one browser tab. Another administrator or a background request can write options during that wider window. Source and actor evidence help review those writes, but correlation is not certainty. Keep named sessions short and inspect unexpected request groups before undoing anything.
+An automatic observation belongs to one request. A named site Change Session is site-wide, while a named Network Change Session spans the network-owned Options API scope; neither is confined to one browser tab. Another administrator or a background request can write options during that wider window. Source and actor evidence help review those writes, but correlation is not certainty. Keep named sessions short and inspect unexpected request groups before undoing anything.
 
 Cron and known runtime state are normally classified as technical noise. Unknown direct custom-table writes can produce value-free warnings, but ConfigOps does not read or store their SQL or values.
 

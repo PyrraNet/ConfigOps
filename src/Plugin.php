@@ -34,6 +34,7 @@ use ConfigOps\Capture\SqlWriteSentry;
 use ConfigOps\Capture\SourceAttributor;
 use ConfigOps\Capture\ValueCodec;
 use ConfigOps\Command\CaptureCommands;
+use ConfigOps\Command\NetworkCaptureCommands;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\DatabaseWriteSignalRepository;
 use ConfigOps\Database\MutationRepository;
@@ -153,6 +154,7 @@ final class Plugin
 			$networkMutations = new MutationRepository($wpdb, $networkScope);
 			$networkAutomatic = new NetworkAutomaticRecorder($networkCaptures, $request, $networkScope);
 			$networkAutomatic->register();
+			$networkCommands = new NetworkCaptureCommands($networkCaptures, $networkAutomatic, $networkScope);
 			$networkRecorder = new MutationRecorder(
 				$networkCaptures,
 				$networkMutations,
@@ -195,10 +197,11 @@ final class Plugin
 				$networkScope,
 				$networkRestorePolicy
 			);
-			(new NetworkAdminController($networkPayloads, $networkScope))->register();
+			(new NetworkAdminController($networkCaptures, $networkCommands, $networkPayloads, $networkScope))->register();
 			(new NetworkRestController(
 				$networkCaptures,
 				$networkMutations,
+				$networkCommands,
 				$networkPayloads,
 				$networkRestore,
 				$networkScope

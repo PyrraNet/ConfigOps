@@ -10,14 +10,14 @@ export const fetchMutationPage = (sessionId, after, scope) => apiFetch({
 	path: `${scopeRoot(scope)}/captures/${sessionId}/mutations?after=${after}`,
 });
 
-export const createCapture = (name) => apiFetch({
-	path: `${API_ROOT}/captures`,
+export const createCapture = (name, scope) => apiFetch({
+	path: `${scopeRoot(scope)}/captures`,
 	method: 'POST',
 	data: { name },
 });
 
-export const stopActiveCapture = () => apiFetch({
-	path: `${API_ROOT}/captures/active/stop`,
+export const stopActiveCapture = (scope) => apiFetch({
+	path: `${scopeRoot(scope)}/captures/active/stop`,
 	method: 'POST',
 });
 

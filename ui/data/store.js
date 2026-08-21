@@ -107,8 +107,8 @@ export const dismissNotice = () => {
 	publish({ ...snapshot, notice: { code: '', kind: 'success', text: '' } });
 };
 
-export const startCapture = (name) => runPending('start-capture', () => createCapture(name));
-export const stopCapture = () => runPending('stop-capture', stopActiveCapture);
+export const startCapture = (name) => runPending('start-capture', () => createCapture(name, snapshot.scope));
+export const stopCapture = () => runPending('stop-capture', () => stopActiveCapture(snapshot.scope));
 export const restoreMutation = (id) => runPending(
 	`restore-mutation-${id}`,
 	() => restoreMutationRequest(id, snapshot.scope),

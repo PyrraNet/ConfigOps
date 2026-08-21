@@ -11,6 +11,7 @@ namespace ConfigOps\Api;
 
 use ConfigOps\Admin\AdminPayloadFactory;
 use ConfigOps\Admin\NetworkAdminPayloadFactory;
+use ConfigOps\Command\NetworkCaptureCommands;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\MutationRepository;
 use ConfigOps\Multisite\NetworkScope;
@@ -26,6 +27,7 @@ final readonly class NetworkRestController
 	public function __construct(
 		private CaptureRepository $captures,
 		private MutationRepository $mutations,
+		private NetworkCaptureCommands $commands,
 		private NetworkAdminPayloadFactory $payloads,
 		private NetworkRestoreService $restore,
 		private NetworkScope $scope
@@ -47,6 +49,25 @@ final readonly class NetworkRestController
 				'callback'            => array($this, 'state'),
 				'permission_callback' => array($this, 'authorized'),
 				'args'                => array('session' => array('type' => 'integer', 'minimum' => 1)),
+			)
+		);
+		register_rest_route(
+			RestRoutes::NAMESPACE,
+			'/network/captures',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array($this, 'startCapture'),
+				'permission_callback' => array($this, 'authorized'),
+				'args'                => array('name' => array('type' => 'string', 'maxLength' => 191)),
+			)
+		);
+		register_rest_route(
+			RestRoutes::NAMESPACE,
+			'/network/captures/active/stop',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array($this, 'stopCapture'),
+				'permission_callback' => array($this, 'authorized'),
 			)
 		);
 		register_rest_route(
@@ -110,6 +131,32 @@ final readonly class NetworkRestController
 		);
 	}
 
+	public function startCapture(WP_REST_Request $request): WP_REST_Response|WP_Error
+	{
+		$name = sanitize_text_field((string) $request['name']);
+
+		return $this->command(
+			function () use ($name): array {
+				$id = $this->commands->start($name);
+
+				return $this->payloads->state($id, true, 'started');
+			},
+			'configops_network_capture_failed'
+		);
+	}
+
+	public function stopCapture(): WP_REST_Response|WP_Error
+	{
+		return $this->command(
+			function (): array {
+				$id = $this->commands->stop();
+
+				return $this->payloads->state($id, true, null === $id ? 'nothing-to-stop' : 'stopped');
+			},
+			'configops_network_capture_failed'
+		);
+	}
+
 	public function restoreMutation(WP_REST_Request $request): WP_REST_Response|WP_Error
 	{
 		$mutation = $this->mutations->find((int) $request['id']);
@@ -121,19 +168,31 @@ final readonly class NetworkRestController
 			);
 		}
 
+		return $this->command(
+			function () use ($mutation): array {
+				$this->restore->restoreMutation((int) $mutation->id);
+
+				return $this->payloads->state((int) $mutation->session_id, true, 'mutation-restored');
+			},
+			'configops_network_restore_failed'
+		);
+	}
+
+	/**
+	 * @param callable(): array<string, mixed> $operation Operation.
+	 * @param string                           $errorCode Stable REST error code.
+	 */
+	private function command(callable $operation, string $errorCode): WP_REST_Response|WP_Error
+	{
 		try {
-			$this->restore->restoreMutation((int) $mutation->id);
+			return $this->response($operation());
 		} catch (Throwable $error) {
 			return new WP_Error(
-				'configops_network_restore_failed',
+				$errorCode,
 				$error->getMessage(),
 				array('status' => 409)
 			);
 		}
-
-		return $this->response(
-			$this->payloads->state((int) $mutation->session_id, true, 'mutation-restored')
-		);
 	}
 
 	/**

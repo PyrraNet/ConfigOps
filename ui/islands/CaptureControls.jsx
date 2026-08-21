@@ -7,6 +7,7 @@ export default function CaptureControls() {
 	const [name, setName] = window.wp.element.useState('');
 	const [composerOpen, setComposerOpen] = window.wp.element.useState(false);
 	const busy = Boolean(state.ui.pending);
+	const isNetwork = state.scope?.type === 'network';
 
 	window.wp.element.useEffect(() => {
 		const id = 'wp-admin-bar-configops-recording';
@@ -79,17 +80,17 @@ export default function CaptureControls() {
 			) : !composerOpen ? (
 				<section className="configops-capture-command is-compact" aria-labelledby="configops-new-capture-title">
 					<div>
-						<p className="configops-state-label">{__('Automatic recording is on', 'configops')}</p>
-						<h2 id="configops-new-capture-title">{__('Settings changes are recorded as they happen', 'configops')}</h2>
+						<p className="configops-state-label">{isNetwork ? __('Automatic network recording is on', 'configops') : __('Automatic recording is on', 'configops')}</p>
+						<h2 id="configops-new-capture-title">{isNetwork ? __('Network settings changes are recorded as they happen', 'configops') : __('Settings changes are recorded as they happen', 'configops')}</h2>
 					</div>
-					<button className="button" type="button" onClick={() => setComposerOpen(true)}>{__('Start change session', 'configops')}</button>
+					<button className="button" type="button" onClick={() => setComposerOpen(true)}>{isNetwork ? __('Start network session', 'configops') : __('Start change session', 'configops')}</button>
 				</section>
 			) : (
 				<section className="configops-capture-command" aria-labelledby="configops-start-title">
 					<form className="configops-capture-form" onSubmit={submit}>
 						<div className="configops-capture-intro">
 							<p className="configops-state-label">{__('Focused mode', 'configops')}</p>
-							<h2 id="configops-start-title">{__('Start a named change session', 'configops')}</h2>
+							<h2 id="configops-start-title">{isNetwork ? __('Start a named network session', 'configops') : __('Start a named change session', 'configops')}</h2>
 							<p>{__('Group a planned maintenance task, support case, or investigation under one name.', 'configops')}</p>
 						</div>
 						<div className="configops-capture-field">

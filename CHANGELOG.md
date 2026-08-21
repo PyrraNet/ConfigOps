@@ -4,6 +4,12 @@ ConfigOps follows semantic versioning. While the major version is `0`, adapter c
 
 ## Unreleased
 
+### Shipped
+
+- Named Network Change Sessions in Network Admin, backed by the network-owned atomic active-session pointer and the same verified finalization contract as site sessions.
+- Scope-aware capture controls, Network Admin recording status, intent correlation, and REST start/stop commands without enabling unsafe whole-network-change undo.
+- Multisite integration coverage for concurrent start refusal, named-session write ownership, finalization, pointer cleanup, and unauthorized capture commands.
+
 ## 0.4.3 — 2026-08-19
 
 The WordPress 7.1 compatibility release.

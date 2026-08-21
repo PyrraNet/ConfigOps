@@ -37,7 +37,7 @@ Change a supported WordPress or plugin setting as usual. ConfigOps opens one iso
 
 Named Change Sessions remain the focused mode for planned maintenance, support cases, and investigations that span several requests.
 
-On a network-active Multisite installation, every site keeps an isolated local ledger while Network Admin receives a separate network-wide evidence view. Complete Network Options additions and updates can be undone one mutation at a time after the same conflict and compensation checks; deletes remain review-only.
+On a network-active Multisite installation, every site keeps an isolated local ledger while Network Admin receives a separate network-wide evidence view. Network administrators can group planned work into named Network Change Sessions. Complete Network Options additions and updates can be undone one mutation at a time after the same conflict and compensation checks; deletes and whole-session undo remain unavailable.
 
 ```diff
 WP Mail SMTP → Sender email
@@ -72,7 +72,7 @@ The exact field coverage and limitations are available inside **ConfigOps → Pl
 
 Requires WordPress 7.0 or newer and PHP 8.2 or newer. PHP 8.2 is the oldest supported runtime; production sites should prefer a newer actively supported PHP branch.
 
-> **Version 0.4 scope:** ConfigOps supports both single-site WordPress and network-active Multisite. Site evidence remains isolated per site; Network Admin has network-wide Network Options evidence and guarded add/update undo. ConfigOps is not a backup, cross-site bulk console, fleet manager, or promise of transactional rollback.
+> **Version 0.4 scope:** ConfigOps supports both single-site WordPress and network-active Multisite. Site evidence remains isolated per site; Network Admin has automatic and named Network Options evidence plus guarded add/update undo. ConfigOps is not a backup, cross-site bulk console, fleet manager, or promise of transactional rollback.
 
 ## Safety model
 

@@ -80,7 +80,7 @@ $configopsSiteUrl = get_admin_url(get_current_blog_id(), 'admin.php?page=configo
 			</div>
 		</main>
 	<?php else : ?>
-		<?php if (! $configopsIsNetwork) : ?>
+		<?php if (true === ($bootstrap['capabilities']['capture'] ?? false)) : ?>
 		<div id="configops-capture-island" class="configops-island" aria-live="polite" aria-busy="true">
 			<div class="configops-island-placeholder configops-island-placeholder--controls">
 				<span></span><span></span>
@@ -106,10 +106,10 @@ $configopsSiteUrl = get_admin_url(get_current_blog_id(), 'admin.php?page=configo
 	<noscript>
 		<section class="configops-no-script">
 			<h2><?php esc_html_e('Enable JavaScript to use ConfigOps.', 'configops'); ?></h2>
-			<?php if ('review' === $view && null !== ($bootstrap['active'] ?? null)) : ?>
+			<?php if (in_array($view, array('review', 'network'), true) && null !== ($bootstrap['active'] ?? null)) : ?>
 				<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-					<input type="hidden" name="action" value="configops_stop_capture">
-					<?php wp_nonce_field('configops_stop_capture'); ?>
+					<input type="hidden" name="action" value="<?php echo esc_attr($configopsIsNetwork ? 'configops_stop_network_capture' : 'configops_stop_capture'); ?>">
+					<?php wp_nonce_field($configopsIsNetwork ? 'configops_stop_network_capture' : 'configops_stop_capture'); ?>
 					<button class="button button-primary" type="submit"><?php esc_html_e('Stop active capture', 'configops'); ?></button>
 				</form>
 			<?php endif; ?>

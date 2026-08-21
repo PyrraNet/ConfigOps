@@ -28,7 +28,7 @@ final readonly class NetworkAdminPayloadFactory
 	{
 		$state = $this->payloads->state($sessionId, $noticeCode, '', $includeReview);
 		$state['capabilities'] = array(
-			'capture'         => false,
+			'capture'         => current_user_can('manage_network_options'),
 			'rollback'        => current_user_can('manage_network_options'),
 			'sessionRollback' => false,
 		);

@@ -9,7 +9,7 @@ Version 0.4.3 is deliberately narrower than a configuration-management platform.
 
 ## Not shipped
 
-- named network Change Sessions, whole-network-change undo, network option deletion undo, authority or plugin-lifecycle restoration, and derived network-counter undo;
+- whole-network-change undo, network option deletion undo, authority or plugin-lifecycle restoration, and derived network-counter undo;
 - cross-site aggregation, cross-site bulk actions, or continuing one site capture across `switch_to_blog()` transitions;
 - remote apply, cross-site synchronization, or fleet control;
 - generic rollback for plugin custom tables or direct SQL;
@@ -19,7 +19,7 @@ Version 0.4.3 is deliberately narrower than a configuration-management platform.
 - generic semantic understanding for every WordPress plugin;
 - cloud storage, team accounts, approvals, drift monitoring, Policies, or Release Packs.
 
-ConfigOps pins site observations to their originating WordPress site. If unsupported cross-site code calls `switch_to_blog()` and then writes configuration, ConfigOps ignores that value instead of attaching it to the wrong site's history. Any already-running site capture is marked incomplete and cannot use whole-change undo. Supported Network Options API changes use a separate network scope and never join a site's capture.
+ConfigOps pins site observations to their originating WordPress site. If unsupported cross-site code calls `switch_to_blog()` and then writes configuration, ConfigOps ignores that value instead of attaching it to the wrong site's history. Any already-running site capture is marked incomplete and cannot use whole-change undo. Supported Network Options API changes use a separate network scope and never join a site's capture. Named Network Change Sessions group network-owned evidence only and deliberately do not enable whole-session undo.
 
 ## Evidence limits
 
