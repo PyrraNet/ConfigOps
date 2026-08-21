@@ -51,6 +51,17 @@ WP Mail SMTP → SMTP password
 
 Every undo is checked against the current value first. If the website changed again, ConfigOps refuses to overwrite it. If observation evidence is incomplete, whole-save undo is disabled rather than presented as safe.
 
+## Experimental smart array undo
+
+Unknown plugins do not need an adapter for every ordinary settings array. A site administrator can enable **Smart undo for ordinary settings arrays** under **ConfigOps → Plugin support**. For an unclaimed associative `wp_options` update, ConfigOps then treats the captured before value, captured after value, and current value as a three-way check:
+
+- every patch entry must agree with both typed snapshots;
+- every target key must still equal its captured after-state;
+- the complete patch is refused if one target conflicts;
+- unrelated keys added or changed later are preserved.
+
+This remains deliberately experimental and site-local. It does not infer plugin semantics or override an adapter contract, and it refuses roots, integer-keyed parent arrays, list-index edits, secrets, redacted or truncated evidence, malformed or overlapping paths, autoload drift, and custom-table writes.
+
 ## Support is a contract
 
 | Integration | Tested release | Observe | Explain | Secrets | Undo |
@@ -82,6 +93,7 @@ Requires WordPress 7.0 or newer and PHP 8.2 or newer. PHP 8.2 is the oldest supp
 - direct custom-table writes produce value-free warnings, never stored SQL;
 - site icons, site logos, every supported Yoast social-image ID, publisher-policy page, content-ignore entry, LLMs.txt page, and represented-person selector retain bounded local identity; referenced objects are never copied or deleted;
 - restore operations are serialized, audited, conflict-checked, and compensated when possible;
+- retention shares the restore mutex in each site or network scope, so cleanup cannot remove evidence from an in-flight undo;
 - interrupted, incomplete, or version-uncertain evidence fails closed;
 - while ConfigOps is active, completed local history is retained for 30 days by default;
 - uninstalling ConfigOps removes its observation history, installation options, scheduled cleanup, and capabilities.

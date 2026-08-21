@@ -9,6 +9,19 @@ ConfigOps follows semantic versioning. While the major version is `0`, adapter c
 - Named Network Change Sessions in Network Admin, backed by the network-owned atomic active-session pointer and the same verified finalization contract as site sessions.
 - Scope-aware capture controls, Network Admin recording status, intent correlation, and REST start/stop commands without enabling unsafe whole-network-change undo.
 - Multisite integration coverage for concurrent start refusal, named-session write ownership, finalization, pointer cleanup, and unauthorized capture commands.
+- An explicitly opt-in **Smart undo for ordinary settings arrays** experiment under Plugin support. For unclaimed associative site options, ConfigOps verifies the complete diff against both typed snapshots, checks every target path against current state, reverses additions, removals, and replacements together, and preserves unrelated later keys.
+
+### Hardened
+
+- Generic array patches fail closed for roots, integer-keyed parent arrays, list-index edits, secrets, redacted or oversized evidence, truncated or overlapping paths, adapter-owned options, malformed snapshots, autoload drift, and any target key that changed again.
+- Named-session pointer release is now compare-and-delete in site and network option scopes. A finishing request cannot delete a newer owner's pointer, and a start that loses ownership cannot resurrect or strand its session row.
+- Site and network retention now share their scope's restore mutex, so cleanup cannot remove mutation or audit evidence while an undo operation is reading it.
+- Internal lock and pointer compare-and-swap statements no longer create unmanaged-write evidence through the SQL sentry.
+
+### Verified against
+
+- 899 unit/fuzz assertions, 46 adversarial assertions, 269 real WordPress integration assertions, 51 exact real-plugin adapter assertions, and 139 network-active Multisite assertions.
+- 77.12% tracked-production and 79.94% trust-boundary line coverage, plus the PHP 8.2–8.5 compatibility scan, UI budget, documentation build, release archive, and dependency advisory gates.
 
 ## 0.4.3 — 2026-08-19
 

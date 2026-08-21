@@ -27,7 +27,7 @@ Source attribution is bounded provenance, not proof of causality. Browser field 
 
 Typed values that are too large, too deep, unsupported, or unsafe to reconstruct lose undo eligibility. This is an intentional trade: ConfigOps would rather preserve a warning than persist dangerous data or manufacture a rollback.
 
-The opt-in generic array experiment is structural, not semantic. It applies only to unclaimed associative `wp_options` updates whose complete patch agrees with both stored snapshots. It does not infer plugin intent, patch numeric lists, cross a redacted value, or make custom-table writes restorable.
+The opt-in generic array experiment is structural, not semantic. It applies only to unclaimed associative `wp_options` updates whose complete patch agrees with both stored snapshots. It does not infer plugin intent, traverse integer-keyed parent arrays, patch list indexes, cross a redacted value, or make custom-table writes restorable. It is site-local and does not extend the stricter Network Options undo contract.
 
 ## Undo limits
 

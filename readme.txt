@@ -43,7 +43,9 @@ ConfigOps is not plugin-version rollback. It works with configuration values, no
 * Conflict checks before every restore.
 * Isolated site evidence across network-active WordPress Multisite installations.
 * A separate Network Admin ledger for Network Options changes.
+* Named Network Change Sessions for planned work that spans several Network Admin requests.
 * Mutation-level undo for complete Network Options additions and updates.
+* Optional experimental smart undo for verified keys in ordinary, unclaimed associative wp_options arrays.
 
 = Safety before convenience =
 
@@ -69,7 +71,7 @@ The Plugin support screen states exactly which WordPress and plugin capabilities
 
 On a network-active installation, each site keeps its own isolated evidence lifecycle. Network Admin receives a separate network-wide ledger for supported Network Options API changes, with guarded mutation-level undo for complete additions and updates.
 
-Network option deletes remain review-only because WordPress reports them after the previous value is gone. Named network sessions, whole-network-change undo, cross-site aggregation, and bulk operations are not available.
+Network option deletes remain review-only because WordPress reports them after the previous value is gone. Named Network Change Sessions can group network-owned evidence, but whole-network-change undo, cross-site aggregation, and bulk operations are not available.
 
 Version 0.4 is a local single-site and Multisite undo and evidence layer for supported WordPress settings. It is not a staging plugin, backup, content migration, database synchronization, fleet manager, or generic activity log.
 
@@ -103,7 +105,7 @@ Yes. Version 0.4 supports network activation, isolated per-site evidence, lifecy
 
 = Can ConfigOps undo an array without a plugin adapter? =
 
-Complete generic Options API values already use exact current-value checks. Site administrators can additionally enable an experimental smart-array mode under Plugin support. For unclaimed associative wp_options arrays, it reverses only snapshot-verified changed keys and preserves unrelated later keys. It refuses secrets, root replacements, list indexes, truncated or malformed evidence, and any target key that changed again.
+Complete generic Options API values already use exact current-value checks. Site administrators can additionally enable **Smart undo for ordinary settings arrays** under Plugin support. For unclaimed associative wp_options updates, it cross-checks the complete patch against both typed snapshots, reverses only captured target keys, and preserves unrelated later keys. It refuses secrets, root replacements, integer-keyed parent arrays, list-index edits, redacted or truncated evidence, malformed or overlapping paths, autoload drift, adapter-owned options, and any target key that changed again.
 
 = Are secrets stored in the mutation history? =
 
@@ -135,6 +137,13 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 4. Review a real Network Settings change in Network Admin with explicit network-wide scope, add/update undo boundaries, and guarded mutation undo.
 
 == Changelog ==
+
+= Unreleased =
+
+* Adds an opt-in smart-array experiment that can undo verified keys in ordinary unclaimed wp_options arrays without requiring a plugin adapter.
+* Preserves unrelated later keys and refuses the complete patch when snapshots, target paths, structure, secrets, autoload state, or adapter ownership cannot be proven safe.
+* Makes named-session pointer release owner-conditional across site and network scopes and prevents activation races from resurrecting or orphaning sessions.
+* Serializes site and network retention with restore so cleanup cannot remove evidence from an in-flight undo.
 
 = 0.4.3 =
 

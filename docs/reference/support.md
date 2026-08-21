@@ -40,6 +40,8 @@ Network undo excludes authority and plugin-lifecycle state plus derived counters
 
 Versions outside an adapter’s tested range keep generic evidence. Adapter-dependent explanations, field patches, and automatic undo fail closed until the contract is verified.
 
+The generic array experiment is available only for site-owned `wp_options` evidence and is disabled by default. A user with `manage_options` can change the experiment setting under **ConfigOps → Plugin support**; attempting the resulting mutation undo still requires `configops_rollback`. It does not apply to Network Options or bypass an installed adapter's ownership and version boundary.
+
 ## What “with limits” means
 
 - The current target must still match the observed result.
@@ -48,6 +50,6 @@ Versions outside an adapter’s tested range keep generic evidence. Adapter-depe
 - Adapter schema and plugin version must still match.
 - Local references must still exist and remain usable.
 - Only Options API changes are generically restorable; custom tables need an explicit future adapter.
-- Experimental generic array patches carry no semantic plugin knowledge and deliberately refuse list-index surgery and ambiguous structures.
+- Experimental generic array patches carry no semantic plugin knowledge and deliberately refuse integer-keyed parents, list-index surgery, and ambiguous structures.
 
 The exact adapter field families and normalization rules are documented in [Adapter contracts](/adapters).

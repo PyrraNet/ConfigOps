@@ -45,6 +45,18 @@ Automatic observations are request-local: concurrent admin requests do not share
 
 Network Settings changes use a stricter boundary. ConfigOps records supported Network Options API mutations automatically, and complete additions or updates may expose mutation-level undo. Network deletes and whole-change undo remain unavailable.
 
+## Optionally try smart array undo
+
+The generic array mode is experimental and off by default. Test it in staging before enabling it on a production site:
+
+1. Open **ConfigOps → Plugin support** as a site administrator.
+2. Enable **Smart undo for ordinary settings arrays**.
+3. Save one harmless setting owned by a plugin without a ConfigOps adapter.
+4. Open its mutation in Review and look for **Experimental** and **Smart undo changed keys**.
+5. Undo it, then verify the result in the owning plugin's screen.
+
+The experiment is site-local and applies only to unclaimed associative `wp_options` updates. It never enables generic custom-table, Network Options, secret, root, or list-index undo. Disable it again from Plugin support when the staging exercise is complete.
+
 ## What success looks like
 
 A completed change shows:

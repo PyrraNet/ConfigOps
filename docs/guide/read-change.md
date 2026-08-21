@@ -29,6 +29,8 @@ A request group shows the actor, HTTP method, path, WordPress admin screen when 
 | Derived / technical | Cache, lock, status, rewrite, cron, or migration-like state | Shown separately and excluded from the settings decision |
 | Unknown | A persisted option change exists without an exact field contract | Evidence remains visible; undo is conservative |
 
+When the site-local generic array experiment is enabled, an eligible Unknown mutation is labeled **Experimental** and its action reads **Smart undo changed keys**. That label means the complete structural patch passed the snapshot policy; it does not mean ConfigOps understands the plugin or the consequences of its save.
+
 ## Read the diff
 
 ConfigOps stores typed nested differences, including meaningful changes in lists and associative values. JSON Pointer paths identify nested fields. Storage-only scalar churn can be normalized, while list order remains meaningful.
@@ -52,6 +54,7 @@ No control is itself evidence. Common reasons include:
 - a secret or oversized value was removed from restorable history;
 - the adapter version is outside its tested range;
 - only part of an unknown option can be explained;
+- the generic array experiment is off, the option has an adapter owner, or its structure is ambiguous;
 - the current value no longer matches the observed result;
 - a referenced page, media item, or user is now missing;
 - the observation is incomplete;

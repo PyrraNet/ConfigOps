@@ -21,6 +21,7 @@ ConfigOps is designed to lose capability before it invents certainty. The host s
 | Current value changed after observation | Returns a conflict and performs no target write | Review newer work and choose the intended state manually |
 | Referenced local object missing | Refuses the restore | Recreate/select a valid object, then use the native settings screen |
 | Operation lock unavailable | Refuses concurrent restore or maintenance | Wait for the active operation; investigate a stale lock if it does not clear |
+| Retention runs while restore owns the scope | Refuses cleanup and preserves the evidence | Let the restore finish; the next scheduled or manual retention run may retry |
 | A later write in session undo fails | Attempts compensation for earlier writes and records the outcome | Verify every affected setting; treat compensation failure as an incident |
 | Unknown custom-table write | Stores a value-free signal only | Use the owning plugin’s tools or a database backup |
 | ConfigOps is deactivated during a Change Session | Closes the session as interrupted and incomplete | Reactivate, verify site state, and start a new bounded Change Session |
@@ -29,7 +30,7 @@ ConfigOps is designed to lose capability before it invents certainty. The host s
 
 - It does not allow observation failures to fail the original WordPress settings request.
 - It redacts before persistence and never treats browser intent as write authority.
-- It verifies current state before undo and serializes restore operations.
+- It verifies current state before undo and serializes restore with evidence retention in the same site or network scope.
 - It records value-free restore outcomes before and after writes.
 - It does not call incomplete evidence complete.
 

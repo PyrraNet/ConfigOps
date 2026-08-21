@@ -23,11 +23,11 @@ import wordmarkDark from '../../../../assets/brand/configops-wordmark-dark.svg';
 				<a class="co-action co-action--primary" :href="withBase('/guide/getting-started')">See your first change</a>
 				<a class="co-action" :href="withBase('/security/failure-model')">Read the failure model</a>
 			</div>
-			<dl class="co-release-facts" aria-label="Release facts">
+			<dl class="co-release-facts" aria-label="Current project facts">
 				<div><dt>Release</dt><dd>0.4.3 WordPress 7.1 compatibility</dd></div>
 				<div><dt>Runtime</dt><dd>WordPress 7.0–7.1 · PHP 8.2–8.5</dd></div>
 				<div><dt>Storage</dt><dd>Local database · no account</dd></div>
-				<div><dt>Evidence</dt><dd>76.43% production · 78.11% trust boundaries</dd></div>
+				<div><dt>Main evidence</dt><dd>77.12% production · 79.94% trust boundaries</dd></div>
 			</dl>
 		</section>
 
@@ -68,7 +68,7 @@ import wordmarkDark from '../../../../assets/brand/configops-wordmark-dark.svg';
 				</li>
 				<li>
 					<span>03</span>
-					<div><h3>Undo only matching state</h3><p>ConfigOps checks current values, adapter versions, references, and observation completeness before writing.</p><a :href="withBase('/guide/undo-safely')">Undo contract →</a></div>
+					<div><h3>Undo only matching state</h3><p>ConfigOps checks current values, snapshots, adapter versions, references, and observation completeness before writing. Optional smart-array undo preserves unrelated later keys.</p><a :href="withBase('/guide/undo-safely')">Undo contract →</a></div>
 				</li>
 			</ol>
 		</section>

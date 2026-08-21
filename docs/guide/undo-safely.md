@@ -27,6 +27,17 @@ Three restore modes can appear:
 
 Adapter patches remain schema-bound. The generic experiment does not guess field meaning: it verifies every patch entry against both encoded snapshots, requires the current target paths to match the captured after-state, and refuses roots, integer-keyed parent arrays, list-index edits, secrets, truncated diffs, malformed evidence, adapter-owned options, and derived state. If any target path conflicts, it writes nothing.
 
+For a generic patch, current state is evaluated path by path:
+
+| Current state | Result |
+| --- | --- |
+| A captured target still equals its recorded after-state | That target remains eligible for reversal |
+| Any captured target differs or has the wrong structure | The complete generic patch is refused without writing |
+| An unrelated sibling was changed or added later | The sibling is retained in the current array |
+| One stored patch entry disagrees with either typed snapshot | Smart undo is unavailable for the mutation |
+
+This protects later work in the same option without pretending to understand the owning plugin. A successful structural write still cannot reverse email, webhooks, cache purges, remote API calls, or another side effect caused by the original save.
+
 ## Local references
 
 Some settings point to local media, pages, or users. ConfigOps stores bounded identity evidence—not file contents, post bodies, or account data. Before undo, it verifies that the referenced target still exists and remains usable. Missing or trashed targets block the write.

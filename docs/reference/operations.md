@@ -38,7 +38,7 @@ add_filter(
 );
 ```
 
-The value is bounded by the plugin. A failed dependent delete preserves the observation instead of leaving a falsely clean partial removal.
+The value is bounded by the plugin. A failed dependent delete preserves the observation instead of leaving a falsely clean partial removal. Retention shares the `restore` mutex in its site or network scope, so it refuses to run while an undo is reading the evidence it would delete.
 
 ## Health checks
 
@@ -51,6 +51,7 @@ After installation or an incident, verify:
 5. A harmless conflict test refuses undo after the setting is changed again.
 6. WordPress and PHP logs contain no ConfigOps warnings, notices, or deprecations.
 7. The daily `configops_history_retention` event is scheduled.
+8. If the generic array experiment is enabled, a harmless unknown-plugin array update shows **Smart undo changed keys**, preserves an unrelated later key, and refuses a deliberately changed target key without writing.
 
 On Multisite, also verify one disposable site's evidence cannot be read from another site, **Network Admin → ConfigOps** identifies its network-wide scope, and a harmless Network Options update can be reviewed and undone by a super administrator.
 
