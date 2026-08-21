@@ -1,4 +1,4 @@
-import { useConfigOpsState } from '../data/store.js';
+import { setGenericArrayUndo, useConfigOpsState } from '../data/store.js';
 
 const levelLabel = (level, __) => {
 	switch (level) {
@@ -100,9 +100,38 @@ export default function SupportMatrix() {
 	const { __ } = window.wp.i18n;
 	const state = useConfigOpsState();
 	const adapters = state.adapters || [];
+	const genericArrayUndo = state.experiments?.genericArrayUndo;
+	const experimentBusy = state.ui.pending === 'generic-array-undo';
 
 	return (
 		<div className="configops-support-ledger">
+			{genericArrayUndo && (
+				<section className="configops-write-signal">
+					<header>
+						<span className="configops-sql-mark" aria-hidden="true">β</span>
+						<div className="configops-write-identity">
+							<strong>{__('Smart undo for ordinary settings arrays', 'configops')}</strong>
+							<code>{genericArrayUndo.enabled ? __('Experimental · enabled', 'configops') : __('Experimental · off', 'configops')}</code>
+						</div>
+						<button
+							className={`button ${genericArrayUndo.enabled ? '' : 'button-primary'}`}
+							type="button"
+							disabled={!genericArrayUndo.canManage || experimentBusy}
+							onClick={() => setGenericArrayUndo(!genericArrayUndo.enabled)}
+						>
+							{experimentBusy
+								? __('Saving…', 'configops')
+								: genericArrayUndo.enabled
+									? __('Turn off', 'configops')
+									: __('Enable experiment', 'configops')}
+						</button>
+					</header>
+					<p>
+						{__('For unrecognized wp_options arrays, ConfigOps reverses only snapshot-verified keys and preserves unrelated later changes. List-index edits, roots, secrets, truncated diffs, and changed target fields are refused.', 'configops')}
+						{!genericArrayUndo.canManage && <> {__('A site administrator must change this setting.', 'configops')}</>}
+					</p>
+				</section>
+			)}
 			<div className="configops-support-head" aria-hidden="true">
 				<span>{__('Plugin', 'configops')}</span><span>{__('Status', 'configops')}</span><span>{__('Support', 'configops')}</span><span></span>
 			</div>

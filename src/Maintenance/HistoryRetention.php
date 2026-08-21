@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace ConfigOps\Maintenance;
 
 use ConfigOps\Database\StorageContext;
-use ConfigOps\Execution\OperationLock;
+use ConfigOps\Execution\OperationMutex;
 use ConfigOps\Multisite\EvidenceScope;
 use ConfigOps\Multisite\SiteScope;
 use RuntimeException;
@@ -26,7 +26,7 @@ final class HistoryRetention
 
 	public function __construct(
 		private readonly wpdb $database,
-		private readonly OperationLock $operationLock,
+		private readonly OperationMutex $operationLock,
 		?EvidenceScope $evidenceScope = null
 	) {
 		$this->storage = new StorageContext($this->database, $evidenceScope ?? SiteScope::current());
@@ -40,7 +40,9 @@ final class HistoryRetention
 
 	public function run(): int
 	{
-		return $this->operationLock->run('history-retention', function (): int {
+		// Retention deletes the same evidence that restore plans and audits read.
+		// Sharing the restore mutex prevents cleanup from removing a plan midway.
+		return $this->operationLock->run('restore', function (): int {
 			$deleted = 0;
 			for ($batch = 0; $batch < self::MAX_BATCHES; ++$batch) {
 				$batchDeleted = $this->deleteBatch();

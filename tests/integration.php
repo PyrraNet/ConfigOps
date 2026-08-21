@@ -165,7 +165,20 @@ $codec     = new \ConfigOps\Capture\ValueCodec($adapters);
 $metadata  = new \ConfigOps\Database\OptionMetadataRepository($wpdb);
 $operationLock = new \ConfigOps\Execution\OperationLock($wpdb);
 $restoreAudit  = new \ConfigOps\Database\RestoreAuditRepository($wpdb);
-$restore       = new \ConfigOps\Restore\RestoreService($captures, $mutations, $codec, $metadata, $operationLock, $adapters, $restoreAudit);
+$experimentalFeatures = new \ConfigOps\Experiment\ExperimentalFeatures();
+$experimentalFeatures->setGenericArrayUndo(false);
+$genericArrayUndo = new \ConfigOps\Restore\GenericArrayUndo($codec, $experimentalFeatures);
+$restore       = new \ConfigOps\Restore\RestoreService(
+	$captures,
+	$mutations,
+	$codec,
+	$metadata,
+	$operationLock,
+	$adapters,
+	$restoreAudit,
+	null,
+	$genericArrayUndo
+);
 
 if (! function_exists('switch_to_blog')) {
 	require_once ABSPATH . WPINC . '/ms-blogs.php';
@@ -520,6 +533,250 @@ try {
 $assert($secondStartRejected, 'Two requests must never own the active capture pointer at the same time.');
 $assert($ownershipSession === $captures->stop(), 'The original capture owner should remain stoppable after a competing start is rejected.');
 
+$siteOptionStore = new \ConfigOps\Database\SiteOptionStore($wpdb);
+$ownedOption = 'configops_atomic_option_fixture';
+delete_option($ownedOption);
+$assert(
+	$siteOptionStore->add($ownedOption, 41)
+	&& ! $siteOptionStore->deleteIfValue($ownedOption, 42)
+	&& 41 === (int) $siteOptionStore->get($ownedOption, 0)
+	&& $siteOptionStore->deleteIfValue($ownedOption, 41)
+	&& false === $siteOptionStore->get($ownedOption, false),
+	'Atomic site-state release must delete only the value still owned by its caller.'
+);
+
+$pointerRaceSession = $captures->start('Pointer ownership race', 0, '/wp-admin/options-general.php');
+$replacementPointer = $pointerRaceSession + 1000000;
+$pointerWasReplaced = false;
+$swapPointerBeforeDelete = null;
+$swapPointerBeforeDelete = static function (string $query) use (
+	&$swapPointerBeforeDelete,
+	&$pointerWasReplaced,
+	$replacementPointer
+): string {
+	if (str_starts_with(ltrim($query), 'DELETE FROM') && str_contains($query, 'configops_active_capture_id')) {
+		remove_filter('query', $swapPointerBeforeDelete, PHP_INT_MIN);
+		$pointerWasReplaced = update_option('configops_active_capture_id', $replacementPointer, false);
+	}
+
+	return $query;
+};
+add_filter('query', $swapPointerBeforeDelete, PHP_INT_MIN, 1);
+$assert(
+	$pointerRaceSession === $captures->stop()
+	&& $pointerWasReplaced
+	&& $replacementPointer === (int) get_option('configops_active_capture_id', 0),
+	'A completed stop must not delete a newer active-session pointer acquired before release.'
+);
+remove_filter('query', $swapPointerBeforeDelete, PHP_INT_MIN);
+delete_option('configops_active_capture_id');
+
+$activationRaceRepository = new \ConfigOps\Database\CaptureRepository($wpdb);
+$interruptedActivationId = null;
+$interruptBeforeActivation = null;
+$interruptBeforeActivation = static function (string $query) use (
+	&$interruptBeforeActivation,
+	&$interruptedActivationId,
+	$activationRaceRepository,
+	$sessionTable
+): string {
+	if (
+		str_starts_with(ltrim($query), 'UPDATE')
+		&& str_contains($query, $sessionTable)
+		&& str_contains($query, "`status` = 'active'")
+		&& str_contains($query, "`status` = 'starting'")
+	) {
+		remove_filter('query', $interruptBeforeActivation, PHP_INT_MIN);
+		$interruptedActivationId = $activationRaceRepository->interruptActive('activation_interrupted');
+	}
+
+	return $query;
+};
+add_filter('query', $interruptBeforeActivation, PHP_INT_MIN, 1);
+$activationRaceRejected = false;
+try {
+	$activationRaceRepository->start('Interrupted activation race', 0, '/wp-admin/options-general.php');
+} catch (RuntimeException) {
+	$activationRaceRejected = true;
+}
+remove_filter('query', $interruptBeforeActivation, PHP_INT_MIN);
+$interruptedActivation = null === $interruptedActivationId
+	? null
+	: $activationRaceRepository->find($interruptedActivationId);
+$assert(
+	$activationRaceRejected
+	&& $interruptedActivation
+	&& 'interrupted' === (string) $interruptedActivation->status
+	&& false === get_option('configops_active_capture_id', false),
+	'Activation must not resurrect a session interrupted after it acquired the pointer.'
+);
+
+$lostActivationId = null;
+$newerActivationPointer = 2000000000;
+$replacePointerBeforeActivation = null;
+$replacePointerBeforeActivation = static function (string $query) use (
+	&$replacePointerBeforeActivation,
+	&$lostActivationId,
+	$newerActivationPointer,
+	$sessionTable
+): string {
+	if (
+		str_starts_with(ltrim($query), 'UPDATE')
+		&& str_contains($query, $sessionTable)
+		&& str_contains($query, "`status` = 'active'")
+		&& str_contains($query, "`status` = 'starting'")
+	) {
+		remove_filter('query', $replacePointerBeforeActivation, PHP_INT_MIN);
+		$lostActivationId = (int) get_option('configops_active_capture_id', 0);
+		update_option('configops_active_capture_id', $newerActivationPointer, false);
+	}
+
+	return $query;
+};
+add_filter('query', $replacePointerBeforeActivation, PHP_INT_MIN, 1);
+$lostActivationRejected = false;
+try {
+	(new \ConfigOps\Database\CaptureRepository($wpdb))->start('Lost activation ownership', 0, '/wp-admin/options-general.php');
+} catch (RuntimeException) {
+	$lostActivationRejected = true;
+}
+remove_filter('query', $replacePointerBeforeActivation, PHP_INT_MIN);
+$lostActivation = $lostActivationId ? $captures->find($lostActivationId) : null;
+$assert(
+	$lostActivationRejected
+	&& $lostActivation
+	&& 'discarded' === (string) $lostActivation->status
+	&& $newerActivationPointer === (int) get_option('configops_active_capture_id', 0),
+	'A start that loses pointer ownership during activation must discard only its own row and preserve the newer pointer.'
+);
+delete_option('configops_active_capture_id');
+
+$experimentalFeatures->setGenericArrayUndo(true);
+$genericOption = 'fixture_generic_array_settings';
+$genericBefore = array(
+	'mail' => array('enabled' => false, 'retries' => 2),
+	'ui'   => array('color' => 'blue'),
+);
+$genericAfter = array(
+	'mail' => array('enabled' => true, 'retries' => 2),
+	'ui'   => array('color' => 'blue'),
+);
+delete_option($genericOption);
+add_option($genericOption, $genericBefore, '', false);
+$genericSession = $captures->start('Experimental generic array undo', 0, '/wp-admin/options-general.php');
+update_option($genericOption, $genericAfter, false);
+$captures->stop();
+$genericMutation = $mutations->forSession($genericSession)[0] ?? null;
+$genericChanges = $genericMutation ? $genericArrayUndo->changesFor($genericMutation) : array();
+$genericPayloadFactory = new \ConfigOps\Admin\AdminPayloadFactory(
+	$captures,
+	$mutations,
+	$writeSignals,
+	new \ConfigOps\Admin\ReviewPresenter($adapters),
+	$adapters,
+	$restoreAudit,
+	$genericArrayUndo,
+	$experimentalFeatures
+);
+$genericReview = $genericPayloadFactory->mutationPage($genericSession);
+$genericPayloadRows = array_merge(
+	...array_map(static fn (array $group): array => $group['mutations'], $genericReview['groups'])
+);
+$genericPayload = $genericPayloadRows[0] ?? array();
+$assert(
+	$genericMutation
+	&& 1 === count($genericChanges)
+	&& '/mail/enabled' === (string) ($genericChanges[0]['path'] ?? '')
+	&& 'generic' === (string) ($genericPayload['restoreMode'] ?? '')
+	&& true === ($genericPayload['experimentalUndo'] ?? false)
+	&& 1 === (int) ($genericPayload['changeCounts']['safeUndo'] ?? 0),
+	'The experiment should advertise only a complete, snapshot-verified associative-array patch.'
+);
+
+$genericCurrent = $genericAfter;
+$genericCurrent['ui']['color'] = 'green';
+update_option($genericOption, $genericCurrent, false);
+$restore->restoreMutation((int) $genericMutation->id);
+$genericRestored = get_option($genericOption);
+$assert(
+	is_array($genericRestored)
+	&& false === $genericRestored['mail']['enabled']
+	&& 2 === $genericRestored['mail']['retries']
+	&& 'green' === $genericRestored['ui']['color'],
+	'Generic array undo should reverse only the captured key and preserve an unrelated later sibling change.'
+);
+
+$genericShapeOption = 'fixture_generic_array_shape';
+delete_option($genericShapeOption);
+add_option($genericShapeOption, array('keep' => 1, 'removed' => 'before'), '', false);
+$genericShapeSession = $captures->start('Generic array add and remove', 0, '/wp-admin/options-general.php');
+update_option($genericShapeOption, array('keep' => 1, 'added' => 'after'), false);
+$captures->stop();
+$genericShapeMutation = $mutations->forSession($genericShapeSession)[0] ?? null;
+update_option($genericShapeOption, array('keep' => 1, 'added' => 'after', 'later' => true), false);
+$restore->restoreMutation((int) $genericShapeMutation->id);
+$assert(
+	array('keep' => 1, 'later' => true, 'removed' => 'before') === get_option($genericShapeOption),
+	'Generic array undo must reverse additions and removals together while retaining unrelated current keys.'
+);
+
+$genericConflictOption = 'fixture_generic_array_conflict';
+delete_option($genericConflictOption);
+add_option($genericConflictOption, array('settings' => array('mode' => 'before'), 'later' => 1), '', false);
+$genericConflictSession = $captures->start('Generic array target conflict', 0, '/wp-admin/options-general.php');
+update_option($genericConflictOption, array('settings' => array('mode' => 'captured'), 'later' => 1), false);
+$captures->stop();
+$genericConflictMutation = $mutations->forSession($genericConflictSession)[0] ?? null;
+$genericConflictCurrent = array('settings' => array('mode' => 'newer'), 'later' => 2);
+update_option($genericConflictOption, $genericConflictCurrent, false);
+$genericConflictRejected = false;
+try {
+	$restore->restoreMutation((int) $genericConflictMutation->id);
+} catch (RuntimeException $error) {
+	$genericConflictRejected = str_starts_with($error->getMessage(), 'Conflict:');
+}
+$assert(
+	$genericConflictRejected && $genericConflictCurrent === get_option($genericConflictOption),
+	'Generic array undo must perform no write when any captured target path has changed again.'
+);
+
+$listOption = 'fixture_generic_list_settings';
+delete_option($listOption);
+add_option($listOption, array('items' => array('first', 'second')), '', false);
+$listSession = $captures->start('Generic list refusal', 0, '/wp-admin/options-general.php');
+update_option($listOption, array('items' => array('first', 'changed')), false);
+$captures->stop();
+$listMutation = $mutations->forSession($listSession)[0] ?? null;
+$sparseListOption = 'fixture_generic_sparse_list_settings';
+delete_option($sparseListOption);
+add_option($sparseListOption, array('items' => array(1 => 'first', 3 => 'third')), '', false);
+$sparseListSession = $captures->start('Generic sparse list refusal', 0, '/wp-admin/options-general.php');
+update_option($sparseListOption, array('items' => array(1 => 'changed', 3 => 'third')), false);
+$captures->stop();
+$sparseListMutation = $mutations->forSession($sparseListSession)[0] ?? null;
+$tamperedGenericMutation = clone $genericMutation;
+$tamperedDiff = json_decode((string) $tamperedGenericMutation->diff, true, 64, JSON_THROW_ON_ERROR);
+$tamperedDiff[0]['after'] = false;
+$tamperedGenericMutation->diff = wp_json_encode($tamperedDiff);
+$assert(
+	$listMutation
+	&& $sparseListMutation
+	&& array() === $genericArrayUndo->changesFor($listMutation)
+	&& array() === $genericArrayUndo->changesFor($sparseListMutation)
+	&& array() === $genericArrayUndo->changesFor($tamperedGenericMutation),
+	'Generic array undo must reject sequential or sparse list-index surgery and a diff that disagrees with its encoded snapshots.'
+);
+$experimentalFeatures->setGenericArrayUndo(false);
+$assert(
+	array() === $genericArrayUndo->changesFor($genericConflictMutation),
+	'Disabling the experiment must immediately remove generic patch eligibility.'
+);
+delete_option($genericOption);
+delete_option($genericShapeOption);
+delete_option($genericConflictOption);
+delete_option($listOption);
+delete_option($sparseListOption);
+
 $stopFailureSession = $captures->start('Stop failure recovery', 0, '/wp-admin/options-general.php');
 $breakStopSummary = static function (string $query): string {
 	return str_contains($query, 'SUM(occurrence_count)') && str_contains($query, 'configops_write_signals')
@@ -732,6 +989,21 @@ $wpdb->update(
 	array('%d')
 );
 $retention = new \ConfigOps\Maintenance\HistoryRetention($wpdb, $operationLock);
+$retentionDuringRestoreRejected = false;
+$operationLock->run(
+	'restore',
+	static function () use ($retention, &$retentionDuringRestoreRejected): void {
+		try {
+			$retention->run();
+		} catch (RuntimeException) {
+			$retentionDuringRestoreRejected = true;
+		}
+	}
+);
+$assert(
+	$retentionDuringRestoreRejected,
+	'Retention must share the restore mutex so it cannot delete evidence from an in-flight restore plan.'
+);
 $assert(1 === $retention->run(), 'Retention should remove an expired completed capture in a bounded batch.');
 $assert(null === $captures->find($retentionSession), 'Retention should remove the expired parent capture last.');
 $assert(null === $mutations->find((int) $retentionMutation->id), 'Retention should remove expired mutation payloads before their capture.');
@@ -1597,6 +1869,24 @@ $assert(
 	&& 'nosniff' === ($stateHeaders['X-Content-Type-Options'] ?? ''),
 	'The Agent state contract must prevent caching and MIME sniffing of configuration evidence.'
 );
+$enableGenericUndoRequest = new WP_REST_Request('POST', '/configops/v1/experiments/generic-array-undo');
+$enableGenericUndoRequest->set_body_params(array('enabled' => true));
+$enableGenericUndoResponse = $restServer->dispatch($enableGenericUndoRequest);
+$enableGenericUndoData = $enableGenericUndoResponse->get_data();
+$assert(
+	200 === $enableGenericUndoResponse->get_status()
+	&& true === ($enableGenericUndoData['experiments']['genericArrayUndo']['enabled'] ?? false)
+	&& $experimentalFeatures->genericArrayUndoEnabled(),
+	'A site administrator should be able to opt into generic array undo through the bounded REST setting.'
+);
+$disableGenericUndoRequest = new WP_REST_Request('POST', '/configops/v1/experiments/generic-array-undo');
+$disableGenericUndoRequest->set_body_params(array('enabled' => false));
+$disableGenericUndoResponse = $restServer->dispatch($disableGenericUndoRequest);
+$assert(
+	200 === $disableGenericUndoResponse->get_status()
+	&& ! $experimentalFeatures->genericArrayUndoEnabled(),
+	'The generic array experiment should be immediately reversible without changing stored evidence.'
+);
 $evidenceResponse = $restServer->dispatch(new WP_REST_Request('GET', '/configops/v1/evidence'));
 $evidenceData = $evidenceResponse->get_data();
 $assert(
@@ -1722,6 +2012,15 @@ $assert(
 	&& 'rest_forbidden' === ($viewerRestoreResponse->get_data()['code'] ?? ''),
 	'Read-only operators must not execute undo through the Agent API.'
 );
+$viewerExperimentRequest = new WP_REST_Request('POST', '/configops/v1/experiments/generic-array-undo');
+$viewerExperimentRequest->set_body_params(array('enabled' => true));
+$viewerExperimentResponse = $restServer->dispatch($viewerExperimentRequest);
+$assert(
+	$viewerExperimentResponse->get_status() >= 400
+	&& 'rest_forbidden' === ($viewerExperimentResponse->get_data()['code'] ?? '')
+	&& ! $experimentalFeatures->genericArrayUndoEnabled(),
+	'Read-only ConfigOps operators must not enable experimental write behavior.'
+);
 $userReferences = new \ConfigOps\Reference\UserReferenceResolver();
 $viewerSnapshot = $userReferences->snapshot((int) $viewerId);
 $assert(
@@ -1813,11 +2112,16 @@ $assert(
 
 set_transient('configops_flash_uninstall_fixture', array('code' => 'fixture'), MINUTE_IN_SECONDS);
 add_option('configops_operation_lock_uninstall_fixture', array('token' => 'fixture', 'expires_at' => time() + 60), '', false);
+update_option(\ConfigOps\Experiment\ExperimentalFeatures::GENERIC_ARRAY_UNDO_OPTION, 1, false);
 \ConfigOps\Uninstall::run();
 $assert(false === wp_next_scheduled(\ConfigOps\Maintenance\HistoryRetention::HOOK), 'Uninstall must remove the scheduled retention event.');
 $assert(false === get_option('configops_schema_version', false), 'Uninstall must remove ConfigOps installation options.');
 $assert(false === get_transient('configops_flash_uninstall_fixture'), 'Uninstall must remove per-user ConfigOps flash transients.');
 $assert(false === get_option('configops_operation_lock_uninstall_fixture', false), 'Uninstall must remove outstanding ConfigOps operation locks.');
+$assert(
+	false === get_option(\ConfigOps\Experiment\ExperimentalFeatures::GENERIC_ARRAY_UNDO_OPTION, false),
+	'Uninstall must remove the site-local experimental feature setting.'
+);
 $assert(! get_role('administrator')->has_cap('configops_view'), 'Uninstall must remove ConfigOps capabilities from WordPress roles.');
 foreach (array('configops_restore_runs', 'configops_write_signals', 'configops_mutations', 'configops_capture_sessions') as $suffix) {
 	$table = $wpdb->prefix . $suffix;

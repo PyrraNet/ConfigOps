@@ -15,6 +15,7 @@ ConfigOps is suitable for production observation only when it sits inside ordina
 - Give `configops_rollback` to fewer people than `configops_view`.
 - On Multisite, reserve Network Admin evidence, named Network Change Sessions, and mutation undo for super administrators with `manage_network_options`.
 - Treat mail, authentication, URL, indexing, cache, and integration settings as staging-first changes.
+- Leave experimental generic array undo off unless you have exercised the owning plugin's save and undo path in staging; it provides structural safety, not plugin semantics.
 - Monitor WordPress/PHP logs and database write health.
 - Verify behavior after undo; do not rely on a success badge alone.
 

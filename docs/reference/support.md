@@ -15,7 +15,7 @@ Support means a tested contract, not a best-effort badge. Version 0.4.3 fails it
 | PHP | 8.2–8.5 | Parser, unit, hostile-input, and WordPress integration paths across the matrix |
 | Database | WordPress-supported MySQL/MariaDB | Native MySQL 8.4 and MariaDB 11.4 integration lanes |
 | Browser UI | Current JavaScript-capable admin browser | Real Chromium site and Network Admin settings, review, and undo flows |
-| Site model | Single-site and network-active Multisite | Isolated site ledgers plus a separate Network Admin ledger, exercised by 137 Multisite assertions |
+| Site model | Single-site and network-active Multisite | Isolated site ledgers plus a separate Network Admin ledger, exercised by 139 Multisite assertions |
 
 PHP 8.2 is the oldest supported branch. A lifecycle check expires that claim after upstream security support ends on 2026-12-31 instead of silently keeping an unsafe floor.
 
@@ -36,7 +36,7 @@ Network undo excludes authority and plugin-lifecycle state plus derived counters
 | WordPress Core | 7.0–7.1 | Supported | Field map + local references | Redacted | With limits |
 | WP Mail SMTP Free | 4.9.0 | Supported | Exact schema | Removed before persistence | Full or safe field patch |
 | Yoast SEO Free | 28.2 | Supported | Exact schema | Removed before persistence | With field and reference limits |
-| Unknown plugins | — | Options API evidence | Needs review | Conservative heuristic | Only when generic evidence is fully safe |
+| Unknown plugins | — | Options API evidence | Needs review | Conservative heuristic | Exact full-value undo; opt-in experimental key patch for verified associative arrays |
 
 Versions outside an adapter’s tested range keep generic evidence. Adapter-dependent explanations, field patches, and automatic undo fail closed until the contract is verified.
 
@@ -48,5 +48,6 @@ Versions outside an adapter’s tested range keep generic evidence. Adapter-depe
 - Adapter schema and plugin version must still match.
 - Local references must still exist and remain usable.
 - Only Options API changes are generically restorable; custom tables need an explicit future adapter.
+- Experimental generic array patches carry no semantic plugin knowledge and deliberately refuse list-index surgery and ambiguous structures.
 
 The exact adapter field families and normalization rules are documented in [Adapter contracts](/adapters).

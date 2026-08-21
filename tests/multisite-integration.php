@@ -170,6 +170,17 @@ $assert(
 	&& false === get_network_option($originNetworkId, 'configops_active_capture_id', false),
 	'Stopping a network-scoped capture should clear only its network-owned pointer.'
 );
+$networkOptionStore = new \ConfigOps\Database\NetworkOptionStore($originNetworkId, $wpdb);
+$networkOwnedOption = 'configops_atomic_network_option_fixture';
+delete_network_option($originNetworkId, $networkOwnedOption);
+$assert(
+	$networkOptionStore->add($networkOwnedOption, 41)
+	&& ! $networkOptionStore->deleteIfValue($networkOwnedOption, 42)
+	&& 41 === (int) $networkOptionStore->get($networkOwnedOption, 0)
+	&& $networkOptionStore->deleteIfValue($networkOwnedOption, 41)
+	&& false === $networkOptionStore->get($networkOwnedOption, false),
+	'Atomic network-state release must delete only the value still owned by its caller.'
+);
 
 $networkAddedOption = 'network_evidence_fixture_added';
 $networkUpdatedOption = 'network_evidence_fixture_updated';
@@ -517,10 +528,23 @@ $updatedExpiredNetwork = $wpdb->update(
 	array('%d', '%d', '%d')
 );
 $assert(1 === $updatedExpiredNetwork, 'The network retention fixture should become older than the default history window.');
-$networkRetention = new \ConfigOps\Maintenance\HistoryRetention(
-	$wpdb,
-	new \ConfigOps\Execution\OperationLock($wpdb, \ConfigOps\Multisite\SiteScope::current()),
-	$networkScope
+$networkOperationLock = new \ConfigOps\Execution\NetworkOperationLock($wpdb, $networkScope);
+$networkRetention = new \ConfigOps\Maintenance\HistoryRetention($wpdb, $networkOperationLock, $networkScope);
+$networkRetentionDuringRestoreRejected = false;
+$networkOperationLock->run(
+	'restore',
+	static function () use ($networkRetention, &$networkRetentionDuringRestoreRejected): void {
+		try {
+			$networkRetention->run();
+		} catch (RuntimeException) {
+			$networkRetentionDuringRestoreRejected = true;
+		}
+	}
+);
+$assert(
+	$networkRetentionDuringRestoreRejected
+	&& null !== $networkCaptures->find($expiredNetworkSession),
+	'Network retention must use the network restore mutex and preserve evidence while network undo is running.'
 );
 $assert(
 	1 === $networkRetention->run()

@@ -59,7 +59,7 @@ Every undo is checked against the current value first. If the website changed ag
 | WordPress Multisite | WordPress 7.0–7.1 | Sites + Network Options | Generic network evidence | Redacted | Network additions/updates |
 | WP Mail SMTP Free | 4.9.0 | Supported | Supported | Removed | With limits |
 | Yoast SEO Free | 28.2 | Supported | Supported | Removed | With limits |
-| Unknown plugins | — | Options API only | Needs review | Conservative | Only when proven safe |
+| Unknown plugins | — | Options API only | Needs review | Conservative | Exact undo; opt-in verified array-key experiment |
 
 The exact field coverage and limitations are available inside **ConfigOps → Plugin support**. Versions outside a tested adapter range keep their evidence, but automatic undo is disabled.
 

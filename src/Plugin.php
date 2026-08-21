@@ -44,6 +44,7 @@ use ConfigOps\Database\Schema;
 use ConfigOps\Diff\NestedDiff;
 use ConfigOps\Execution\NetworkOperationLock;
 use ConfigOps\Execution\OperationLock;
+use ConfigOps\Experiment\ExperimentalFeatures;
 use ConfigOps\Maintenance\HistoryRetention;
 use ConfigOps\Multisite\NetworkScope;
 use ConfigOps\Multisite\SiteBoundaryGuard;
@@ -53,6 +54,7 @@ use ConfigOps\Noise\NoiseClassifier;
 use ConfigOps\Privacy\PrivacyPolicy;
 use ConfigOps\Restore\NetworkRestorePolicy;
 use ConfigOps\Restore\NetworkRestoreService;
+use ConfigOps\Restore\GenericArrayUndo;
 use ConfigOps\Restore\RestoreService;
 
 final class Plugin
@@ -93,6 +95,8 @@ final class Plugin
 			new HeuristicSensitiveValueDetector()
 		);
 		$codec     = new ValueCodec($adapters);
+		$experimentalFeatures = new ExperimentalFeatures();
+		$genericArrayUndo = new GenericArrayUndo($codec, $experimentalFeatures);
 		$source    = new SourceAttributor(CONFIGOPS_PATH);
 		$request   = new RequestContext();
 		$evidenceNotices = new EvidenceNoticeStore();
@@ -129,7 +133,8 @@ final class Plugin
 			$operationLock,
 			$adapters,
 			$restoreAudits,
-			$siteBoundary
+			$siteBoundary,
+			$genericArrayUndo
 		);
 		$commands  = new CaptureCommands($captures, $restore, $automatic, $siteBoundary);
 		$presenter = new ReviewPresenter($adapters);
@@ -139,16 +144,27 @@ final class Plugin
 			$signals,
 			$presenter,
 			$adapters,
-			$restoreAudits
+			$restoreAudits,
+			$genericArrayUndo,
+			$experimentalFeatures
 		);
 
-		(new RestController($captures, $mutations, $commands, $payloads, $evidenceNotices, $siteBoundary))->register();
+		(new RestController(
+			$captures,
+			$mutations,
+			$commands,
+			$payloads,
+			$evidenceNotices,
+			$siteBoundary,
+			$experimentalFeatures
+		))->register();
 		(new AdminController($captures, $commands, new FlashNoticeStore(), $payloads, $siteBoundary))->register();
 
 		if (self::networkFeaturesEnabled()) {
 			$networkScope = NetworkScope::current();
+			$networkOperationLock = new NetworkOperationLock($wpdb, $networkScope);
 			if ($siteScope->siteId() === (int) get_main_site_id($networkScope->networkId())) {
-				(new HistoryRetention($wpdb, $operationLock, $networkScope))->register();
+				(new HistoryRetention($wpdb, $networkOperationLock, $networkScope))->register();
 			}
 			$networkCaptures = new CaptureRepository($wpdb, $networkScope);
 			$networkMutations = new MutationRepository($wpdb, $networkScope);
@@ -192,7 +208,7 @@ final class Plugin
 				$networkCaptures,
 				$networkMutations,
 				$codec,
-				new NetworkOperationLock($wpdb, $networkScope),
+				$networkOperationLock,
 				new RestoreAuditRepository($wpdb, $networkScope),
 				$networkScope,
 				$networkRestorePolicy

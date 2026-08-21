@@ -4,6 +4,7 @@ import {
 	fetchState,
 	restoreMutationRequest,
 	restoreSessionRequest,
+	setGenericArrayUndoRequest,
 	stopActiveCapture,
 } from './api.js';
 
@@ -114,6 +115,10 @@ export const restoreMutation = (id) => runPending(
 	() => restoreMutationRequest(id, snapshot.scope),
 );
 export const restoreSession = (id) => runPending(`restore-session-${id}`, () => restoreSessionRequest(id));
+export const setGenericArrayUndo = (enabled) => runPending(
+	'generic-array-undo',
+	() => setGenericArrayUndoRequest(enabled),
+);
 
 export const selectSession = async (id) => {
 	if (snapshot.ui.pending || snapshot.selected?.id === id) {

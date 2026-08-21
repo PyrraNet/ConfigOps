@@ -14,7 +14,7 @@ use ConfigOps\Multisite\NetworkScope;
 use RuntimeException;
 use wpdb;
 
-final class NetworkOperationLock
+final class NetworkOperationLock implements OperationMutex
 {
 	private const LIFETIME = 900;
 	private const OPTION_PREFIX = 'configops_operation_lock_';
@@ -29,7 +29,7 @@ final class NetworkOperationLock
 		if ('' === $this->table) {
 			throw new RuntimeException('ConfigOps cannot lock network settings without the WordPress network metadata table.');
 		}
-		$this->options = new NetworkOptionStore($scope->networkId());
+		$this->options = new NetworkOptionStore($scope->networkId(), $database);
 	}
 
 	/**

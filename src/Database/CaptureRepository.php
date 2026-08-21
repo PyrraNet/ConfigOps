@@ -38,8 +38,8 @@ final class CaptureRepository
 		$this->table   = $this->storage->table('configops_capture_sessions');
 		$this->options = $options ?? (
 			$evidenceScope->isNetwork()
-				? new NetworkOptionStore($evidenceScope->networkId())
-				: new SiteOptionStore()
+				? new NetworkOptionStore($evidenceScope->networkId(), $database)
+				: new SiteOptionStore($database)
 		);
 	}
 
@@ -79,12 +79,18 @@ final class CaptureRepository
 		$activated = $this->database->update(
 			$this->table,
 			array('status' => 'active'),
-			$this->storage->where(array('id' => $id)),
+			$this->storage->where(array('id' => $id, 'status' => 'starting')),
 			array('%s'),
-			$this->storage->whereFormats(array('%d'))
+			$this->storage->whereFormats(array('%d', '%s'))
 		);
-		if (false === $activated) {
-			$this->options->delete(self::ACTIVE_OPTION);
+		$active = $this->find($id);
+		if (
+			false === $activated
+			|| ! $active
+			|| 'active' !== (string) $active->status
+			|| $id !== (int) $this->options->get(self::ACTIVE_OPTION, 0)
+		) {
+			$this->releaseActivePointer($id);
 			$this->markDiscarded($id);
 			$this->invalidateActiveSession();
 
@@ -250,7 +256,7 @@ final class CaptureRepository
 			);
 		}
 
-		$this->options->delete(self::ACTIVE_OPTION);
+		$this->releaseActivePointer($id);
 		$this->invalidateActiveSession();
 
 		return $id;
@@ -280,18 +286,19 @@ final class CaptureRepository
 			)
 		);
 
-		$this->options->delete(self::ACTIVE_OPTION);
-		$this->invalidateActiveSession();
-
 		if (false === $updated) {
 			throw new RuntimeException('The interrupted capture could not be closed safely.');
 		}
+
+		$this->releaseActivePointer($id);
+		$this->invalidateActiveSession();
 
 		return $updated > 0 ? $id : null;
 	}
 
 	public function interruptOpen(string $code = 'capture_interrupted'): int
 	{
+		$activeId = (int) $this->options->get(self::ACTIVE_OPTION, 0);
 		$code = substr(sanitize_key($code), 0, 64) ?: 'capture_interrupted';
 		$updated = $this->database->query(
 			$this->storage->prepare(
@@ -308,12 +315,14 @@ final class CaptureRepository
 			)
 		);
 
-		$this->options->delete(self::ACTIVE_OPTION);
-		$this->invalidateActiveSession();
-
 		if (false === $updated) {
 			throw new RuntimeException('Open capture sessions could not be closed safely.');
 		}
+
+		if ($activeId > 0) {
+			$this->releaseActivePointer($activeId);
+		}
+		$this->invalidateActiveSession();
 
 		return (int) $updated;
 	}
@@ -395,14 +404,14 @@ final class CaptureRepository
 					)
 				);
 				if (1 === $interrupted) {
-					$this->options->delete(self::ACTIVE_OPTION);
+					$this->releaseActivePointer($id);
 				}
 			}
 
 			return null;
 		}
 		if (! $session || ! in_array((string) $session->status, array('active', 'starting'), true)) {
-			$this->options->delete(self::ACTIVE_OPTION);
+			$this->releaseActivePointer($id);
 
 			return null;
 		}
@@ -411,17 +420,28 @@ final class CaptureRepository
 			$recovered = $this->database->update(
 				$this->table,
 				array('status' => 'active'),
-				$this->storage->where(array('id' => $id)),
+				$this->storage->where(array('id' => $id, 'status' => 'starting')),
 				array('%s'),
-				$this->storage->whereFormats(array('%d'))
+				$this->storage->whereFormats(array('%d', '%s'))
 			);
 			if (false === $recovered) {
-				$this->options->delete(self::ACTIVE_OPTION);
+				$this->releaseActivePointer($id);
 				$this->markDiscarded($id);
 
 				return null;
 			}
-			$session->status = 'active';
+
+			$session = $this->find($id);
+			if (
+				! $session
+				|| 'active' !== (string) $session->status
+				|| $id !== (int) $this->options->get(self::ACTIVE_OPTION, 0)
+			) {
+				$this->releaseActivePointer($id);
+				$this->markDiscarded($id);
+
+				return null;
+			}
 		}
 
 		$this->activeSession = $session;
@@ -636,16 +656,20 @@ final class CaptureRepository
 
 	private function markDiscarded(int $id): void
 	{
-		$this->database->update(
-			$this->table,
-			array(
-				'status'   => 'discarded',
-				'ended_at' => current_time('mysql', true),
-			),
-			$this->storage->where(array('id' => $id)),
-			array('%s', '%s'),
-			$this->storage->whereFormats(array('%d'))
+		$this->database->query(
+			$this->storage->prepare(
+				"UPDATE {$this->table}
+				SET status = 'discarded', ended_at = %s
+				WHERE {$this->storage->clause()} AND id = %d AND status IN ('starting', 'active')",
+				current_time('mysql', true),
+				$id
+			)
 		);
+	}
+
+	private function releaseActivePointer(int $id): void
+	{
+		$this->options->deleteIfValue(self::ACTIVE_OPTION, $id);
 	}
 
 	private function invalidateActiveSession(): void
@@ -686,7 +710,7 @@ final class CaptureRepository
 			)
 		);
 		if (1 === $interrupted) {
-			$this->options->delete(self::ACTIVE_OPTION);
+			$this->releaseActivePointer($id);
 		}
 		$this->invalidateActiveSession();
 

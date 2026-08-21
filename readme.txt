@@ -99,7 +99,11 @@ ConfigOps observes supported Options API mutations in authorized WordPress admin
 
 = Does ConfigOps support WordPress Multisite? =
 
-Yes. Version 0.4 supports network activation, isolated per-site evidence, lifecycle and retention across sites, and a separate Network Admin ledger for supported Network Options changes. Complete network additions and updates can be undone one mutation at a time. Network deletes, named network sessions, whole-network-change undo, cross-site aggregation, and bulk actions are not supported.
+Yes. Version 0.4 supports network activation, isolated per-site evidence, lifecycle and retention across sites, and a separate Network Admin ledger for supported Network Options changes. Named Network Change Sessions can group a planned task, and complete network additions and updates can be undone one mutation at a time. Network deletes, whole-network-change undo, cross-site aggregation, and bulk actions are not supported.
+
+= Can ConfigOps undo an array without a plugin adapter? =
+
+Complete generic Options API values already use exact current-value checks. Site administrators can additionally enable an experimental smart-array mode under Plugin support. For unclaimed associative wp_options arrays, it reverses only snapshot-verified changed keys and preserves unrelated later keys. It refuses secrets, root replacements, list indexes, truncated or malformed evidence, and any target key that changed again.
 
 = Are secrets stored in the mutation history? =
 

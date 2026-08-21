@@ -16,6 +16,7 @@ use ConfigOps\Database\MutationRepository;
 use ConfigOps\Database\OptionMetadataRepository;
 use ConfigOps\Database\RestoreAuditRepository;
 use ConfigOps\Execution\OperationLock;
+use ConfigOps\Experiment\ExperimentalFeatures;
 use ConfigOps\Multisite\SiteBoundaryGuard;
 use ConfigOps\Multisite\SiteScope;
 use RuntimeException;
@@ -26,6 +27,7 @@ final class RestoreService
 	private const MAX_DISTINCT_OPTIONS = 1000;
 	private const MAX_RETAINED_BYTES = 67108864;
 	private readonly SiteBoundaryGuard $siteBoundary;
+	private readonly GenericArrayUndo $genericArrayUndo;
 
 	public function __construct(
 		private readonly CaptureRepository $captures,
@@ -35,9 +37,11 @@ final class RestoreService
 		private readonly OperationLock $operationLock,
 		private readonly AdapterRegistry $adapters,
 		private readonly RestoreAuditRepository $audit,
-		?SiteBoundaryGuard $siteBoundary = null
+		?SiteBoundaryGuard $siteBoundary = null,
+		?GenericArrayUndo $genericArrayUndo = null
 	) {
 		$this->siteBoundary = $siteBoundary ?? new SiteBoundaryGuard(SiteScope::current(), $captures);
+		$this->genericArrayUndo = $genericArrayUndo ?? new GenericArrayUndo($codec, new ExperimentalFeatures());
 	}
 
 	public function restoreMutation(int $mutationId): void
@@ -81,6 +85,12 @@ final class RestoreService
 		}
 
 		$this->assertRestorable($mutation);
+		$genericChanges = $this->genericArrayUndo->changesFor($mutation);
+		if (! empty($genericChanges)) {
+			$this->restoreSafeFields($mutation, $genericChanges, true);
+
+			return 1;
+		}
 		if ('patch' === $this->restoreMode($mutation)) {
 			$this->restoreSafeFields($mutation);
 
@@ -326,7 +336,10 @@ final class RestoreService
 		return in_array($mode, array('full', 'patch'), true) ? $mode : 'none';
 	}
 
-	private function restoreSafeFields(object $mutation): void
+	/**
+	 * @param list<array<string, mixed>>|null $verifiedChanges Preverified generic patch, or null for adapter policy.
+	 */
+	private function restoreSafeFields(object $mutation, ?array $verifiedChanges = null, bool $generic = false): void
 	{
 		$this->siteBoundary->assertCurrentSite();
 		$diff = json_decode((string) ($mutation->diff ?? ''), true);
@@ -334,14 +347,18 @@ final class RestoreService
 			throw new RuntimeException('The stored field comparison is malformed. Nothing was changed.');
 		}
 
-		$changes = $this->adapters->safeRestoreChanges(
+		$changes = $verifiedChanges ?? $this->adapters->safeRestoreChanges(
 			(string) ($mutation->adapter_id ?? ''),
 			(int) ($mutation->adapter_schema_version ?? 0),
 			(string) $mutation->option_name,
 			$diff
 		);
 		if (empty($changes)) {
-			throw new RuntimeException('No adapter-backed field in this setting can still be undone safely. Nothing was changed.');
+			throw new RuntimeException(
+				$generic
+					? 'The generic array patch could not be verified. Nothing was changed.'
+					: 'No adapter-backed field in this setting can still be undone safely. Nothing was changed.'
+			);
 		}
 		$this->adapters->assertRestorableReferences($changes);
 

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace ConfigOps;
 
 use ConfigOps\Access\CapabilityManager;
+use ConfigOps\Experiment\ExperimentalFeatures;
 use ConfigOps\Maintenance\HistoryRetention;
 use ConfigOps\Multisite\SiteContextRunner;
 use Throwable;
@@ -102,6 +103,7 @@ final class Uninstall
 				'configops_capabilities_version',
 				'configops_active_capture_id',
 				'configops_capture_integrity_fallback',
+				ExperimentalFeatures::GENERIC_ARRAY_UNDO_OPTION,
 			) as $option
 		) {
 			delete_option($option);

@@ -12,6 +12,11 @@ namespace ConfigOps\Capture;
 use ConfigOps\Adapter\AdapterRegistry;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\DatabaseWriteSignalRepository;
+use ConfigOps\Database\NetworkOptionStore;
+use ConfigOps\Database\SharedStorageLock;
+use ConfigOps\Database\SiteOptionStore;
+use ConfigOps\Execution\NetworkOperationLock;
+use ConfigOps\Execution\OperationLock;
 use ConfigOps\Multisite\SiteBoundaryGuard;
 use ConfigOps\Multisite\SiteScope;
 use Throwable;
@@ -49,7 +54,12 @@ final class SqlWriteSentry
 	public function observe(string $query): string
 	{
 		$write = $this->parseWrite($query);
-		if (null === $write || $this->observing || $this->isOwnTable($write['table'])) {
+		if (
+			null === $write
+			|| $this->observing
+			|| $this->isOwnTable($write['table'])
+			|| $this->isInternalStateWrite()
+		) {
 			return $query;
 		}
 
@@ -107,6 +117,28 @@ final class SqlWriteSentry
 	private function isOwnTable(string $table): bool
 	{
 		return str_starts_with($table, $this->siteTablePrefix . 'configops_');
+	}
+
+	private function isInternalStateWrite(): bool
+	{
+		$methods = array(
+			SiteOptionStore::class       => array('deleteIfValue'),
+			NetworkOptionStore::class    => array('deleteIfValue'),
+			OperationLock::class         => array('acquire', 'release'),
+			NetworkOperationLock::class  => array('acquire', 'release'),
+			SharedStorageLock::class     => array('acquire', 'release'),
+		);
+
+		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_debug_backtrace -- The bounded trace identifies ConfigOps-owned compare-and-swap writes without capturing arguments.
+		foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 16) as $frame) {
+			$class = (string) ($frame['class'] ?? '');
+			$method = (string) ($frame['function'] ?? '');
+			if (isset($methods[$class]) && in_array($method, $methods[$class], true)) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	private function isManagedOptionsApiWrite(string $table): bool

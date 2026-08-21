@@ -27,12 +27,14 @@ Source attribution is bounded provenance, not proof of causality. Browser field 
 
 Typed values that are too large, too deep, unsupported, or unsafe to reconstruct lose undo eligibility. This is an intentional trade: ConfigOps would rather preserve a warning than persist dangerous data or manufacture a rollback.
 
+The opt-in generic array experiment is structural, not semantic. It applies only to unclaimed associative `wp_options` updates whose complete patch agrees with both stored snapshots. It does not infer plugin intent, patch numeric lists, cross a redacted value, or make custom-table writes restorable.
+
 ## Undo limits
 
 Undo compensates the option state ConfigOps observed. WordPress hooks triggered by that compensating write can execute again, and third-party side effects may not be reversible. A successful audit record means the guarded option write completed; it does not prove the entire system returned to an earlier moment.
 
 ## Adapter limits
 
-WP Mail SMTP Free 4.9.0 and Yoast SEO Free 28.2 are exact tested contracts. A newer or older release may retain useful generic option evidence, but adapter-dependent semantics and undo are disabled until verified.
+WP Mail SMTP Free 4.9.0 and Yoast SEO Free 28.2 are exact tested contracts. A newer or older release may retain useful generic option evidence, but adapter-dependent semantics and patches are disabled until verified. The generic array experiment never overrides an adapter ownership or version boundary.
 
 Read [Support contracts](/reference/support) for the positive contract and [Failure model](/security/failure-model) for behavior outside it.

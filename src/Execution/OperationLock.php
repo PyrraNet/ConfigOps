@@ -13,7 +13,7 @@ use ConfigOps\Multisite\SiteScope;
 use RuntimeException;
 use wpdb;
 
-final class OperationLock
+final class OperationLock implements OperationMutex
 {
 	private const LIFETIME = 900;
 	private const OPTION_PREFIX = 'configops_operation_lock_';

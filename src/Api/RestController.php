@@ -14,6 +14,7 @@ use ConfigOps\Admin\EvidenceNoticeStore;
 use ConfigOps\Command\CaptureCommands;
 use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\MutationRepository;
+use ConfigOps\Experiment\ExperimentalFeatures;
 use ConfigOps\Multisite\SiteBoundaryGuard;
 use ConfigOps\Multisite\SiteScope;
 use Throwable;
@@ -32,7 +33,8 @@ final class RestController
 		private readonly CaptureCommands $commands,
 		private readonly AdminPayloadFactory $payloads,
 		private readonly ?EvidenceNoticeStore $evidenceNotices = null,
-		?SiteBoundaryGuard $siteBoundary = null
+		?SiteBoundaryGuard $siteBoundary = null,
+		private readonly ?ExperimentalFeatures $experimentalFeatures = null
 	) {
 		$this->siteBoundary = $siteBoundary ?? new SiteBoundaryGuard(SiteScope::current(), $captures);
 	}
@@ -72,6 +74,18 @@ final class RestController
 						'maxItems' => 5,
 						'items'    => array('type' => 'integer', 'minimum' => 1),
 					),
+				)
+			);
+		}
+
+		if (null !== $this->experimentalFeatures) {
+			$this->registerRoute(
+				'/experiments/generic-array-undo',
+				WP_REST_Server::CREATABLE,
+				'updateGenericArrayUndo',
+				'manage_options',
+				array(
+					'enabled' => array('type' => 'boolean', 'required' => true),
 				)
 			);
 		}
@@ -179,6 +193,19 @@ final class RestController
 		$this->evidenceNotices?->acknowledge(get_current_user_id(), $sessionIds);
 
 		return $this->response(array('acknowledged' => $sessionIds));
+	}
+
+	public function updateGenericArrayUndo(WP_REST_Request $request): WP_REST_Response|WP_Error
+	{
+		return $this->command(
+			function () use ($request): array {
+				$this->experimentalFeatures?->setGenericArrayUndo(
+					rest_sanitize_boolean($request['enabled'])
+				);
+
+				return $this->payloads->support();
+			}
+		);
 	}
 
 	public function startCapture(WP_REST_Request $request): WP_REST_Response|WP_Error

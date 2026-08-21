@@ -14,7 +14,9 @@ use ConfigOps\Database\CaptureRepository;
 use ConfigOps\Database\DatabaseWriteSignalRepository;
 use ConfigOps\Database\MutationRepository;
 use ConfigOps\Database\RestoreAuditRepository;
+use ConfigOps\Experiment\ExperimentalFeatures;
 use ConfigOps\Maintenance\HistoryRetention;
+use ConfigOps\Restore\GenericArrayUndo;
 
 final class AdminPayloadFactory
 {
@@ -27,7 +29,9 @@ final class AdminPayloadFactory
 		private readonly DatabaseWriteSignalRepository $writeSignals,
 		private readonly ReviewPresenter $presenter,
 		private readonly AdapterRegistry $adapters,
-		private readonly RestoreAuditRepository $restoreAudits
+		private readonly RestoreAuditRepository $restoreAudits,
+		private readonly ?GenericArrayUndo $genericArrayUndo = null,
+		private readonly ?ExperimentalFeatures $experimentalFeatures = null
 	) {
 	}
 
@@ -37,7 +41,8 @@ final class AdminPayloadFactory
 	public function support(): array
 	{
 		return array(
-			'adapters' => $this->adapters->supportPayload(),
+			'adapters'    => $this->adapters->supportPayload(),
+			'experiments' => $this->experimentalFeatures?->payload() ?? array(),
 		);
 	}
 
@@ -278,6 +283,7 @@ final class AdminPayloadFactory
 				function (array $prepared): array {
 					$mutation = $prepared['mutation'];
 					$diff = $prepared['diff'];
+					$genericChanges = $this->genericArrayUndo?->changesFor($mutation) ?? array();
 					$technicalCount = count(
 						array_filter(
 							$diff,
@@ -286,7 +292,9 @@ final class AdminPayloadFactory
 						)
 					);
 					$secretCount = (int) ($mutation->secret_change_count ?? 0);
-					$restoreMode = (string) ($mutation->restore_mode ?? (1 === (int) $mutation->restorable ? 'full' : 'none'));
+					$restoreMode = ! empty($genericChanges)
+						? 'generic'
+						: (string) ($mutation->restore_mode ?? (1 === (int) $mutation->restorable ? 'full' : 'none'));
 
 					return array(
 						'id'                   => (int) $mutation->id,
@@ -298,12 +306,15 @@ final class AdminPayloadFactory
 						'restorable'           => 1 === (int) $mutation->restorable && 'derived' !== (string) $mutation->classification,
 						'redacted'              => $secretCount > 0,
 						'containsProtectedData' => 1 === (int) $mutation->is_redacted,
-						'restoreMode'           => in_array($restoreMode, array('full', 'patch'), true) ? $restoreMode : 'none',
+						'restoreMode'           => in_array($restoreMode, array('full', 'patch', 'generic'), true) ? $restoreMode : 'none',
+						'experimentalUndo'      => 'generic' === $restoreMode,
 						'changeCounts'          => array(
 							'settings'  => count($diff) - $technicalCount,
 							'technical' => $technicalCount,
 							'secrets'   => $secretCount,
-							'safeUndo'  => (int) ($mutation->safe_restore_change_count ?? 0),
+							'safeUndo'  => ! empty($genericChanges)
+								? count($genericChanges)
+								: (int) ($mutation->safe_restore_change_count ?? 0),
 						),
 						'diff'                  => $diff,
 						'adapter'               => $prepared['adapter'],

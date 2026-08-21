@@ -190,6 +190,8 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 		? (visibleCount === 1 ? __('1 technical change', 'configops') : `${visibleCount} ${__('technical changes', 'configops')}`)
 		: (visibleCount === 1 ? __('1 setting', 'configops') : `${visibleCount} ${__('settings', 'configops')}`);
 	const patchRestore = mutation.restoreMode === 'patch';
+	const genericRestore = mutation.restoreMode === 'generic';
+	const fieldRestore = patchRestore || genericRestore;
 	const observedFields = [...new Set(
 		mutation.diff
 			.map((change) => change.intent?.field_name)
@@ -216,9 +218,11 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 		&& !undoSucceeded
 		&& !undoUncertain
 		&& showReviewActions;
-	const undoLabel = patchRestore
+	const undoLabel = fieldRestore
 		? (!mutation.redacted
-			? __('Undo this change', 'configops')
+			? genericRestore
+				? __('Smart undo changed keys', 'configops')
+				: __('Undo this change', 'configops')
 			: mutation.changeCounts.safeUndo === 1
 			? __('Undo 1 safe setting', 'configops')
 			: `${__('Undo', 'configops')} ${mutation.changeCounts.safeUndo} ${__('safe settings', 'configops')}`)
@@ -240,9 +244,14 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 				<span className="configops-chevron" aria-hidden="true"></span>
 			</summary>
 			<div className="configops-mutation-body">
+				{genericRestore && (
+					<p className="configops-secret-note"><strong className="configops-badge configops-badge--unknown">{__('Experimental', 'configops')}</strong>{' '}
+						{__('Only these captured keys will be reversed. Unrelated later changes in the same option are preserved; a changed target key stops the entire undo.', 'configops')}
+					</p>
+				)}
 				{mutation.redacted && (
 					<p className="configops-secret-note"><span aria-hidden="true">●</span>{' '}
-						{patchRestore
+						{fieldRestore
 							? __('A secret changed and was removed before storage. ConfigOps can undo the other supported settings without reading or replacing that secret.', 'configops')
 							: __('A secret changed and was removed before storage. ConfigOps cannot reconstruct it for undo.', 'configops')}
 					</p>
@@ -326,6 +335,8 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 								onClick={() => {
 									const question = scopeType === 'network'
 										? __('Undo this network setting? ConfigOps will stop if its current network value changed after the capture.', 'configops')
+										: genericRestore
+										? __('Smart undo only these captured keys? ConfigOps will preserve unrelated keys and stop without writing if any target key changed after the capture.', 'configops')
 										: patchRestore
 										? __('Undo only the supported, non-secret settings shown here? ConfigOps will preserve protected and technical values and stop if a visible setting changed again.', 'configops')
 										: __('Undo this setting? ConfigOps will stop if it has changed again since the capture.', 'configops');

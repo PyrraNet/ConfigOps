@@ -17,6 +17,7 @@ ConfigOps is designed to lose capability before it invents certainty. The host s
 | Probable secret detected | Stores a redacted marker, not plaintext | Re-enter credentials manually if the setting must be changed back |
 | Value exceeds safe shape or depth | Keeps bounded, non-restorable evidence | Use plugin-native controls or a tested backup |
 | Adapter absent or version outside range | Preserves generic evidence; disables adapter-dependent undo | Verify against the exact plugin version or update the adapter contract |
+| Experimental array target or structure changed | Refuses the complete generic patch without writing | Re-review the current plugin setting; use its native screen or a fresh capture |
 | Current value changed after observation | Returns a conflict and performs no target write | Review newer work and choose the intended state manually |
 | Referenced local object missing | Refuses the restore | Recreate/select a valid object, then use the native settings screen |
 | Operation lock unavailable | Refuses concurrent restore or maintenance | Wait for the active operation; investigate a stale lock if it does not clear |

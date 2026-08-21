@@ -19,12 +19,13 @@ ConfigOps performs compensating writes. It does not rewind the database or claim
 
 The current option must still match the observed **after** state at the scope ConfigOps intends to restore. If it differs, ConfigOps refuses to write. This prevents stale evidence from silently overwriting newer work.
 
-Two restore modes can appear:
+Three restore modes can appear:
 
 - **Full option:** the complete typed before/after values are safely encoded and the entire current option matches.
 - **Field patch:** a tested adapter can restore supported non-secret paths while preserving an existing hidden credential or unrelated field.
+- **Experimental generic array patch:** when a site administrator explicitly enables the experiment under **Plugin support**, an unclaimed associative `wp_options` array can restore only its captured paths while preserving unrelated later keys.
 
-Field patches remain adapter- and schema-bound. ConfigOps does not synthesize a patch for an unknown nested value.
+Adapter patches remain schema-bound. The generic experiment does not guess field meaning: it verifies every patch entry against both encoded snapshots, requires the current target paths to match the captured after-state, and refuses roots, integer-keyed parent arrays, list-index edits, secrets, truncated diffs, malformed evidence, adapter-owned options, and derived state. If any target path conflicts, it writes nothing.
 
 ## Local references
 

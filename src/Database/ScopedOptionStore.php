@@ -18,4 +18,9 @@ interface ScopedOptionStore
 	public function update(string $name, mixed $value): bool;
 
 	public function delete(string $name): bool;
+
+	/**
+	 * Delete only when the caller still owns the exact stored value.
+	 */
+	public function deleteIfValue(string $name, mixed $expected): bool;
 }
