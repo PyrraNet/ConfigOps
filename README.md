@@ -37,7 +37,7 @@ Change a supported WordPress or plugin setting as usual. ConfigOps opens one iso
 
 Named Change Sessions remain the focused mode for planned maintenance, support cases, and investigations that span several requests.
 
-On a network-active Multisite installation, every site keeps an isolated local ledger while Network Admin receives a separate network-wide evidence view. Network administrators can group planned work into named Network Change Sessions. Complete Network Options additions and updates can be undone one mutation at a time after the same conflict and compensation checks; deletes and whole-session undo remain unavailable.
+On a network-active Multisite installation, every site keeps an isolated local ledger while Network Admin receives a separate network-wide evidence view. Multi-Network installs are pinned to each site's actual network ownership: lifecycle work refuses a site from another network, and a foreign Network Options write never enters the current network's evidence. Network administrators can group planned work into named Network Change Sessions. Complete Network Options additions and updates can be undone one mutation at a time after the same conflict and compensation checks; deletes and whole-session undo remain unavailable.
 
 ```diff
 WP Mail SMTP → Sender email
@@ -67,7 +67,7 @@ This remains deliberately experimental and site-local. It does not infer plugin 
 | Integration | Tested release | Observe | Explain | Secrets | Undo |
 |---|---:|:---:|:---:|:---:|:---:|
 | WordPress Core | WordPress 7.0–7.1 | Supported | Field map + local references | Redacted | With limits |
-| WordPress Multisite | WordPress 7.0–7.1 | Sites + Network Options | Generic network evidence | Redacted | Network additions/updates |
+| WordPress Multisite / Multi-Network | WordPress 7.0–7.1 | Sites + Network Options | Generic network evidence | Redacted | Network additions/updates |
 | WP Mail SMTP Free | 4.9.0 | Supported | Supported | Removed | With limits |
 | Yoast SEO Free | 28.2 | Supported | Supported | Removed | With limits |
 | Unknown plugins | — | Options API only | Needs review | Conservative | Exact undo; opt-in verified array-key experiment |

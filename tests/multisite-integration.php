@@ -159,6 +159,139 @@ $assert(
 	'Network evidence should use the current network identity and reserve blog ID zero.'
 );
 
+$secondaryNetworkDomain = 'secondary.' . $domain;
+$insertedNetwork = $wpdb->insert(
+	$wpdb->site,
+	array(
+		'domain' => $secondaryNetworkDomain,
+		'path'   => '/',
+	),
+	array('%s', '%s')
+);
+$secondaryNetworkId = (int) $wpdb->insert_id;
+$assert(
+	false !== $insertedNetwork && $secondaryNetworkId > 0 && $secondaryNetworkId !== $originNetworkId,
+	'The Multi-Network fixture should create a distinct secondary WordPress network.'
+);
+if (function_exists('clean_network_cache')) {
+	clean_network_cache($secondaryNetworkId);
+}
+if (! defined('UPLOADBLOGSDIR')) {
+	define('UPLOADBLOGSDIR', 'wp-content/blogs.dir');
+}
+$secondarySiteId = wpmu_create_blog(
+	$secondaryNetworkDomain,
+	'/',
+	'ConfigOps inactive secondary network',
+	1,
+	array('public' => 0),
+	$secondaryNetworkId
+);
+if (is_wp_error($secondarySiteId)) {
+	throw new RuntimeException('Could not create the secondary-network fixture: ' . $secondarySiteId->get_error_message());
+}
+$secondarySiteId = (int) $secondarySiteId;
+$assert(
+	$secondarySiteId > 0 && $secondarySiteId !== $originSiteId && $secondarySiteId !== $foreignSiteId,
+	'The secondary network should own a distinct main site.'
+);
+$assert(switch_to_blog($secondarySiteId), 'The Multi-Network lifecycle check should enter the secondary network site.');
+$secondarySiteScope = \ConfigOps\Multisite\SiteScope::current();
+$assert(
+	$secondaryNetworkId === $secondarySiteScope->networkId()
+	&& $secondarySiteId === $secondarySiteScope->siteId(),
+	'The secondary site should resolve its own WordPress network after context switching.'
+);
+$assert(
+	false === get_option('configops_schema_version', false),
+	'A site in a network where ConfigOps is inactive must not receive site-local schema state.'
+);
+$secondaryAdministrator = get_role('administrator');
+$assert(
+	$secondaryAdministrator && ! $secondaryAdministrator->has_cap('configops_view'),
+	'A site in a network where ConfigOps is inactive must not receive ConfigOps capabilities.'
+);
+$assert(
+	false === wp_next_scheduled(\ConfigOps\Maintenance\HistoryRetention::HOOK),
+	'A site in a network where ConfigOps is inactive must not schedule ConfigOps retention.'
+);
+$assert(restore_current_blog(), 'The Multi-Network lifecycle check should restore the origin network site.');
+
+$mismatchedScopeCallbackRan = false;
+$mismatchedScopeRejected = false;
+try {
+	(new \ConfigOps\Multisite\SiteScope($originNetworkId, $secondarySiteId))->run(
+		static function () use (&$mismatchedScopeCallbackRan): void {
+			$mismatchedScopeCallbackRan = true;
+		}
+	);
+} catch (RuntimeException) {
+	$mismatchedScopeRejected = true;
+}
+$assert(
+	$mismatchedScopeRejected
+	&& ! $mismatchedScopeCallbackRan
+	&& $originSiteId === (int) get_current_blog_id()
+	&& $originNetworkId === (int) get_current_network_id(),
+	'A pinned site scope must reject a blog that moved outside its expected network and restore the caller context.'
+);
+
+$lifecycleCallbackRan = false;
+$lifecycleMismatchRejected = false;
+try {
+	(new \ConfigOps\Multisite\SiteContextRunner())->run(
+		$secondarySiteId,
+		static function () use (&$lifecycleCallbackRan): void {
+			$lifecycleCallbackRan = true;
+		},
+		$originNetworkId
+	);
+} catch (RuntimeException) {
+	$lifecycleMismatchRejected = true;
+}
+$assert(
+	$lifecycleMismatchRejected
+	&& ! $lifecycleCallbackRan
+	&& $originSiteId === (int) get_current_blog_id()
+	&& $originNetworkId === (int) get_current_network_id(),
+	'Lifecycle maintenance must reject a site from another network and unwind its blog switch.'
+);
+
+$crossNetworkOption = 'foreign_network_boundary_fixture';
+delete_network_option($secondaryNetworkId, $crossNetworkOption);
+$crossNetworkSessionId = $networkCaptures->start(
+	'Cross-network boundary fixture',
+	1,
+	'/wp-admin/network/settings.php'
+);
+$assert(
+	add_network_option($secondaryNetworkId, $crossNetworkOption, 'secondary-before')
+	&& update_network_option($secondaryNetworkId, $crossNetworkOption, 'secondary-after'),
+	'Foreign Network Options writes must continue normally while an origin-network capture is open.'
+);
+$crossNetworkSession = $networkCaptures->find($crossNetworkSessionId);
+$assert(
+	$crossNetworkSession
+	&& 1 === (int) $crossNetworkSession->capture_error_count
+	&& 'cross_network_write_ignored' === (string) $crossNetworkSession->last_error_code,
+	sprintf(
+		'A foreign-network write must make the origin-network capture incomplete exactly once (count %d, code %s).',
+		(int) ($crossNetworkSession->capture_error_count ?? -1),
+		(string) ($crossNetworkSession->last_error_code ?? 'missing')
+	)
+);
+$assert(
+	array() === $networkMutations->forSession($crossNetworkSessionId)
+	&& 'secondary-after' === get_network_option($secondaryNetworkId, $crossNetworkOption),
+	'Foreign network values must not enter origin evidence or be changed by boundary reporting.'
+);
+$assert(
+	$crossNetworkSessionId === $networkCaptures->stop()
+	&& false === get_network_option($originNetworkId, 'configops_active_capture_id', false),
+	'An incomplete cross-network capture should remain safely stoppable and release its origin-network pointer.'
+);
+delete_network_option($secondaryNetworkId, $crossNetworkOption);
+
 $networkPointerSession = $networkCaptures->start('Network state fixture', 1, '/wp-admin/network/settings.php');
 $assert(
 	$networkPointerSession === (int) get_network_option($originNetworkId, 'configops_active_capture_id', 0)
@@ -826,6 +959,19 @@ $assert(switch_to_blog($deletedSiteId), 'The site-deletion check should enter it
 $deletedCaptures = new \ConfigOps\Database\CaptureRepository($wpdb, \ConfigOps\Multisite\SiteScope::current());
 $deletedSessionId = $deletedCaptures->start('Deleted site fixture', 0, '/wp-admin/options-general.php');
 $assert($deletedSessionId > 0, 'The site-deletion fixture should persist scoped evidence before cleanup.');
+$movedSiteCaptures = new \ConfigOps\Database\CaptureRepository(
+	$wpdb,
+	new \ConfigOps\Multisite\SiteScope($secondaryNetworkId, $deletedSiteId)
+);
+$movedSiteSessionId = $movedSiteCaptures->startAutomatic(
+	'Moved site stale-network fixture',
+	0,
+	'/wp-admin/options-general.php'
+);
+$assert(
+	$movedSiteSessionId > 0 && null !== $movedSiteCaptures->find($movedSiteSessionId),
+	'The deletion fixture should include stale evidence under a previous network identity.'
+);
 $createdLegacyTable = $wpdb->query(
 	"CREATE TABLE `{$deletedPrefix}configops_capture_sessions` (`id` bigint(20) unsigned NOT NULL, PRIMARY KEY (`id`))"
 );
@@ -835,12 +981,14 @@ $deletedSite = wp_delete_site($deletedSiteId);
 $assert(! is_wp_error($deletedSite), 'WordPress should delete the disposable Multisite fixture.');
 $remainingDeletedEvidence = (int) $wpdb->get_var(
 	$wpdb->prepare(
-		"SELECT COUNT(*) FROM `{$wpdb->base_prefix}configops_capture_sessions` WHERE network_id = %d AND blog_id = %d",
-		$originNetworkId,
+		"SELECT COUNT(*) FROM `{$wpdb->base_prefix}configops_capture_sessions` WHERE blog_id = %d",
 		$deletedSiteId
 	)
 );
-$assert(0 === $remainingDeletedEvidence, 'Deleting a site must remove its rows from shared ConfigOps storage.');
+$assert(
+	0 === $remainingDeletedEvidence,
+	'Deleting a site must remove its shared evidence even when rows retain an older network identity.'
+);
 $assert(
 	null === $wpdb->get_var(
 		$wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($deletedPrefix . 'configops_capture_sessions'))

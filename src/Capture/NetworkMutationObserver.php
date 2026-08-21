@@ -10,19 +10,24 @@ declare(strict_types=1);
 namespace ConfigOps\Capture;
 
 use ConfigOps\Database\CaptureRepository;
+use ConfigOps\Multisite\NetworkBoundaryGuard;
 use ConfigOps\Multisite\NetworkScope;
 use Throwable;
 
 final readonly class NetworkMutationObserver
 {
+	private NetworkBoundaryGuard $boundary;
+
 	public function __construct(
 		private CaptureRepository $captures,
 		private InternalOptionPolicy $internalOptions,
 		private ValueCodec $codec,
 		private MutationRecorder $recorder,
 		private NetworkAutomaticRecorder $automatic,
-		private NetworkScope $scope
+		private NetworkScope $scope,
+		?NetworkBoundaryGuard $boundary = null
 	) {
+		$this->boundary = $boundary ?? new NetworkBoundaryGuard($this->scope, $this->captures);
 	}
 
 	public function register(): void
@@ -68,11 +73,12 @@ final readonly class NetworkMutationObserver
 	 */
 	private function observe(string $option, int $networkId, callable $before, callable $after): void
 	{
-		if (
-			$this->internalOptions->isInternal($option)
-			|| $networkId !== $this->scope->networkId()
-			|| ! $this->scope->isCurrent()
-		) {
+		if ($this->internalOptions->isInternal($option)) {
+			return;
+		}
+
+		$openSessionId = $this->automatic->sessionId($this->scope->networkId(), false);
+		if (! $this->boundary->accepts($networkId, $openSessionId)) {
 			return;
 		}
 

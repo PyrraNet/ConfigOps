@@ -24,10 +24,10 @@ final readonly class SiteScope implements EvidenceScope
 
 	public static function current(): self
 	{
-		$networkId = function_exists('get_current_network_id') ? (int) get_current_network_id() : 0;
-		$siteId    = function_exists('get_current_blog_id') ? (int) get_current_blog_id() : 1;
+		$siteId    = function_exists('get_current_blog_id') ? max(1, (int) get_current_blog_id()) : 1;
+		$networkId = self::networkIdForSite($siteId);
 
-		return new self(max(0, $networkId), max(1, $siteId));
+		return new self($networkId, $siteId);
 	}
 
 	public function networkId(): int
@@ -83,6 +83,12 @@ final readonly class SiteScope implements EvidenceScope
 		}
 
 		try {
+			if (! $this->isCurrent()) {
+				throw new RuntimeException(
+					'ConfigOps entered a site that no longer belongs to the expected WordPress network.'
+				);
+			}
+
 			return $operation();
 		} finally {
 			if (! restore_current_blog()) {
@@ -100,5 +106,26 @@ final readonly class SiteScope implements EvidenceScope
 			'network_id' => $this->networkId,
 			'site_id'    => $this->siteId,
 		);
+	}
+
+	private static function networkIdForSite(int $siteId): int
+	{
+		if (
+			function_exists('is_multisite')
+			&& is_multisite()
+			&& function_exists('get_site')
+		) {
+			$site = get_site($siteId);
+			if (is_object($site)) {
+				$networkId = (int) ($site->site_id ?? 0);
+				if ($networkId > 0) {
+					return $networkId;
+				}
+			}
+
+			return 0;
+		}
+
+		return function_exists('get_current_network_id') ? max(0, (int) get_current_network_id()) : 0;
 	}
 }

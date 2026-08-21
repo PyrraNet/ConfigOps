@@ -42,6 +42,7 @@ ConfigOps is not plugin-version rollback. It works with configuration values, no
 * Secret redaction before mutation history is stored.
 * Conflict checks before every restore.
 * Isolated site evidence across network-active WordPress Multisite installations.
+* Multi-Network boundaries tied to each site's real network ownership, including fail-closed foreign-network writes and lifecycle switches.
 * A separate Network Admin ledger for Network Options changes.
 * Named Network Change Sessions for planned work that spans several Network Admin requests.
 * Mutation-level undo for complete Network Options additions and updates.
@@ -69,7 +70,7 @@ The Plugin support screen states exactly which WordPress and plugin capabilities
 
 = Multisite in version 0.4 =
 
-On a network-active installation, each site keeps its own isolated evidence lifecycle. Network Admin receives a separate network-wide ledger for supported Network Options API changes, with guarded mutation-level undo for complete additions and updates.
+On a network-active installation, each site keeps its own isolated evidence lifecycle. On Multi-Network installations, ConfigOps derives the network from the actual site record after every internal context switch, refuses lifecycle work that crosses networks, and excludes foreign Network Options writes from the current network ledger. An affected open capture is marked incomplete instead of silently appearing trustworthy. Network Admin receives a separate network-wide ledger for supported Network Options API changes, with guarded mutation-level undo for complete additions and updates.
 
 Network option deletes remain review-only because WordPress reports them after the previous value is gone. Named Network Change Sessions can group network-owned evidence, but whole-network-change undo, cross-site aggregation, and bulk operations are not available.
 
@@ -101,7 +102,7 @@ ConfigOps observes supported Options API mutations in authorized WordPress admin
 
 = Does ConfigOps support WordPress Multisite? =
 
-Yes. Version 0.4 supports network activation, isolated per-site evidence, lifecycle and retention across sites, and a separate Network Admin ledger for supported Network Options changes. Named Network Change Sessions can group a planned task, and complete network additions and updates can be undone one mutation at a time. Network deletes, whole-network-change undo, cross-site aggregation, and bulk actions are not supported.
+Yes. Version 0.4 supports network activation, isolated per-site evidence, lifecycle and retention across sites, Multi-Network ownership boundaries, and a separate Network Admin ledger for supported Network Options changes. Named Network Change Sessions can group a planned task, and complete network additions and updates can be undone one mutation at a time. Network deletes, whole-network-change undo, cross-site aggregation, and bulk actions are not supported.
 
 = Can ConfigOps undo an array without a plugin adapter? =
 

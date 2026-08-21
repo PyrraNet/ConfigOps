@@ -51,7 +51,7 @@ final readonly class SiteLifecycle
 			throw new RuntimeException('ConfigOps cannot activate without a valid WordPress network.');
 		}
 		foreach ($this->sites->siteIds($networkId) as $siteId) {
-			$this->sites->run($siteId, fn (): null => $this->provisionCurrentSite());
+			$this->sites->run($siteId, fn (): null => $this->provisionCurrentSite(), $networkId);
 		}
 	}
 
@@ -85,7 +85,7 @@ final readonly class SiteLifecycle
 		}
 		foreach ($this->sites->siteIds($networkId) as $siteId) {
 			try {
-				$this->sites->run($siteId, fn (): null => $this->deactivateCurrentSite());
+				$this->sites->run($siteId, fn (): null => $this->deactivateCurrentSite(), $networkId);
 			} catch (Throwable $error) {
 				$this->report('configops_deactivation_error', $error, $networkId, $siteId);
 			}
@@ -117,7 +117,7 @@ final readonly class SiteLifecycle
 		}
 
 		try {
-			$this->sites->run($siteId, fn (): null => $this->provisionCurrentSite());
+			$this->sites->run($siteId, fn (): null => $this->provisionCurrentSite(), $networkId);
 		} catch (Throwable $error) {
 			// Site creation must survive plugin provisioning failure. A normal request
 			// to the new site retries the same schema and capability installation.
@@ -134,7 +134,7 @@ final readonly class SiteLifecycle
 		}
 
 		try {
-			$this->deleteSharedEvidence($networkId, $siteId);
+			$this->deleteSharedEvidence($siteId);
 		} catch (Throwable $error) {
 			// ConfigOps cleanup must not replace WordPress's site-deletion result.
 			$this->report('configops_site_cleanup_error', $error, $networkId, $siteId);
@@ -199,15 +199,14 @@ final readonly class SiteLifecycle
 		return is_array($plugins) && isset($plugins[plugin_basename(CONFIGOPS_FILE)]);
 	}
 
-	private function deleteSharedEvidence(int $networkId, int $siteId): void
+	private function deleteSharedEvidence(int $siteId): void
 	{
 		$prefix = (string) ($this->database->base_prefix ?: $this->database->prefix);
 		foreach ($this->tableSuffixes() as $suffix) {
 			$table = '`' . str_replace('`', '``', $prefix . $suffix) . '`';
 			$deleted = $this->database->query(
 				$this->database->prepare(
-					"DELETE FROM {$table} WHERE network_id = %d AND blog_id = %d",
-					$networkId,
+					"DELETE FROM {$table} WHERE blog_id = %d",
 					$siteId
 				)
 			);

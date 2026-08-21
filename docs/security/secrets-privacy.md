@@ -44,7 +44,7 @@ These are the capabilities used by the site observation REST routes. Administrat
 
 Changing the site-local generic array experiment requires WordPress's `manage_options` capability. The switch does not grant undo authority: using an eligible smart-array mutation still requires `configops_rollback`. Its setting contains only an enabled/disabled flag and is removed on uninstall.
 
-Network Admin evidence and mutation undo additionally require WordPress's `manage_network_options` capability. Network routes are available only in a Multisite Network Admin request, remain pinned to the current network, and do not accept a caller-supplied site or network identity. REST responses are capability-gated, private, and marked `no-store`.
+Network Admin evidence and mutation undo additionally require WordPress's `manage_network_options` capability. Network routes are available only in a Multisite Network Admin request, remain pinned to the current network, and do not accept a caller-supplied site or network identity. On Multi-Network installations, foreign Network Options values are excluded and internal site switches are checked against the site's actual network ownership. REST responses are capability-gated, private, and marked `no-store`.
 
 ## Retention and removal
 

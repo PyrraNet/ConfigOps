@@ -53,13 +53,15 @@ final class SiteContextRunner
 	 * @param callable(): T $operation Site-local operation.
 	 * @return T
 	 */
-	public function run(int $siteId, callable $operation): mixed
+	public function run(int $siteId, callable $operation, ?int $expectedNetworkId = null): mixed
 	{
 		$siteId = absint($siteId);
 		if ($siteId <= 0) {
 			throw new RuntimeException('ConfigOps cannot enter an invalid WordPress site.');
 		}
 		if ($siteId === (int) get_current_blog_id()) {
+			$this->assertExpectedNetwork($expectedNetworkId);
+
 			return $operation();
 		}
 		if (! switch_to_blog($siteId)) {
@@ -67,11 +69,28 @@ final class SiteContextRunner
 		}
 
 		try {
+			$this->assertExpectedNetwork($expectedNetworkId);
+
 			return $operation();
 		} finally {
 			if (! restore_current_blog()) {
 				throw new RuntimeException('ConfigOps could not restore the WordPress site after lifecycle maintenance.');
 			}
+		}
+	}
+
+	private function assertExpectedNetwork(?int $expectedNetworkId): void
+	{
+		if (null === $expectedNetworkId) {
+			return;
+		}
+		if (
+			$expectedNetworkId <= 0
+			|| $expectedNetworkId !== SiteScope::current()->networkId()
+		) {
+			throw new RuntimeException(
+				'ConfigOps entered a site outside the expected WordPress network during lifecycle maintenance.'
+			);
 		}
 	}
 }
