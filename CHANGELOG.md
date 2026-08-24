@@ -13,14 +13,15 @@ ConfigOps follows semantic versioning. While the major version is `0`, adapter c
 
 ### Hardened
 
-- Generic array patches fail closed for roots, integer-keyed parent arrays, list-index edits, secrets, redacted or oversized evidence, truncated or overlapping paths, adapter-owned options, malformed snapshots, autoload drift, and any target key that changed again.
+- Generic array patches fail closed for roots, integer-keyed parent arrays, list-index edits, secrets, redacted or oversized evidence, truncated or overlapping paths, adapter-owned options, malformed snapshots, autoload drift, and any target key that changed again. Current parent shapes and current adapter ownership are rechecked immediately before eligibility or apply, so historical string keys cannot alias later list indexes and newly registered adapters cannot be bypassed.
+- Successful field patches now verify both the stored value and its autoload mode. A synchronous autoload rewrite fails as compensated instead of producing a false successful audit.
 - Named-session pointer release is now compare-and-delete in site and network option scopes. A finishing request cannot delete a newer owner's pointer, and a start that loses ownership cannot resurrect or strand its session row.
 - Site and network retention now share their scope's restore mutex, so cleanup cannot remove mutation or audit evidence while an undo operation is reading it.
 - Internal lock and pointer compare-and-swap statements no longer create unmanaged-write evidence through the SQL sentry.
 
 ### Verified against
 
-- 899 unit/fuzz assertions, 46 adversarial assertions, 269 real WordPress integration assertions, 51 exact real-plugin adapter assertions, and 139 network-active Multisite assertions.
+- 903 unit/fuzz assertions, 46 adversarial assertions, 272 real WordPress integration assertions, 51 exact real-plugin adapter assertions, and 154 network-active Multisite assertions.
 - 77.12% tracked-production and 79.94% trust-boundary line coverage, plus the PHP 8.2–8.5 compatibility scan, UI budget, documentation build, release archive, and dependency advisory gates.
 
 ## 0.4.3 — 2026-08-19

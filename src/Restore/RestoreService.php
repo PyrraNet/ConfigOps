@@ -41,7 +41,7 @@ final class RestoreService
 		?GenericArrayUndo $genericArrayUndo = null
 	) {
 		$this->siteBoundary = $siteBoundary ?? new SiteBoundaryGuard(SiteScope::current(), $captures);
-		$this->genericArrayUndo = $genericArrayUndo ?? new GenericArrayUndo($codec, new ExperimentalFeatures());
+		$this->genericArrayUndo = $genericArrayUndo ?? new GenericArrayUndo($codec, new ExperimentalFeatures(), $adapters);
 	}
 
 	public function restoreMutation(int $mutationId): void
@@ -370,6 +370,10 @@ final class RestoreService
 			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
 			throw $this->runtimeFailure("Conflict: {$optionName} no longer contains the captured settings array. Nothing was restored.");
 		}
+		if ($generic && ! $this->genericArrayUndo->currentStructureSupports($current, $changes)) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
+			throw $this->runtimeFailure("Conflict: {$optionName} no longer has the captured associative settings structure. Nothing was restored.");
+		}
 
 		$currentAutoload = $this->optionMetadata->autoloadFor($optionName);
 		$this->siteBoundary->assertCurrentSite();
@@ -403,9 +407,16 @@ final class RestoreService
 			$updated = update_option($optionName, $patched, $autoloadFlag);
 			$this->siteBoundary->assertCurrentSite();
 			$stored  = get_option($optionName, $sentinel);
-			if ($stored === $sentinel || ! $this->codec->semanticallyEqual($stored, $patched)) {
+			$this->siteBoundary->assertCurrentSite();
+			$storedAutoload = $this->optionMetadata->autoloadFor($optionName);
+			$this->siteBoundary->assertCurrentSite();
+			if (
+				$stored === $sentinel
+				|| ! $this->codec->semanticallyEqual($stored, $patched)
+				|| $this->autoloadMode($storedAutoload) !== $this->autoloadMode($currentAutoload)
+			) {
 				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
-				throw $this->runtimeFailure("WordPress could not undo the safe fields in {$optionName}.");
+				throw $this->runtimeFailure("WordPress could not preserve the safe field undo state in {$optionName}.");
 			}
 			unset($updated);
 		} catch (Throwable $error) {

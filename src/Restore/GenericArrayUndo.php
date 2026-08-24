@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace ConfigOps\Restore;
 
+use ConfigOps\Adapter\AdapterRegistry;
 use ConfigOps\Capture\ValueCodec;
 use ConfigOps\Experiment\ExperimentalFeatures;
 use Throwable;
@@ -20,7 +21,8 @@ final readonly class GenericArrayUndo
 
 	public function __construct(
 		private ValueCodec $codec,
-		private ExperimentalFeatures $features
+		private ExperimentalFeatures $features,
+		private AdapterRegistry $adapters
 	) {
 	}
 
@@ -40,6 +42,7 @@ final readonly class GenericArrayUndo
 			|| 'update' !== (string) ($mutation->mutation_type ?? '')
 			|| 'unknown' !== (string) ($mutation->classification ?? '')
 			|| '' !== (string) ($mutation->adapter_id ?? '')
+			|| ! $this->adapters->isOptionUnclaimed((string) ($mutation->option_name ?? ''))
 		) {
 			return array();
 		}
@@ -74,6 +77,31 @@ final readonly class GenericArrayUndo
 		}
 
 		return $changes;
+	}
+
+	/**
+	 * The current value must retain the same unambiguous map parents used to
+	 * validate the snapshots. This prevents a numeric-looking string key such
+	 * as "01" from being reinterpreted as list index 1 after structural drift.
+	 *
+	 * @param array<int|string, mixed>      $current
+	 * @param list<array<string, mixed>>    $changes
+	 */
+	public function currentStructureSupports(array $current, array $changes): bool
+	{
+		foreach ($changes as $change) {
+			$path = is_string($change['path'] ?? null) ? $change['path'] : '';
+			if ('' === $path || '/' === $path) {
+				return false;
+			}
+
+			$parts = $this->pointerParts($path);
+			if (empty($parts) || ! $this->hasAssociativeParents($current, $parts)) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**

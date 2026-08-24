@@ -106,7 +106,7 @@ Yes. Version 0.4 supports network activation, isolated per-site evidence, lifecy
 
 = Can ConfigOps undo an array without a plugin adapter? =
 
-Complete generic Options API values already use exact current-value checks. Site administrators can additionally enable **Smart undo for ordinary settings arrays** under Plugin support. For unclaimed associative wp_options updates, it cross-checks the complete patch against both typed snapshots, reverses only captured target keys, and preserves unrelated later keys. It refuses secrets, root replacements, integer-keyed parent arrays, list-index edits, redacted or truncated evidence, malformed or overlapping paths, autoload drift, adapter-owned options, and any target key that changed again.
+Complete generic Options API values already use exact current-value checks. Site administrators can additionally enable **Smart undo for ordinary settings arrays** under Plugin support. For unclaimed associative wp_options updates, it cross-checks the complete patch against both typed snapshots, reverses only captured target keys, and preserves unrelated later keys. Current adapter ownership and current parent shapes are checked again before apply. It refuses secrets, root replacements, integer-keyed parent arrays, list-index edits, redacted or truncated evidence, malformed or overlapping paths, autoload drift, adapter-owned options, and any target key that changed again.
 
 = Are secrets stored in the mutation history? =
 
@@ -142,7 +142,7 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 = Unreleased =
 
 * Adds an opt-in smart-array experiment that can undo verified keys in ordinary unclaimed wp_options arrays without requiring a plugin adapter.
-* Preserves unrelated later keys and refuses the complete patch when snapshots, target paths, structure, secrets, autoload state, or adapter ownership cannot be proven safe.
+* Preserves unrelated later keys, rechecks current structure and adapter ownership, and refuses the complete patch when snapshots, target paths, secrets, autoload state, or ownership cannot be proven safe.
 * Makes named-session pointer release owner-conditional across site and network scopes and prevents activation races from resurrecting or orphaning sessions.
 * Serializes site and network retention with restore so cleanup cannot remove evidence from an in-flight undo.
 

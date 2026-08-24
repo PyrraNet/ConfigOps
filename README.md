@@ -60,7 +60,7 @@ Unknown plugins do not need an adapter for every ordinary settings array. A site
 - the complete patch is refused if one target conflicts;
 - unrelated keys added or changed later are preserved.
 
-This remains deliberately experimental and site-local. It does not infer plugin semantics or override an adapter contract, and it refuses roots, integer-keyed parent arrays, list-index edits, secrets, redacted or truncated evidence, malformed or overlapping paths, autoload drift, and custom-table writes.
+This remains deliberately experimental and site-local. It does not infer plugin semantics or override an adapter contract, and it refuses roots, integer-keyed parent arrays, list-index edits, secrets, redacted or truncated evidence, malformed or overlapping paths, autoload drift, and custom-table writes. Eligibility rechecks current adapter ownership, while apply rechecks that every current parent is still an unambiguous associative map.
 
 ## Support is a contract
 

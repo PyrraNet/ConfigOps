@@ -167,7 +167,7 @@ $operationLock = new \ConfigOps\Execution\OperationLock($wpdb);
 $restoreAudit  = new \ConfigOps\Database\RestoreAuditRepository($wpdb);
 $experimentalFeatures = new \ConfigOps\Experiment\ExperimentalFeatures();
 $experimentalFeatures->setGenericArrayUndo(false);
-$genericArrayUndo = new \ConfigOps\Restore\GenericArrayUndo($codec, $experimentalFeatures);
+$genericArrayUndo = new \ConfigOps\Restore\GenericArrayUndo($codec, $experimentalFeatures, $adapters);
 $restore       = new \ConfigOps\Restore\RestoreService(
 	$captures,
 	$mutations,
@@ -766,6 +766,108 @@ $assert(
 	&& array() === $genericArrayUndo->changesFor($tamperedGenericMutation),
 	'Generic array undo must reject sequential or sparse list-index surgery and a diff that disagrees with its encoded snapshots.'
 );
+
+$rootGenericMutation = clone $genericMutation;
+$rootGenericMutation->diff = wp_json_encode(
+	array(array('op' => 'replace', 'path' => '/', 'before' => $genericBefore, 'after' => $genericAfter))
+);
+$overlappingGenericMutation = clone $genericMutation;
+$overlappingDiff = json_decode((string) $genericMutation->diff, true, 64, JSON_THROW_ON_ERROR);
+$overlappingDiff[] = $overlappingDiff[0];
+$overlappingGenericMutation->diff = wp_json_encode($overlappingDiff);
+$truncatedGenericMutation = clone $genericMutation;
+$truncatedGenericMutation->diff = wp_json_encode(array(array('op' => 'truncated', 'path' => '/')));
+$redactedGenericMutation = clone $genericMutation;
+$redactedGenericMutation->is_redacted = 1;
+$redactedGenericMutation->secret_change_count = 1;
+$malformedGenericMutation = clone $genericMutation;
+$malformedGenericMutation->old_value = '{malformed';
+$oversizedGenericMutation = clone $genericMutation;
+$oversizedGenericMutation->diff = wp_json_encode(array_fill(0, 101, $overlappingDiff[0]));
+$adapterOwnedHistoricalMutation = clone $genericMutation;
+$adapterOwnedHistoricalMutation->option_name = 'site_icon';
+$adapterOwnedHistoricalMutation->adapter_id = '';
+$assert(
+	array() === $genericArrayUndo->changesFor($rootGenericMutation)
+	&& array() === $genericArrayUndo->changesFor($overlappingGenericMutation)
+	&& array() === $genericArrayUndo->changesFor($truncatedGenericMutation)
+	&& array() === $genericArrayUndo->changesFor($redactedGenericMutation)
+	&& array() === $genericArrayUndo->changesFor($malformedGenericMutation)
+	&& array() === $genericArrayUndo->changesFor($oversizedGenericMutation)
+	&& array() === $genericArrayUndo->changesFor($adapterOwnedHistoricalMutation),
+	'Generic array policy must fail closed for roots, overlaps, truncation, protected or malformed evidence, oversized patches, and options claimed after capture.'
+);
+
+$numericKeyOption = 'fixture_generic_numeric_string_key';
+delete_option($numericKeyOption);
+add_option($numericKeyOption, array('keep' => true), '', false);
+$numericKeySession = $captures->start('Generic numeric-looking string key', 0, '/wp-admin/options-general.php');
+update_option($numericKeyOption, array('keep' => true, '01' => 'captured'), false);
+$captures->stop();
+$numericKeyMutation = $mutations->forSession($numericKeySession)[0] ?? null;
+$numericKeyCurrent = array('unrelated', 'captured');
+update_option($numericKeyOption, $numericKeyCurrent, false);
+$numericKeyConflict = false;
+try {
+	$restore->restoreMutation((int) $numericKeyMutation->id);
+} catch (RuntimeException $error) {
+	$numericKeyConflict = str_starts_with($error->getMessage(), 'Conflict:');
+}
+$assert(
+	$numericKeyConflict && $numericKeyCurrent === get_option($numericKeyOption),
+	'A numeric-looking associative key must never alias a list index after the current option structure changes.'
+);
+
+$genericAutoloadOption = 'fixture_generic_post_write_autoload';
+delete_option($genericAutoloadOption);
+add_option($genericAutoloadOption, array('enabled' => false, 'later' => 1), '', false);
+$genericAutoloadSession = $captures->start('Generic post-write autoload verification', 0, '/wp-admin/options-general.php');
+update_option($genericAutoloadOption, array('enabled' => true, 'later' => 1), false);
+$captures->stop();
+$genericAutoloadMutation = $mutations->forSession($genericAutoloadSession)[0] ?? null;
+$genericAutoloadCurrent = array('enabled' => true, 'later' => 2);
+update_option($genericAutoloadOption, $genericAutoloadCurrent, false);
+$genericAutoloadBefore = (string) $metadata->autoloadFor($genericAutoloadOption);
+$genericAutoloadDrift = in_array($genericAutoloadBefore, array('on', 'yes', 'auto-on'), true) ? 'off' : 'on';
+$autoloadWasRewritten = false;
+$rewriteGenericAutoload = static function (string $option) use (
+	&$autoloadWasRewritten,
+	$genericAutoloadOption,
+	$genericAutoloadDrift,
+	$wpdb
+): void {
+	if ($autoloadWasRewritten || $genericAutoloadOption !== $option) {
+		return;
+	}
+
+	$autoloadWasRewritten = 1 === $wpdb->update(
+		$wpdb->options,
+		array('autoload' => $genericAutoloadDrift),
+		array('option_name' => $genericAutoloadOption),
+		array('%s'),
+		array('%s')
+	);
+	wp_cache_delete($genericAutoloadOption, 'options');
+	wp_cache_delete('alloptions', 'options');
+};
+add_action('updated_option', $rewriteGenericAutoload, 20, 1);
+$genericAutoloadCompensated = false;
+try {
+	$restore->restoreMutation((int) $genericAutoloadMutation->id);
+} catch (\ConfigOps\Restore\RestoreCompensationException $error) {
+	$genericAutoloadCompensated = ! $error->compensationFailed;
+}
+remove_action('updated_option', $rewriteGenericAutoload, 20);
+$genericAutoloadCompensatedState = (string) $metadata->autoloadFor($genericAutoloadOption);
+$assert(
+	$autoloadWasRewritten
+	&& $genericAutoloadCompensated
+	&& $genericAutoloadCurrent === get_option($genericAutoloadOption)
+	&& in_array($genericAutoloadBefore, array('on', 'yes', 'auto-on'), true)
+		=== in_array($genericAutoloadCompensatedState, array('on', 'yes', 'auto-on'), true),
+	'A synchronous autoload rewrite must make a generic patch fail as compensated and restore the complete current state.'
+);
+
 $experimentalFeatures->setGenericArrayUndo(false);
 $assert(
 	array() === $genericArrayUndo->changesFor($genericConflictMutation),
@@ -776,6 +878,8 @@ delete_option($genericShapeOption);
 delete_option($genericConflictOption);
 delete_option($listOption);
 delete_option($sparseListOption);
+delete_option($numericKeyOption);
+delete_option($genericAutoloadOption);
 
 $stopFailureSession = $captures->start('Stop failure recovery', 0, '/wp-admin/options-general.php');
 $breakStopSummary = static function (string $query): string {

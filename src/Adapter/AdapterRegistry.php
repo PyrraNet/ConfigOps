@@ -257,6 +257,28 @@ final class AdapterRegistry implements SensitiveValueDetector, OptionValueNormal
 	}
 
 	/**
+	 * Generic restore may proceed only when every registered adapter can prove
+	 * that it does not own the option. An ownership callback failure is
+	 * ambiguous and therefore fails closed.
+	 */
+	public function isOptionUnclaimed(string $optionName): bool
+	{
+		foreach ($this->adapters as $adapter) {
+			try {
+				if ($adapter->ownsOption($optionName)) {
+					return false;
+				}
+			} catch (Throwable) {
+				$this->reportRejectedAdapter($adapter, 'ownership_failed');
+
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
 	 * @param array{type: string, component: string, file: string, line: int} $source Source attribution without SQL or values.
 	 */
 	public function isKnownNonConfigurationWrite(string $table, array $source): bool

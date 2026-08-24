@@ -429,6 +429,8 @@ $assert(
 	'The canonical built-in adapter set should retain every shipped integration in stable order.'
 );
 $registry = new AdapterRegistry($builtInAdapters, new NoiseClassifier(), new HeuristicSensitiveValueDetector());
+$assert($registry->isOptionUnclaimed('fixture_unclaimed_settings'), 'An option outside every adapter contract should remain eligible for generic policy checks.');
+$assert(! $registry->isOptionUnclaimed('site_icon'), 'A currently adapter-owned option must never enter generic restore policy.');
 $coreMedia = $registry->analyze(
 	'site_icon',
 	array(array('op' => 'replace', 'path' => '/', 'before' => 0, 'after' => 99999999))
@@ -512,6 +514,7 @@ $ambiguousRegistry = new AdapterRegistry(array($mailAdapter, $competingAdapter),
 $ambiguous = $ambiguousRegistry->analyze('wp_mail_smtp', array(array('path' => '/mail/from_name')));
 $assert('unknown' === $ambiguous['classification'] && ! $ambiguous['allows_restore'], 'Ambiguous adapter ownership must fail closed instead of depending on registration order.');
 $assert($ambiguousRegistry->isSensitive('wp_mail_smtp', array('fixture-secret')), 'Ambiguous ownership must still union every adapter’s secret protection.');
+$assert(! $ambiguousRegistry->isOptionUnclaimed('wp_mail_smtp'), 'Generic restore must reject an option claimed by one or more adapters.');
 
 $throwingSecretAdapter = new class implements ConfigAdapter {
 	public function manifest(): AdapterManifest
@@ -547,5 +550,45 @@ $throwingSecretAdapter = new class implements ConfigAdapter {
 };
 $throwingRegistry = new AdapterRegistry(array($throwingSecretAdapter), new NoiseClassifier(), new HeuristicSensitiveValueDetector());
 $assert($throwingRegistry->isSensitive('fixture_throwing_option', array('unknown')), 'A failing adapter secret check should redact the option instead of exposing or crashing it.');
+
+$throwingOwnershipAdapter = new class implements ConfigAdapter {
+	public function manifest(): AdapterManifest
+	{
+		return new AdapterManifest('fixture-ownership-failure', 'Fixture ownership failure', 'fixture/plugin.php', '>=1.0 <2.0', 1, array(), array(), array(), 'https://example.test');
+	}
+
+	public function ownsOption(string $optionName): bool
+	{
+		unset($optionName);
+
+		throw new RuntimeException('Broken ownership callback.');
+	}
+
+	public function analyze(string $optionName, array $changes): AdapterAnalysis
+	{
+		unset($optionName, $changes);
+
+		return new AdapterAnalysis('unknown', 'Fixture.');
+	}
+
+	public function field(string $optionName, string $jsonPointer): ?FieldDefinition
+	{
+		unset($optionName, $jsonPointer);
+
+		return null;
+	}
+
+	public function isSensitive(string $optionName, array $path): bool
+	{
+		unset($optionName, $path);
+
+		return false;
+	}
+};
+$throwingOwnershipRegistry = new AdapterRegistry(array($throwingOwnershipAdapter), new NoiseClassifier(), new HeuristicSensitiveValueDetector());
+$assert(
+	! $throwingOwnershipRegistry->isOptionUnclaimed('fixture_unknown_after_failure'),
+	'An adapter ownership failure must block generic restore instead of being treated as no owner.'
+);
 
 fwrite(STDOUT, "ConfigOps unit checks passed ({$assertions} assertions).\n");

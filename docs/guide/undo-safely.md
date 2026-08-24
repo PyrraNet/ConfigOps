@@ -25,7 +25,7 @@ Three restore modes can appear:
 - **Field patch:** a tested adapter can restore supported non-secret paths while preserving an existing hidden credential or unrelated field.
 - **Experimental generic array patch:** when a site administrator explicitly enables the experiment under **Plugin support**, an unclaimed associative `wp_options` array can restore only its captured paths while preserving unrelated later keys.
 
-Adapter patches remain schema-bound. The generic experiment does not guess field meaning: it verifies every patch entry against both encoded snapshots, requires the current target paths to match the captured after-state, and refuses roots, integer-keyed parent arrays, list-index edits, secrets, truncated diffs, malformed evidence, adapter-owned options, and derived state. If any target path conflicts, it writes nothing.
+Adapter patches remain schema-bound. The generic experiment does not guess field meaning: it verifies every patch entry against both encoded snapshots, resolves current adapter ownership again, requires every current parent to remain a string-keyed associative map, and requires the current target paths to match the captured after-state. It refuses roots, integer-keyed parent arrays, list-index edits, secrets, truncated diffs, malformed evidence, adapter-owned options, and derived state. If any target path or parent structure conflicts, it writes nothing.
 
 For a generic patch, current state is evaluated path by path:
 

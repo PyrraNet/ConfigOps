@@ -1,4 +1,5 @@
 import { setGenericArrayUndo, useConfigOpsState } from '../data/store.js';
+import Notice from '../components/Notice.jsx';
 
 const levelLabel = (level, __) => {
 	switch (level) {
@@ -105,17 +106,21 @@ export default function SupportMatrix() {
 
 	return (
 		<div className="configops-support-ledger">
+			<Notice notice={state.notice} />
 			{genericArrayUndo && (
-				<section className="configops-write-signal">
+				<section className="configops-write-signal configops-experiment-control">
 					<header>
 						<span className="configops-sql-mark" aria-hidden="true">β</span>
 						<div className="configops-write-identity">
 							<strong>{__('Smart undo for ordinary settings arrays', 'configops')}</strong>
-							<code>{genericArrayUndo.enabled ? __('Experimental · enabled', 'configops') : __('Experimental · off', 'configops')}</code>
+							<span className={`configops-experiment-state configops-plugin-state ${genericArrayUndo.enabled ? 'is-ready' : 'is-inactive'}`} role="status">
+								{genericArrayUndo.enabled ? __('Experimental · enabled', 'configops') : __('Experimental · off', 'configops')}
+							</span>
 						</div>
 						<button
 							className={`button ${genericArrayUndo.enabled ? '' : 'button-primary'}`}
 							type="button"
+							aria-pressed={genericArrayUndo.enabled}
 							disabled={!genericArrayUndo.canManage || experimentBusy}
 							onClick={() => setGenericArrayUndo(!genericArrayUndo.enabled)}
 						>

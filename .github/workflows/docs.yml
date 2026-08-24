@@ -31,6 +31,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
+      - name: Show ConfigOps pipeline mark
+        run: bash build/ci-banner.sh
+
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:

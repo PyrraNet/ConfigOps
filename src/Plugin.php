@@ -96,7 +96,7 @@ final class Plugin
 		);
 		$codec     = new ValueCodec($adapters);
 		$experimentalFeatures = new ExperimentalFeatures();
-		$genericArrayUndo = new GenericArrayUndo($codec, $experimentalFeatures);
+		$genericArrayUndo = new GenericArrayUndo($codec, $experimentalFeatures, $adapters);
 		$source    = new SourceAttributor(CONFIGOPS_PATH);
 		$request   = new RequestContext();
 		$evidenceNotices = new EvidenceNoticeStore();

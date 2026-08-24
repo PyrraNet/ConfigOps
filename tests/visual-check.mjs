@@ -467,6 +467,54 @@ try {
 	if (await page.locator('.configops-support-row').count() !== 3) {
 		throw new Error('The support contract should list WordPress Core and both shipped real-plugin adapters.');
 	}
+	const experimentControl = page.locator('.configops-experiment-control');
+	await experimentControl.getByText('Smart undo for ordinary settings arrays', { exact: true }).waitFor();
+	const experimentToggle = experimentControl.getByRole('button');
+	const initialExperimentState = await experimentToggle.getAttribute('aria-pressed');
+	if (!['true', 'false'].includes(initialExperimentState)) {
+		throw new Error(`The generic array experiment toggle does not expose its current state: ${initialExperimentState}.`);
+	}
+	const experimentFailure = async (route) => {
+		const url = decodeURIComponent(route.request().url());
+		if (route.request().method() !== 'POST' || !url.includes('/configops/v1/experiments/generic-array-undo')) {
+			await route.continue();
+
+			return;
+		}
+
+		await route.fulfill({
+			status: 409,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				code: 'configops_test_failure',
+				message: 'Injected experiment toggle failure.',
+				data: { status: 409 },
+			}),
+		});
+	};
+	await page.route('**/*', experimentFailure);
+	await experimentToggle.click();
+	await page.getByRole('alert').getByText('Injected experiment toggle failure.', { exact: true }).waitFor();
+	if (await experimentToggle.getAttribute('aria-pressed') !== initialExperimentState) {
+		throw new Error('A failed generic array experiment request changed the visible toggle state.');
+	}
+	await page.getByRole('button', { name: 'Dismiss this notice.' }).click();
+	await page.unroute('**/*', experimentFailure);
+
+	await experimentToggle.click();
+	const changedExperimentState = initialExperimentState === 'true' ? 'false' : 'true';
+	await page.waitForFunction(
+		({ selector, expected }) => document.querySelector(selector)?.getAttribute('aria-pressed') === expected,
+		{ selector: '.configops-experiment-control button', expected: changedExperimentState },
+	);
+	if (!await experimentControl.locator('.configops-experiment-state').getByText(changedExperimentState === 'true' ? 'Experimental · enabled' : 'Experimental · off', { exact: true }).isVisible()) {
+		throw new Error('The generic array experiment status did not follow its persisted toggle state.');
+	}
+	await experimentToggle.click();
+	await page.waitForFunction(
+		({ selector, expected }) => document.querySelector(selector)?.getAttribute('aria-pressed') === expected,
+		{ selector: '.configops-experiment-control button', expected: initialExperimentState },
+	);
 	const firstSupport = page.locator('.configops-support-row').first();
 	await firstSupport.locator('summary').click();
 	if (await firstSupport.locator('.configops-support-capability').count() !== 5) {
