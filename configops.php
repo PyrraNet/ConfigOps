@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       ConfigOps – Undo Settings Changes
  * Plugin URI:        https://configops.pyrra.net/
- * Description:       See what a settings save changed and reverse only the values that are still safe to restore.
- * Version:           0.4.3
+ * Description:       See what WordPress and plugins changed, then safely restore matching settings—even without a dedicated adapter.
+ * Version:           0.5.0
  * Requires at least: 7.0
  * Requires PHP:      8.2
  * Author:            pyrra
@@ -21,7 +21,7 @@ if (! defined('ABSPATH')) {
 	exit;
 }
 
-define('CONFIGOPS_VERSION', '0.4.3');
+define('CONFIGOPS_VERSION', '0.5.0');
 define('CONFIGOPS_FILE', __FILE__);
 define('CONFIGOPS_PATH', __DIR__);
 define('CONFIGOPS_URL', plugin_dir_url(__FILE__));

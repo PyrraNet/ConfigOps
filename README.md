@@ -8,13 +8,13 @@
 <p align="center"><strong>The undo layer for WordPress settings.</strong></p>
 
 <p align="center">
-  v0.4.3
-  &nbsp;·&nbsp; Automatic observation
+  v0.5.0
+  &nbsp;·&nbsp; Smart undo beyond adapters
   &nbsp;·&nbsp; No account required
 </p>
 
 <p align="center">
-  <a href="https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2FPyrraNet%2FConfigOps%2Fv0.4.3%2F.wordpress-org%2Fblueprints%2Fblueprint.json">Try the live demo</a>
+  <a href="https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2FPyrraNet%2FConfigOps%2Fv0.5.0%2F.wordpress-org%2Fblueprints%2Fblueprint.json">Try the live demo</a>
   &nbsp;·&nbsp;
   <a href="https://configops.pyrra.net/docs/">Read the operations &amp; safety docs</a>
 </p>
@@ -51,9 +51,13 @@ WP Mail SMTP → SMTP password
 
 Every undo is checked against the current value first. If the website changed again, ConfigOps refuses to overwrite it. If observation evidence is incomplete, whole-save undo is disabled rather than presented as safe.
 
-## Experimental smart array undo
+## Smart undo beyond adapters
 
-Unknown plugins do not need an adapter for every ordinary settings array. A site administrator can enable **Smart undo for ordinary settings arrays** under **ConfigOps → Plugin support**. For an unclaimed associative `wp_options` update, ConfigOps then treats the captured before value, captured after value, and current value as a three-way check:
+Version 0.5 can undo verified setting keys from ordinary plugin arrays even when ConfigOps has no dedicated adapter for that plugin. A site administrator explicitly enables **Smart undo for ordinary settings arrays** under **ConfigOps → Plugin support**. For an unclaimed associative `wp_options` update, ConfigOps then treats the captured before value, captured after value, and current value as a three-way check:
+
+<p align="center">
+  <img src=".wordpress-org/screenshot-5.png" width="1120" alt="ConfigOps Plugin support showing Smart Undo for ordinary settings arrays and its fail-closed limits">
+</p>
 
 - every patch entry must agree with both typed snapshots;
 - every target key must still equal its captured after-state;
@@ -83,7 +87,7 @@ The exact field coverage and limitations are available inside **ConfigOps → Pl
 
 Requires WordPress 7.0 or newer and PHP 8.2 or newer. PHP 8.2 is the oldest supported runtime; production sites should prefer a newer actively supported PHP branch.
 
-> **Version 0.4 scope:** ConfigOps supports both single-site WordPress and network-active Multisite. Site evidence remains isolated per site; Network Admin has automatic and named Network Options evidence plus guarded add/update undo. ConfigOps is not a backup, cross-site bulk console, fleet manager, or promise of transactional rollback.
+> **Version 0.5 scope:** ConfigOps supports both single-site WordPress and network-active Multisite. Site evidence remains isolated per site; Network Admin has automatic and named Network Options evidence plus guarded add/update undo. Opt-in smart undo extends safe site-option patches beyond dedicated adapters, but ConfigOps remains neither a backup nor a generic database rollback, cross-site bulk console, or fleet manager.
 
 ## Safety model
 

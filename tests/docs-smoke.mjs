@@ -30,6 +30,7 @@ const routes = [
 	'/adapters',
 	'/frontend',
 	'/wordpress-org-release',
+	'/releases/0.5.0',
 	'/releases/0.4.3',
 	'/releases/0.4.2',
 	'/releases/0.4.1',
@@ -112,13 +113,14 @@ try {
 					const home = await page.evaluate(() => ({
 						text: document.body.textContent || '',
 						hasCurrentReleaseLink: [...document.querySelectorAll('a')].some((link) => (
-							'v0.4.3' === link.textContent?.trim()
-							&& link.getAttribute('href')?.includes('/releases/0.4.3')
+							'v0.5.0' === link.textContent?.trim()
+							&& link.getAttribute('href')?.includes('/releases/0.5.0')
 						)),
 						proofAlt: document.querySelector('.co-proof__figure img')?.getAttribute('alt') || '',
+						smartUndoAlt: document.querySelector('.co-proof__figure--smart img')?.getAttribute('alt') || '',
 					}));
 					if (!home.hasCurrentReleaseLink) {
-						throw new Error(`${profile.name} home does not link the current 0.4.3 release`);
+						throw new Error(`${profile.name} home does not link the current 0.5.0 release`);
 					}
 					if (!home.text.includes('Save normally. ConfigOps appears with the evidence.')) {
 						throw new Error(`${profile.name} home does not lead with the automatic evidence proof`);
@@ -128,6 +130,12 @@ try {
 					}
 					if (!home.proofAlt.includes('ConfigOps evidence card')) {
 						throw new Error(`${profile.name} home does not expose the automatic evidence card image`);
+					}
+					if (
+						!home.text.includes('Undo plugin settings without waiting for an adapter.')
+						|| !home.smartUndoAlt.includes('opt-in Smart Undo control')
+					) {
+						throw new Error(`${profile.name} home does not expose the 0.5.0 Smart Undo product proof`);
 					}
 				}
 				if (runtimeErrors.length > 0) {

@@ -4,6 +4,10 @@ ConfigOps follows semantic versioning. While the major version is `0`, adapter c
 
 ## Unreleased
 
+## 0.5.0 — 2026-08-24
+
+The smart undo beyond adapters release.
+
 ### Shipped
 
 - Named Network Change Sessions in Network Admin, backed by the network-owned atomic active-session pointer and the same verified finalization contract as site sessions.
@@ -22,7 +26,7 @@ ConfigOps follows semantic versioning. While the major version is `0`, adapter c
 ### Verified against
 
 - 903 unit/fuzz assertions, 46 adversarial assertions, 272 real WordPress integration assertions, 51 exact real-plugin adapter assertions, and 154 network-active Multisite assertions.
-- 77.12% tracked-production and 79.94% trust-boundary line coverage, plus the PHP 8.2–8.5 compatibility scan, UI budget, documentation build, release archive, and dependency advisory gates.
+- 77.39% tracked-production and 80.27% trust-boundary line coverage, plus the PHP 8.2–8.5 compatibility scan, UI budget, documentation build, release archive, and dependency advisory gates.
 
 ## 0.4.3 — 2026-08-19
 

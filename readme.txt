@@ -4,11 +4,11 @@ Tags: settings, configuration, rollback, history, developer tools
 Requires at least: 7.0
 Tested up to: 7.1
 Requires PHP: 8.2
-Stable tag: 0.4.3
+Stable tag: 0.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-See what a settings save changed and reverse only the values that are still safe to restore.
+See what WordPress and plugins changed, then safely restore matching settings—even without a dedicated adapter.
 
 == Description ==
 
@@ -21,6 +21,8 @@ Visit the [ConfigOps website](https://configops.pyrra.net/) or read the [documen
 Change a supported WordPress or plugin setting as usual. ConfigOps automatically opens an isolated observation for that save, groups the resulting writes, and reduces repeated writes to the same option into the original-to-final change.
 
 A compact evidence card then tells you how many values WordPress wrote, links directly to an understandable review, and offers whole-save Undo only when the complete change is still safe to restore.
+
+Version 0.5 adds opt-in Smart Undo for ordinary associative plugin settings even when ConfigOps has no dedicated adapter. It restores only snapshot-verified keys that still match and preserves unrelated later changes.
 
 One action. The hidden writes behind it. A clear diff. A conflict-checked undo.
 
@@ -68,13 +70,13 @@ The current release includes pinned adapters for:
 
 The Plugin support screen states exactly which WordPress and plugin capabilities are supported, limited, or not available. An untested component version keeps its observed evidence but disables automatic undo.
 
-= Multisite in version 0.4 =
+= Multisite in version 0.5 =
 
 On a network-active installation, each site keeps its own isolated evidence lifecycle. On Multi-Network installations, ConfigOps derives the network from the actual site record after every internal context switch, refuses lifecycle work that crosses networks, and excludes foreign Network Options writes from the current network ledger. An affected open capture is marked incomplete instead of silently appearing trustworthy. Network Admin receives a separate network-wide ledger for supported Network Options API changes, with guarded mutation-level undo for complete additions and updates.
 
 Network option deletes remain review-only because WordPress reports them after the previous value is gone. Named Network Change Sessions can group network-owned evidence, but whole-network-change undo, cross-site aggregation, and bulk operations are not available.
 
-Version 0.4 is a local single-site and Multisite undo and evidence layer for supported WordPress settings. It is not a staging plugin, backup, content migration, database synchronization, fleet manager, or generic activity log.
+Version 0.5 is a local single-site and Multisite undo and evidence layer for supported WordPress settings. It is not a staging plugin, backup, content migration, database synchronization, fleet manager, or generic activity log.
 
 == Installation ==
 
@@ -102,7 +104,7 @@ ConfigOps observes supported Options API mutations in authorized WordPress admin
 
 = Does ConfigOps support WordPress Multisite? =
 
-Yes. Version 0.4 supports network activation, isolated per-site evidence, lifecycle and retention across sites, Multi-Network ownership boundaries, and a separate Network Admin ledger for supported Network Options changes. Named Network Change Sessions can group a planned task, and complete network additions and updates can be undone one mutation at a time. Network deletes, whole-network-change undo, cross-site aggregation, and bulk actions are not supported.
+Yes. Version 0.5 supports network activation, isolated per-site evidence, lifecycle and retention across sites, Multi-Network ownership boundaries, and a separate Network Admin ledger for supported Network Options changes. Named Network Change Sessions can group a planned task, and complete network additions and updates can be undone one mutation at a time. Network deletes, whole-network-change undo, cross-site aggregation, and bulk actions are not supported.
 
 = Can ConfigOps undo an array without a plugin adapter? =
 
@@ -130,19 +132,27 @@ While ConfigOps is active, completed and interrupted observations are kept for 3
 
 Email felix@pyrra.net. Do not post credentials, configuration values, database exports, or customer data in a public support thread.
 
+== Upgrade Notice ==
+
+= 0.5.0 =
+
+Smart Undo beyond dedicated adapters is available as an opt-in site setting under ConfigOps → Plugin support. It remains off by default; test the owning plugin's save and undo path in staging before enabling it in production.
+
 == Screenshots ==
 
 1. Save a supported setting normally and ConfigOps immediately shows the observed writes, likely decision, housekeeping, Review, and safe Undo.
 2. See the supported WP Mail SMTP decisions behind one save while the changed SMTP password is removed before storage.
 3. See one Yoast SEO toggle as one understandable XML sitemaps decision with its conflict-checked Undo action.
 4. Review a real Network Settings change in Network Admin with explicit network-wide scope, add/update undo boundaries, and guarded mutation undo.
+5. Enable Smart Undo for ordinary plugin settings arrays without a dedicated adapter and review the exact structural safety limits.
 
 == Changelog ==
 
-= Unreleased =
+= 0.5.0 =
 
-* Adds an opt-in smart-array experiment that can undo verified keys in ordinary unclaimed wp_options arrays without requiring a plugin adapter.
+* Adds opt-in Smart Undo that reverses verified keys in ordinary plugin settings arrays without requiring a dedicated ConfigOps adapter.
 * Preserves unrelated later keys, rechecks current structure and adapter ownership, and refuses the complete patch when snapshots, target paths, secrets, autoload state, or ownership cannot be proven safe.
+* Adds named Network Change Sessions for planned Network Admin work without enabling unsafe whole-network-change undo.
 * Makes named-session pointer release owner-conditional across site and network scopes and prevents activation races from resurrecting or orphaning sessions.
 * Serializes site and network retention with restore so cleanup cannot remove evidence from an in-flight undo.
 

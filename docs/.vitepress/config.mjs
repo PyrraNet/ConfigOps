@@ -4,7 +4,7 @@ const base = process.env.DOCS_BASE || (process.env.GITHUB_ACTIONS === 'true' ? '
 
 export default defineConfig({
 	title: 'ConfigOps',
-	description: 'See what a WordPress settings save changed and undo only values that are still safe to restore.',
+	description: 'See what WordPress and plugin settings changed, then undo matching values—even without a dedicated adapter.',
 	lang: 'en-US',
 	base,
 	cleanUrls: true,
@@ -27,7 +27,7 @@ export default defineConfig({
 			{ text: 'Operate', link: '/guide/getting-started' },
 			{ text: 'Safety', link: '/security/secrets-privacy' },
 			{ text: 'Reference', link: '/reference/support' },
-			{ text: 'v0.4.3', link: '/releases/0.4.3' },
+			{ text: 'v0.5.0', link: '/releases/0.5.0' },
 		],
 		sidebar: [
 			{
@@ -67,6 +67,7 @@ export default defineConfig({
 			{
 				text: 'Releases',
 				items: [
+					{ text: '0.5.0', link: '/releases/0.5.0' },
 					{ text: '0.4.3', link: '/releases/0.4.3' },
 					{ text: '0.4.2', link: '/releases/0.4.2' },
 					{ text: '0.4.1', link: '/releases/0.4.1' },

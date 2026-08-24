@@ -1,6 +1,6 @@
 ---
 title: Get started
-description: Install ConfigOps 0.4.3 and review an automatically observed WordPress or Network Settings change.
+description: Install ConfigOps 0.5.0, review a settings change, and try safe Smart Undo without a dedicated adapter.
 ---
 
 # Get started
@@ -9,7 +9,7 @@ ConfigOps automatically observes configuration mutations made by authorized admi
 
 ## Requirements
 
-| Contract | Supported in 0.4.3 |
+| Contract | Supported in 0.5.0 |
 | --- | --- |
 | WordPress | 7.0 or 7.1, single-site or network-active Multisite |
 | PHP | 8.2, 8.3, 8.4, or 8.5 |
@@ -23,9 +23,9 @@ ConfigOps is a local configuration evidence layer. It is not a database backup, 
 
 ## Install
 
-To inspect the workflow before installing anything, open the [disposable ConfigOps live demo](https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2FPyrraNet%2FConfigOps%2Fv0.4.3%2F.wordpress-org%2Fblueprints%2Fblueprint.json). It starts with ConfigOps and WP Mail SMTP active, then guides one sender-email save through Evidence, Review, and Undo.
+To inspect the workflow before installing anything, open the [disposable ConfigOps live demo](https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2FPyrraNet%2FConfigOps%2Fv0.5.0%2F.wordpress-org%2Fblueprints%2Fblueprint.json). It starts with ConfigOps and WP Mail SMTP active, then guides one sender-email save through Evidence, Review, and Undo.
 
-1. Obtain `configops-0.4.3.zip` from a trusted release channel.
+1. Obtain `configops-0.5.0.zip` from a trusted release channel.
 2. In WordPress, open **Plugins → Add Plugin → Upload Plugin**.
 3. Select the archive, install it, and activate **ConfigOps**.
 4. Open **ConfigOps** in the WordPress admin menu.
@@ -45,9 +45,9 @@ Automatic observations are request-local: concurrent admin requests do not share
 
 Network Settings changes use a stricter boundary. ConfigOps records supported Network Options API mutations automatically, and complete additions or updates may expose mutation-level undo. Network deletes and whole-change undo remain unavailable.
 
-## Optionally try smart array undo
+## Undo plugin settings without an adapter
 
-The generic array mode is experimental and off by default. Test it in staging before enabling it on a production site:
+Version 0.5 adds a structural undo path for ordinary associative plugin settings even when ConfigOps has no dedicated adapter. It remains experimental and off by default; test it in staging before enabling it on a production site:
 
 1. Open **ConfigOps → Plugin support** as a site administrator.
 2. Enable **Smart undo for ordinary settings arrays**.

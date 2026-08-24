@@ -1,11 +1,11 @@
 ---
 title: Support contracts
-description: Exact WordPress, PHP, database, Multisite, and plugin-adapter support for ConfigOps 0.4.3.
+description: Exact WordPress, PHP, database, Multisite, adapter, and Smart Undo support for ConfigOps 0.5.0.
 ---
 
 # Support contracts
 
-Support means a tested contract, not a best-effort badge. Version 0.4.3 fails its release checks if its runtime metadata, Multisite boundaries, adapter fixtures, public Playground flow, compatibility scan, browser flows, or coverage boundaries drift.
+Support means a tested contract, not a best-effort badge. Version 0.5.0 fails its release checks if its runtime metadata, Multisite boundaries, adapter fixtures, generic array policy, public Playground flow, compatibility scan, browser flows, or coverage boundaries drift.
 
 ## Runtime matrix
 

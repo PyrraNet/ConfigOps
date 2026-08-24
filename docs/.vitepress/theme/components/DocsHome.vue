@@ -1,6 +1,7 @@
 <script setup>
 import { withBase } from 'vitepress';
 import reviewScreenshot from '../../../../.wordpress-org/screenshot-1.png';
+import smartUndoScreenshot from '../../../../.wordpress-org/screenshot-5.png';
 import wordmarkLight from '../../../../assets/brand/configops-wordmark-light.svg';
 import wordmarkDark from '../../../../assets/brand/configops-wordmark-dark.svg';
 </script>
@@ -14,20 +15,20 @@ import wordmarkDark from '../../../../assets/brand/configops-wordmark-dark.svg';
 					<img :src="wordmarkLight" width="232" height="52" alt="ConfigOps">
 				</picture>
 				<span aria-hidden="true"></span>
-				<p>Documentation · 0.4.3</p>
+				<p>Documentation · 0.5.0</p>
 			</div>
 			<p class="co-kicker">Change intelligence for WordPress</p>
 			<h1 id="co-home-title">The undo button<br>WordPress forgot.</h1>
-			<p class="co-hero__dek">ConfigOps observes supported settings saves automatically, reveals their hidden writes, removes probable credentials before storage, and reverses only state it can still prove safe.</p>
+			<p class="co-hero__dek">ConfigOps reveals the hidden writes behind WordPress settings saves and reverses only state it can still prove safe. Version 0.5 adds opt-in Smart Undo for ordinary plugin settings arrays—even when no dedicated adapter exists.</p>
 			<div class="co-actions" aria-label="Start reading">
 				<a class="co-action co-action--primary" :href="withBase('/guide/getting-started')">See your first change</a>
 				<a class="co-action" :href="withBase('/security/failure-model')">Read the failure model</a>
 			</div>
 			<dl class="co-release-facts" aria-label="Current project facts">
-				<div><dt>Release</dt><dd>0.4.3 WordPress 7.1 compatibility</dd></div>
+				<div><dt>Release</dt><dd>0.5.0 Smart undo beyond adapters</dd></div>
 				<div><dt>Runtime</dt><dd>WordPress 7.0–7.1 · PHP 8.2–8.5</dd></div>
 				<div><dt>Storage</dt><dd>Local database · no account</dd></div>
-				<div><dt>Main evidence</dt><dd>77.12% production · 79.94% trust boundaries</dd></div>
+				<div><dt>Main evidence</dt><dd>77.39% production · 80.27% trust boundaries</dd></div>
 			</dl>
 		</section>
 
@@ -52,6 +53,29 @@ import wordmarkDark from '../../../../assets/brand/configops-wordmark-dark.svg';
 			</figure>
 		</section>
 
+		<section class="co-proof co-proof--smart" aria-labelledby="co-smart-title">
+			<header class="co-section-heading">
+				<p class="co-kicker">New in 0.5 · structural proof before action</p>
+				<h2 id="co-smart-title">Undo plugin settings without waiting for an adapter.</h2>
+				<p>Enable Smart Undo per site. ConfigOps offers it only when the complete associative-array patch agrees with both snapshots, every target still matches, and no adapter owns the option.</p>
+			</header>
+			<figure class="co-proof__figure co-proof__figure--smart">
+				<p class="co-proof__mobile-note">Smart Undo policy · tap for the full Plugin support screen</p>
+				<a :href="smartUndoScreenshot" target="_blank" rel="noreferrer" aria-label="Open the full ConfigOps Smart Undo support screenshot">
+					<picture>
+						<source media="(max-width: 900px)" :srcset="withBase('/evidence/configops-smart-undo-mobile.png')">
+						<img :src="smartUndoScreenshot" width="1440" height="1100" alt="ConfigOps Plugin support showing the opt-in Smart Undo control, its structural safety limits, and the current adapter contracts">
+					</picture>
+				</a>
+				<figcaption>
+					<span>Ordinary unclaimed plugin arrays · site-local opt-in</span>
+					<strong>3-way verified</strong>
+					<strong>Later keys preserved</strong>
+					<a :href="withBase('/guide/undo-safely')">Read the safety contract →</a>
+				</figcaption>
+			</figure>
+		</section>
+
 		<section class="co-reading-path" aria-labelledby="co-path-title">
 			<header class="co-section-heading">
 				<p class="co-kicker">The operator path</p>
@@ -68,7 +92,7 @@ import wordmarkDark from '../../../../assets/brand/configops-wordmark-dark.svg';
 				</li>
 				<li>
 					<span>03</span>
-					<div><h3>Undo only matching state</h3><p>ConfigOps checks current values, snapshots, adapter versions, references, and observation completeness before writing. Optional smart-array undo preserves unrelated later keys.</p><a :href="withBase('/guide/undo-safely')">Undo contract →</a></div>
+					<div><h3>Undo only matching state</h3><p>ConfigOps checks current values, snapshots, ownership, references, and observation completeness before writing. Opt-in Smart Undo can restore verified keys beyond dedicated adapters while preserving unrelated later changes.</p><a :href="withBase('/guide/undo-safely')">Undo contract →</a></div>
 				</li>
 			</ol>
 		</section>

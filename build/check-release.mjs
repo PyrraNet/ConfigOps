@@ -167,6 +167,7 @@ const directoryScreenshots = new Map([
 	['screenshot-2.png', { minWidth: 1200, minHeight: 550 }],
 	['screenshot-3.png', { minWidth: 1200, minHeight: 350 }],
 	['screenshot-4.png', { minWidth: 1200, minHeight: 800 }],
+	['screenshot-5.png', { minWidth: 1200, minHeight: 800 }],
 ]);
 
 for (const [requiredScreenshot, expected] of directoryScreenshots) {
@@ -179,8 +180,6 @@ for (const [requiredScreenshot, expected] of directoryScreenshots) {
 	if (actual.bytes > 10 * 1024 * 1024) fail(`${requiredScreenshot} exceeds the WordPress.org file-size limit`);
 }
 
-const staleScreenshot = new URL('../.wordpress-org/screenshot-5.png', import.meta.url);
-if (fs.existsSync(staleScreenshot)) fail('stale WordPress.org screenshot must be removed: screenshot-5.png');
 if (!read('LICENSE').includes('GNU GENERAL PUBLIC LICENSE\n                       Version 2')) {
 	fail('LICENSE does not contain the GPL version 2 text');
 }

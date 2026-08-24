@@ -1,11 +1,11 @@
 ---
 title: Known limits
-description: Capabilities ConfigOps 0.4.3 deliberately does not claim.
+description: Capabilities ConfigOps 0.5.0 deliberately does not claim.
 ---
 
 # Known limits
 
-Version 0.4.3 is deliberately narrower than a configuration-management platform.
+Version 0.5.0 is deliberately narrower than a configuration-management platform.
 
 ## Not shipped
 
