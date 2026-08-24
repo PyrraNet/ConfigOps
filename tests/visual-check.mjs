@@ -251,8 +251,11 @@ try {
 	await page.screenshot({ path: new URL('configops-empty-value-desktop.png', artifacts).pathname, fullPage: true });
 	await page.unroute('**/*', injectEmptyBeforeValue);
 	await page.reload({ waitUntil: 'networkidle' });
+	await blogDescriptionRow.waitFor();
 	const unknownBadge = blogDescriptionRow.locator('.configops-badge').first();
-	if (!await unknownBadge.isVisible()) {
+	try {
+		await unknownBadge.waitFor({ state: 'visible', timeout: 15_000 });
+	} catch {
 		throw new Error('The setting count is missing from the mutation summary.');
 	}
 	const technicalEvidence = blogDescriptionRow.locator('.configops-technical-evidence');
