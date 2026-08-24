@@ -8,6 +8,16 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/production-error-trap.php';
+require_once __DIR__ . '/adapter-surface-contract.php';
+
+register_shutdown_function(
+	static function (): void {
+		$error = error_get_last();
+		if (is_array($error) && in_array($error['type'] ?? null, array(E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR), true)) {
+			fwrite(STDERR, sprintf("Adapter contract fatal error: %s in %s:%d\n", $error['message'], $error['file'], $error['line']));
+		}
+	}
+);
 
 $wordpressRoot = rtrim((string) (getenv('CONFIGOPS_WP_ROOT') ?: '/wordpress'), '/');
 require_once $wordpressRoot . '/wp-load.php';
@@ -57,6 +67,16 @@ $supportById = array_column($adapters->supportPayload(), null, 'id');
 $assert(true === ($supportById[$adapterId]['active'] ?? false), "Expected {$adapterId} to be active in the support contract.");
 $assert(true === ($supportById[$adapterId]['compatible'] ?? false), "Expected {$adapterId} {$expectedVersion} to match its tested line.");
 $assert($expectedVersion === ($supportById[$adapterId]['version'] ?? null), 'The support payload should expose the exact installed patch release.');
+try {
+	$unknownAdapterFields = configops_unknown_adapter_surface_fields($adapterId, $expectedVersion);
+} catch (Throwable $error) {
+	fwrite(STDERR, sprintf("Adapter surface audit failed: %s\n%s\n", $error->getMessage(), $error->getTraceAsString()));
+	throw $error;
+}
+$assert(
+	array() === $unknownAdapterFields,
+	"{$adapterId} {$expectedVersion} exposes settings without a tested adapter meaning:\n- " . implode("\n- ", $unknownAdapterFields)
+);
 
 $optionName = '';
 $expectedLabel = '';

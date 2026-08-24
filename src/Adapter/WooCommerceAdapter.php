@@ -55,6 +55,8 @@ final class WooCommerceAdapter extends AbstractOptionAdapter implements ChangeAw
 		$this->defineAccountAndPrivacySettings();
 		$this->defineShippingAndTaxSettings();
 		$this->defineAdvancedSettings();
+		$this->defineFeatureSettings();
+		$this->definePointOfSaleSettings();
 		$this->defineEmailSettings();
 		$this->defineGatewaySettings();
 	}
@@ -68,23 +70,25 @@ final class WooCommerceAdapter extends AbstractOptionAdapter implements ChangeAw
 			'>=10.3 <10.4 || >=10.7 <10.8 || >=10.9 <11.1',
 			1,
 			array(
-				array('id' => 'capture', 'label' => 'Record Options API writes', 'level' => 'full', 'note' => 'The WordPress.org-visible 10.3, 10.7, 10.9, and 11.0 settings lines are tested separately.'),
-				array('id' => 'explain', 'label' => 'Map settings fields', 'level' => 'full', 'note' => 'Store, catalog, inventory, accounts, privacy, shipping display, tax display, email, page, endpoint, and bundled offline-payment settings have explicit meanings.'),
+				array('id' => 'capture', 'label' => 'Record Options API writes', 'level' => 'full', 'note' => 'The settings APIs of the WordPress.org-visible 10.3, 10.7, 10.9, and 11.0 lines are audited separately for unknown fields.'),
+				array('id' => 'explain', 'label' => 'Map settings fields', 'level' => 'full', 'note' => 'Store, catalog, inventory, accounts, privacy, performance, feature, Point of Sale, REST API, email, endpoint, and bundled offline-payment settings have explicit meanings.'),
 				array('id' => 'secrets', 'label' => 'Redact protected values', 'level' => 'full', 'note' => 'The generated share key, BACS bank-account records, and credential-shaped nested values are removed before storage.'),
 				array('id' => 'noise', 'label' => 'Classify runtime values', 'level' => 'partial', 'note' => 'Known version, inbox, scheduler, onboarding, task-list, empty-selector, note, and rewrite state stays technical. Unknown custom-table writes remain visible.'),
-				array('id' => 'restore', 'label' => 'Conflict-checked undo', 'level' => 'partial', 'note' => 'Mapped Options API settings can be undone after a current-value check. Referenced pages must still exist.'),
+				array('id' => 'restore', 'label' => 'Conflict-checked undo', 'level' => 'partial', 'note' => 'Mapped Options API settings can be undone after a current-value check. Referenced pages must still exist; order-storage and content-schema switches are refused.'),
 				array('id' => 'apply', 'label' => 'Cross-site apply', 'level' => 'planned', 'note' => 'Store addresses, currencies, local page IDs, email recipients, tax tables, shipping zones, and payment credentials need an explicit destination contract.'),
 			),
 			array(
 				'Store location, selling and shipping countries, taxes, coupons, currency, and price display',
 				'Shop behavior, measurements, reviews, inventory, stock notices, and downloadable-product policy',
 				'Checkout, registration, privacy, retention, shipping display, tax display, pages, and account endpoints',
+				'Performance controls, REST caching, stable and experimental feature flags, and Point of Sale receipt details',
 				'Email sender and design plus the stable core order and customer notification families',
 				'Bundled bank transfer, cheque, and cash-on-delivery presentation settings',
 			),
 			array(
 				'Orders, products, customers, coupons, and other store content are not configuration and are excluded.',
 				'Tax-rate tables, shipping zones and methods, webhooks, API keys, Action Scheduler jobs, and analytics tables are not restored.',
+				'HPOS datastore migration, compatibility synchronization, and Cost of Goods content switches are explained but not undone.',
 				'Extension-owned payment gateways and settings are not claimed by the WooCommerce core adapter.',
 				'BACS bank-account values are redacted and cannot be restored from ConfigOps evidence.',
 			),
@@ -193,6 +197,8 @@ final class WooCommerceAdapter extends AbstractOptionAdapter implements ChangeAw
 		$this->defineOption('woocommerce_store_city', 'Store city', 'Store location', 'environment', 'The city used for this store’s location.');
 		$this->defineOption('woocommerce_default_country', 'Store country and region', 'Store location', 'environment', 'The country and state or region used as this store’s base.');
 		$this->defineOption('woocommerce_store_postcode', 'Store postcode', 'Store location', 'environment', 'The postcode used for this store’s location.');
+		$this->defineOption('woocommerce_address_autocomplete_enabled', 'Address autocomplete', 'Customer addresses', 'environment', 'Enables predictive address search when an installed provider can supply it.');
+		$this->defineOption('woocommerce_address_autocomplete_provider', 'Address autocomplete provider', 'Customer addresses', 'environment', 'Selects the installed service that supplies predictive customer addresses.');
 		$this->defineOption('woocommerce_allowed_countries', 'Selling locations', 'Selling and shipping', 'environment', 'Controls whether the store sells everywhere, nowhere, or only in selected countries.');
 		$this->defineOption('woocommerce_all_except_countries', 'Excluded selling countries', 'Selling and shipping', 'environment', 'Countries excluded when the store sells to every other location.');
 		$this->defineOption('woocommerce_specific_allowed_countries', 'Allowed selling countries', 'Selling and shipping', 'environment', 'The explicit country list when selling is limited by location.');
@@ -215,6 +221,7 @@ final class WooCommerceAdapter extends AbstractOptionAdapter implements ChangeAw
 		$this->defineOption('woocommerce_cart_redirect_after_add', 'Redirect to cart after adding', 'Catalog behavior', 'portable', 'Sends customers to the cart after they add a product.');
 		$this->defineOption('woocommerce_enable_ajax_add_to_cart', 'AJAX add to cart', 'Catalog behavior', 'portable', 'Adds products from catalog pages without a full page reload.');
 		$this->defineOption('woocommerce_placeholder_image', 'Product placeholder image', 'Catalog images', 'environment', 'An attachment ID or image URL used when a product has no image.');
+		$this->defineOption('woocommerce_product_match_featured_image_by_sku', 'Match product images by SKU', 'Catalog images', 'portable', 'Uses an uploaded image whose filename matches a product SKU as that product’s featured image.');
 		$this->defineOption('woocommerce_weight_unit', 'Weight unit', 'Measurements', 'portable', 'The unit shown for product weights.');
 		$this->defineOption('woocommerce_dimension_unit', 'Dimension unit', 'Measurements', 'portable', 'The unit shown for product dimensions.');
 		$this->defineOption('woocommerce_enable_reviews', 'Product reviews', 'Reviews', 'portable', 'Allows customers to leave reviews on products.');
@@ -304,6 +311,50 @@ final class WooCommerceAdapter extends AbstractOptionAdapter implements ChangeAw
 		$this->defineOption('woocommerce_logout_endpoint', 'Logout endpoint', 'Account endpoints', 'portable', 'The My account endpoint used to sign out.');
 		$this->defineOption('woocommerce_allow_tracking', 'Usage tracking', 'Data sharing', 'environment', 'Controls whether WooCommerce sends usage data from this store.');
 		$this->defineOption('woocommerce_show_marketplace_suggestions', 'Marketplace suggestions', 'Administration', 'portable', 'Shows WooCommerce extension suggestions in the administration area.');
+		$this->defineOption('woocommerce_rest_api_enable_backend_caching', 'REST API backend cache', 'REST API', 'environment', 'Caches eligible WooCommerce REST responses in the server’s persistent object cache.');
+		$this->defineOption('woocommerce_rest_api_enable_cache_headers', 'REST API cache headers', 'REST API', 'environment', 'Adds cache validators and cache-control headers to eligible WooCommerce REST responses.');
+	}
+
+	private function defineFeatureSettings(): void
+	{
+		$this->defineOption('woocommerce_attribute_lookup_enabled', 'Product attribute lookup table', 'Catalog performance', 'environment', 'Uses WooCommerce’s generated attribute lookup table for catalog filtering.');
+		$this->defineOption('woocommerce_attribute_lookup_direct_updates', 'Direct attribute lookup updates', 'Catalog performance', 'environment', 'Updates the product attribute lookup table during product changes instead of scheduling the work.');
+		$this->defineOption('woocommerce_attribute_lookup_optimized_updates', 'Optimized attribute lookup updates', 'Catalog performance', 'environment', 'Uses faster lookup-table update queries that may be incompatible with extensions.');
+		$this->defineOption('woocommerce_custom_orders_table_enabled', 'High-performance order storage', 'Order storage', 'unsupported', 'Switches the authoritative order datastore. ConfigOps records the setting but does not undo a storage migration.');
+		$this->defineOption('woocommerce_custom_orders_table_data_sync_enabled', 'Order datastore compatibility sync', 'Order storage', 'unsupported', 'Synchronizes orders between HPOS tables and WordPress posts. ConfigOps does not undo datastore synchronization.');
+		$this->defineOption('woocommerce_analytics_enabled', 'WooCommerce Analytics', 'Store features', 'portable', 'Collects store metrics locally and exposes the WooCommerce Analytics reports.');
+		$this->defineOption('woocommerce_feature_rate_limit_checkout_enabled', 'Checkout rate limiting', 'Checkout security', 'environment', 'Limits order-submission requests to protect the checkout and Store API on this server.');
+		$this->defineOption('woocommerce_feature_order_attribution_enabled', 'Order attribution', 'Store features', 'portable', 'Records the channels and campaigns that contributed to each order.');
+		$this->defineOption('woocommerce_hpos_datastore_caching_enabled', 'HPOS order cache', 'Order performance', 'environment', 'Caches high-performance order-storage records when this site has a suitable object cache.');
+		$this->defineOption('woocommerce_feature_remote_logging_enabled', 'Remote error logging', 'Diagnostics and privacy', 'environment', 'Allows WooCommerce to send error logs and diagnostic data when usage tracking is enabled.');
+		$this->defineOption('woocommerce_feature_deferred_transactional_emails_enabled', 'Deferred transactional emails', 'Email delivery', 'environment', 'Queues transactional email through Action Scheduler instead of sending it in the current request.');
+		$this->defineOption('woocommerce_feature_customer_review_request_enabled', 'Customer review requests', 'Customer email', 'environment', 'Sends a post-purchase email that invites customers to review products from a completed order.');
+		$this->defineOption('woocommerce_feature_email_improvements_enabled', 'Modern transactional email design', 'Email design', 'portable', 'Uses WooCommerce’s modern layout for transactional email.');
+		$this->defineOption('woocommerce_feature_blueprint_enabled', 'WooCommerce Blueprint', 'Import and export', 'portable', 'Enables WooCommerce’s settings import and export screen.');
+		$this->defineOption('woocommerce_api_enabled', 'Legacy REST API', 'Legacy integrations', 'environment', 'Records whether the separate WooCommerce Legacy REST API integration is active on this site.');
+		$this->defineOption('woocommerce_feature_site_visibility_badge_enabled', 'Site visibility badge', 'Administration', 'portable', 'Shows the store’s coming-soon or live status in the WordPress admin bar.');
+		$this->defineOption('woocommerce_feature_point_of_sale_enabled', 'Point of Sale', 'Point of Sale', 'environment', 'Enables WooCommerce Point of Sale features in supported mobile apps.');
+		$this->defineOption('woocommerce_feature_experimental-iapi-mini-cart_enabled', 'Interactivity API Mini-Cart', 'Cart features', 'portable', 'Uses the WordPress Interactivity API implementation of the Mini-Cart block.');
+		$this->defineOption('woocommerce_feature_cost_of_goods_sold_enabled', 'Cost of goods sold', 'Product and order data', 'unsupported', 'Adds cost data to products and orders. ConfigOps records the toggle but does not undo changes to store content.');
+		$this->defineOption('woocommerce_hpos_fts_index_enabled', 'HPOS full-text search indexes', 'Order performance', 'environment', 'Creates and uses full-text order indexes when high-performance order storage is active.');
+		$this->defineOption('woocommerce_feature_abandoned_cart_recovery_enabled', 'Abandoned cart recovery', 'Customer email', 'environment', 'Sends reminder email to shoppers who leave checkout without placing an order.');
+		$this->defineOption('woocommerce_feature_block_email_editor_enabled', 'Block email editor', 'Email design', 'portable', 'Enables block-based editing for WooCommerce transactional email templates.');
+		$this->defineOption('woocommerce_feature_wc_visual_attribute_enabled', 'Product attribute color swatches', 'Catalog appearance', 'portable', 'Displays color swatches for configured product attribute values.');
+		$this->defineOption('woocommerce_feature_mcp_integration_enabled', 'WooCommerce MCP integration', 'Agent access', 'environment', 'Exposes the experimental WooCommerce MCP integration and must be reviewed for each environment.');
+		$this->defineOption('woocommerce_feature_destroy-empty-sessions_enabled', 'Clear empty customer sessions', 'Store performance', 'environment', 'Removes empty guest session cookies to improve page-cache reuse.');
+		$this->defineOption('woocommerce_feature_rest_api_caching_enabled', 'REST API caching feature', 'REST API', 'environment', 'Enables WooCommerce’s experimental cache layer for eligible REST API responses.');
+		$this->defineOption('woocommerce_cart_save_for_later_enabled', 'Save cart items for later', 'Cart features', 'portable', 'Lets shoppers move cart items to a list for a later purchase.');
+		$this->defineOption('woocommerce_product_wishlist_enabled', 'Product wishlists', 'Catalog features', 'portable', 'Lets shoppers save products to a wishlist from supported product templates.');
+		$this->defineOption('woocommerce_feature_product_instance_caching_enabled', 'Product object cache', 'Catalog performance', 'environment', 'Caches product objects during a request to avoid duplicate product loads.');
+	}
+
+	private function definePointOfSaleSettings(): void
+	{
+		$this->defineOption('woocommerce_pos_store_name', 'Point of Sale store name', 'Point of Sale receipts', 'environment', 'The physical store name printed on Point of Sale receipts.');
+		$this->defineOption('woocommerce_pos_store_address', 'Point of Sale store address', 'Point of Sale receipts', 'environment', 'The physical store address printed on Point of Sale receipts.');
+		$this->defineOption('woocommerce_pos_store_phone', 'Point of Sale phone number', 'Point of Sale receipts', 'environment', 'The store phone number printed on Point of Sale receipts.');
+		$this->defineOption('woocommerce_pos_store_email', 'Point of Sale email', 'Point of Sale receipts', 'environment', 'The store contact address printed on Point of Sale receipts.');
+		$this->defineOption('woocommerce_pos_refund_returns_policy', 'Point of Sale refund policy', 'Point of Sale receipts', 'portable', 'The refund and returns statement printed on Point of Sale receipts.');
 	}
 
 	private function defineEmailSettings(): void

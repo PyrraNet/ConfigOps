@@ -8,6 +8,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/production-error-trap.php';
+require_once __DIR__ . '/adapter-surface-contract.php';
 
 $wordpressRoot = rtrim((string) (getenv('CONFIGOPS_WP_ROOT') ?: '/wordpress'), '/');
 require_once $wordpressRoot . '/wp-load.php';
@@ -52,6 +53,51 @@ $adapters  = new \ConfigOps\Adapter\AdapterRegistry(
 	\ConfigOps\Adapter\BuiltInAdapters::create(),
 	new \ConfigOps\Noise\NoiseClassifier(),
 	new \ConfigOps\Capture\HeuristicSensitiveValueDetector()
+);
+
+$unknownAdapterFields = array_merge(
+	configops_unknown_adapter_surface_fields('wp-mail-smtp', '4.9.0'),
+	configops_unknown_adapter_surface_fields('yoast-seo', '28.3'),
+	configops_unknown_adapter_surface_fields('woocommerce', '11.0.1')
+);
+$assert(
+	array() === $unknownAdapterFields,
+	"Current plugin settings without a tested adapter meaning:\n- " . implode("\n- ", $unknownAdapterFields)
+);
+$wooAdapter = new \ConfigOps\Adapter\WooCommerceAdapter();
+$hposAnalysis = $wooAdapter->analyze(
+	'woocommerce_custom_orders_table_enabled',
+	array(array('path' => '/', 'before' => 'no', 'after' => 'yes'))
+);
+$assert(
+	'unsupported' === $hposAnalysis->classification && ! $hposAnalysis->allowsGenericRestore,
+	'WooCommerce order-storage migrations should be explained without offering option-only undo.'
+);
+$runtimeOptionPrefixes = array(
+	'wp-mail-smtp' => array('wp_mail_smtp_', array('wp_mail_smtp')),
+	'yoast-seo' => array('wpseo', array('wpseo', 'wpseo_titles', 'wpseo_social', 'wpseo_llmstxt')),
+);
+$unknownRuntimeOptions = array();
+foreach ($runtimeOptionPrefixes as $expectedAdapterId => [$prefix, $configurationOptions]) {
+	$optionNames = $wpdb->get_col(
+		$wpdb->prepare("SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like($prefix) . '%')
+	);
+	foreach ($optionNames as $runtimeOptionName) {
+		if (! is_string($runtimeOptionName) || in_array($runtimeOptionName, $configurationOptions, true)) {
+			continue;
+		}
+		$runtimeAnalysis = $adapters->analyze(
+			$runtimeOptionName,
+			array(array('path' => '/', 'before' => null, 'after' => get_option($runtimeOptionName)))
+		);
+		if ($expectedAdapterId !== ($runtimeAnalysis['adapter_id'] ?? null) || 'unknown' === ($runtimeAnalysis['classification'] ?? null)) {
+			$unknownRuntimeOptions[] = "{$expectedAdapterId}: {$runtimeOptionName}";
+		}
+	}
+}
+$assert(
+	array() === $unknownRuntimeOptions,
+	"Activated plugins created options without a runtime classification:\n- " . implode("\n- ", $unknownRuntimeOptions)
 );
 
 delete_option('wp_mail_smtp');
@@ -130,6 +176,9 @@ $yoastTitlesBefore['social-image-id-post'] = (int) $yoastLogoBefore;
 update_option('wpseo_titles', $yoastTitlesBefore, false);
 $wooCurrencyBefore = get_option('woocommerce_currency', 'USD');
 update_option('woocommerce_currency', 'USD', false);
+$wooPosPolicyExisted = false !== get_option('woocommerce_pos_refund_returns_policy', false);
+$wooPosPolicyBefore = get_option('woocommerce_pos_refund_returns_policy', '');
+update_option('woocommerce_pos_refund_returns_policy', 'Original receipt policy', false);
 
 $sessionId = $captures->start('Supported plugin contract', 1, '/wp-admin/admin.php?page=configops');
 \WPMailSMTP\Options::init()->set(
@@ -175,9 +224,17 @@ add_option('wpseo_tracking_only', array('last_updated' => time()), '', false);
 			'type' => 'select',
 			'options' => array('USD' => 'USD', 'EUR' => 'EUR'),
 			'default' => 'USD',
-		)
+		),
+		array(
+			'id' => 'woocommerce_pos_refund_returns_policy',
+			'type' => 'textarea',
+			'default' => '',
+		),
 	),
-	array('woocommerce_currency' => 'EUR')
+	array(
+		'woocommerce_currency' => 'EUR',
+		'woocommerce_pos_refund_returns_policy' => 'Returns accepted within 30 days.',
+	)
 );
 update_option('posts_per_page', $postsPerPageBefore + 2, false);
 $captures->stop();
@@ -235,6 +292,13 @@ $assert(1 === (int) $byName['woocommerce_currency']->adapter_schema_version, 'Wo
 $assert('11.0.1' === (string) $byName['woocommerce_currency']->component_version, 'WooCommerce captures should pin the observed plugin version.');
 $assert('environment' === (string) $byName['woocommerce_currency']->classification, 'A store currency change should require a per-store check.');
 $assert(1 === (int) $byName['woocommerce_currency']->restorable, 'A supported WooCommerce setting should retain conflict-checked undo.');
+$assert(isset($byName['woocommerce_pos_refund_returns_policy']), 'The WooCommerce Point of Sale receipt policy should be captured.');
+$assert(
+	'woocommerce' === (string) $byName['woocommerce_pos_refund_returns_policy']->adapter_id
+	&& 'portable' === (string) $byName['woocommerce_pos_refund_returns_policy']->classification
+	&& 1 === (int) $byName['woocommerce_pos_refund_returns_policy']->restorable,
+	'A Point of Sale receipt policy should retain its WooCommerce meaning and conflict-checked undo.'
+);
 $assert(isset($byName['posts_per_page']), 'A standard WordPress Reading setting should be captured by the Core adapter.');
 $assert(
 	'wordpress-core' === (string) $byName['posts_per_page']->adapter_id
@@ -259,6 +323,7 @@ $yoastPayload = current(array_filter($payloadRows, static fn (array $row): bool 
 $yoastMediaPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'wpseo_social' === $row['optionName']));
 $yoastContentPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'wpseo_llmstxt' === $row['optionName']));
 $wooPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'woocommerce_currency' === $row['optionName']));
+$wooPosPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'woocommerce_pos_refund_returns_policy' === $row['optionName']));
 $corePayload = current(array_filter($payloadRows, static fn (array $row): bool => 'posts_per_page' === $row['optionName']));
 $mailLabels = array_column($mailPayload['diff'], 'label');
 $yoastLabels = array_column($yoastPayload['diff'], 'label');
@@ -268,6 +333,7 @@ $assert(in_array('Message stream', $mailLabels, true), 'The review payload shoul
 $assert(in_array('Stop all outgoing email', $mailLabels, true), 'The review payload should identify high-impact WP Mail SMTP delivery policy.');
 $assert(in_array('Admin bar menu', $yoastLabels, true), 'The review payload should use the Yoast field label instead of database vocabulary.');
 $assert('Store currency' === ($wooPayload['diff'][0]['label'] ?? ''), 'The review payload should name the WooCommerce setting instead of exposing its option key.');
+$assert('Point of Sale refund policy' === ($wooPosPayload['diff'][0]['label'] ?? ''), 'The review payload should explain the Point of Sale receipt setting.');
 $assert('Posts per page' === ($corePayload['diff'][0]['label'] ?? ''), 'The review payload should explain standard WordPress Core settings.');
 $assert(
 	'available' === ($yoastMediaPayload['diff'][0]['after_reference']['current_status'] ?? ''),
@@ -339,6 +405,8 @@ $restore = new \ConfigOps\Restore\RestoreService(
 );
 $restore->restoreMutation((int) $byName['woocommerce_currency']->id);
 $assert('USD' === get_option('woocommerce_currency'), 'WooCommerce currency undo should restore the prior value through the Options API.');
+$restore->restoreMutation((int) $byName['woocommerce_pos_refund_returns_policy']->id);
+$assert('Original receipt policy' === get_option('woocommerce_pos_refund_returns_policy'), 'Point of Sale policy undo should restore the prior receipt text.');
 wp_delete_post((int) $yoastPageBefore, true);
 $missingContentRejected = false;
 try {
@@ -386,5 +454,10 @@ wp_delete_post((int) $yoastPageBefore, true);
 wp_delete_post((int) $yoastPageAfter, true);
 update_option('posts_per_page', $postsPerPageBefore, false);
 update_option('woocommerce_currency', $wooCurrencyBefore, false);
+if ($wooPosPolicyExisted) {
+	update_option('woocommerce_pos_refund_returns_policy', $wooPosPolicyBefore, false);
+} else {
+	delete_option('woocommerce_pos_refund_returns_policy');
+}
 
 fwrite(STDOUT, "ConfigOps real-plugin adapter checks passed ({$assertions} assertions).\n");

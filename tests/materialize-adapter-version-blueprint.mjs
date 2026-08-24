@@ -35,6 +35,10 @@ const blueprint = {
 	preferredVersions: { php: '8.3', wp: 'latest' },
 	steps: [
 		{
+			step: 'defineWpConfigConsts',
+			consts: { WP_DISABLE_FATAL_ERROR_HANDLER: true },
+		},
+		{
 			step: 'installPlugin',
 			pluginData: {
 				resource: 'url',
