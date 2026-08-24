@@ -106,13 +106,14 @@ final class NetworkAutomaticRecorder
 
 	private function isEligible(): bool
 	{
-		if (! current_user_can('manage_network_options')) {
+		$wpCli = defined('WP_CLI') && WP_CLI;
+		if (! $wpCli && ! current_user_can('manage_network_options')) {
 			return false;
 		}
 
 		$administrative = is_network_admin()
 			|| (defined('REST_REQUEST') && REST_REQUEST)
-			|| (defined('WP_CLI') && WP_CLI);
+			|| $wpCli;
 		$administrative = true === apply_filters(
 			'configops_network_recording_context_allowed',
 			$administrative,

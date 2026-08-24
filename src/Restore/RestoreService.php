@@ -85,26 +85,31 @@ final class RestoreService
 		}
 
 		$this->assertRestorable($mutation);
+		$optionName = (string) $mutation->option_name;
 		$genericChanges = $this->genericArrayUndo->changesFor($mutation);
 		if (! empty($genericChanges)) {
+			$this->assertUnfilteredOptionRead($optionName);
 			$this->restoreSafeFields($mutation, $genericChanges, true);
 
 			return 1;
 		}
 		if ('patch' === $this->restoreMode($mutation)) {
+			$this->adapters->assertRestorableReferences($this->storedDiff($mutation));
+			$this->assertUnfilteredOptionRead($optionName);
 			$this->restoreSafeFields($mutation);
 
 			return 1;
 		}
 
 		$this->adapters->assertRestorableReferences($this->storedDiff($mutation));
+		$this->assertUnfilteredOptionRead($optionName);
 		$this->assertCurrentState(
-			(string) $mutation->option_name,
+			$optionName,
 			(string) $mutation->new_value,
 			isset($mutation->new_autoload) ? (string) $mutation->new_autoload : null
 		);
 		$this->applyState(
-			(string) $mutation->option_name,
+			$optionName,
 			(string) $mutation->old_value,
 			isset($mutation->old_autoload) ? (string) $mutation->old_autoload : null
 		);
@@ -195,6 +200,7 @@ final class RestoreService
 		// Validate the complete plan before changing the first option.
 		foreach ($states as $name => $state) {
 			$this->adapters->assertRestorableReferences($this->storedDiff($state['first']));
+			$this->assertUnfilteredOptionRead($name);
 			$this->assertCurrentState(
 				$name,
 				(string) $state['last']->new_value,
@@ -298,6 +304,8 @@ final class RestoreService
 			$code = 'unmanaged_writes';
 		} elseif (str_contains($error->getMessage(), 'active capture')) {
 			$code = 'capture_active';
+		} elseif (str_contains($error->getMessage(), 'filters its runtime value')) {
+			$code = 'filtered_option_value';
 		} elseif (str_starts_with($error->getMessage(), 'Reference missing:')) {
 			$code = 'reference_missing';
 		}
@@ -326,6 +334,24 @@ final class RestoreService
 			throw new RuntimeException(
 				'This mutation is technical, redacted, oversized, or unsupported and cannot be restored safely.'
 			);
+		}
+	}
+
+	private function assertUnfilteredOptionRead(string $optionName): void
+	{
+		$hooks = array(
+			"pre_option_{$optionName}",
+			'pre_option',
+			"default_option_{$optionName}",
+			"option_{$optionName}",
+		);
+		foreach ($hooks as $hook) {
+			if (false !== has_filter($hook)) {
+				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
+				throw $this->runtimeFailure(
+					"ConfigOps cannot safely undo {$optionName} while WordPress filters its runtime value through {$hook}. Nothing was changed."
+				);
+			}
 		}
 	}
 

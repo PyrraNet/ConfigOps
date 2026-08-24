@@ -84,6 +84,7 @@ final class NetworkRestoreService
 		}
 		$this->assertRestorable($mutation);
 		$optionName = (string) $mutation->option_name;
+		$this->assertUnfilteredOptionRead($optionName);
 		$this->assertCurrentState($optionName, (string) $mutation->new_value);
 		$this->applyState($optionName, (string) $mutation->old_value);
 
@@ -104,6 +105,24 @@ final class NetworkRestoreService
 			throw new RuntimeException(
 				'Only complete, non-redacted network settings additions and updates can be restored safely. Deletes, authority, lifecycle, and derived network state remain review-only.'
 			);
+		}
+	}
+
+	private function assertUnfilteredOptionRead(string $optionName): void
+	{
+		$hooks = array(
+			"pre_site_option_{$optionName}",
+			'pre_site_option',
+			"default_site_option_{$optionName}",
+			"site_option_{$optionName}",
+		);
+		foreach ($hooks as $hook) {
+			if (false !== has_filter($hook)) {
+				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
+				throw $this->runtimeFailure(
+					"ConfigOps cannot safely undo {$optionName} while WordPress filters its network runtime value through {$hook}. Nothing was changed."
+				);
+			}
 		}
 	}
 
@@ -226,6 +245,8 @@ final class NetworkRestoreService
 			$code = 'target_conflict';
 		} elseif (str_contains($error->getMessage(), 'active network change session')) {
 			$code = 'capture_active';
+		} elseif (str_contains($error->getMessage(), 'filters its network runtime value')) {
+			$code = 'filtered_network_option_value';
 		} elseif (str_contains($error->getMessage(), 'review-only')) {
 			$code = 'network_restore_unsupported';
 		}

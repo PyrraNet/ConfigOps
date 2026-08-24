@@ -4,6 +4,16 @@ ConfigOps follows semantic versioning. While the major version is `0`, adapter c
 
 ## Unreleased
 
+### Hardened
+
+- WP-CLI automatic observations now work when the optional `--user` global argument is omitted, recording actor ID `0` for the shell-authorized command instead of silently dropping its evidence.
+- Site and network restores now fail before writing when WordPress filters the target option's runtime read through the corresponding Options API hooks; value-free restore audits record `filtered_option_value` or `filtered_network_option_value`.
+- Network activation no longer synchronously traverses every site when WordPress classifies the network as large. Existing sites provision idempotently on their next request, while network deactivation interrupts open site evidence with a bounded network-scoped update and lazy pointer reconciliation.
+
+### Verified against
+
+- Dedicated WP-CLI-without-user, virtual option filter, and forced large-network lifecycle regression contracts in the supported WordPress/PHP matrix.
+
 ## 0.5.0 — 2026-08-24
 
 The smart undo beyond adapters release.

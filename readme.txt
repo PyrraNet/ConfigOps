@@ -102,6 +102,8 @@ No. An activity log records events, a backup restores a broad site state, and pl
 
 ConfigOps observes supported Options API mutations in authorized WordPress admin, REST, and WP-CLI requests. It does not record anonymous front-end traffic as settings evidence. Named Change Sessions are available when you want to group several requests into one investigation.
 
+WP-CLI's optional --user parameter is not required for observation. A shell-authorized command without a WordPress user is recorded with actor ID 0. If another plugin virtualizes a site or network target through an Options API read filter, ConfigOps refuses undo before writing instead of treating the virtual value as stored database state.
+
 = Does ConfigOps support WordPress Multisite? =
 
 Yes. Version 0.5 supports network activation, isolated per-site evidence, lifecycle and retention across sites, Multi-Network ownership boundaries, and a separate Network Admin ledger for supported Network Options changes. Named Network Change Sessions can group a planned task, and complete network additions and updates can be undone one mutation at a time. Network deletes, whole-network-change undo, cross-site aggregation, and bulk actions are not supported.

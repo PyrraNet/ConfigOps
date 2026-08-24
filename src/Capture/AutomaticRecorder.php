@@ -136,7 +136,8 @@ final class AutomaticRecorder
 
 	private function isEligible(): bool
 	{
-		if ($this->suppressed || ! current_user_can('configops_capture')) {
+		$wpCli = defined('WP_CLI') && WP_CLI;
+		if ($this->suppressed || (! $wpCli && ! current_user_can('configops_capture'))) {
 			return false;
 		}
 
@@ -158,7 +159,7 @@ final class AutomaticRecorder
 		);
 		$administrative = is_admin()
 			|| (defined('REST_REQUEST') && REST_REQUEST)
-			|| (defined('WP_CLI') && WP_CLI);
+			|| $wpCli;
 		$administrative = true === apply_filters(
 			'configops_automatic_recording_context_allowed',
 			$administrative,

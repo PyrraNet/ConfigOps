@@ -50,6 +50,13 @@ final readonly class SiteLifecycle
 		if ($networkId <= 0) {
 			throw new RuntimeException('ConfigOps cannot activate without a valid WordPress network.');
 		}
+		if ($this->isLargeNetwork($networkId)) {
+			// Every normal site request repeats the same idempotent provisioning.
+			// Avoid turning network activation into one synchronous 10k-site request.
+			$this->provisionCurrentSite();
+
+			return;
+		}
 		foreach ($this->sites->siteIds($networkId) as $siteId) {
 			$this->sites->run($siteId, fn (): null => $this->provisionCurrentSite(), $networkId);
 		}
@@ -83,11 +90,24 @@ final readonly class SiteLifecycle
 
 			return;
 		}
-		foreach ($this->sites->siteIds($networkId) as $siteId) {
+		if ($this->isLargeNetwork($networkId)) {
 			try {
-				$this->sites->run($siteId, fn (): null => $this->deactivateCurrentSite(), $networkId);
+				$this->interruptLargeNetworkSiteCaptures($networkId);
 			} catch (Throwable $error) {
-				$this->report('configops_deactivation_error', $error, $networkId, $siteId);
+				$this->report('configops_deactivation_error', $error, $networkId, 0);
+			}
+			try {
+				$this->deactivateCurrentSite();
+			} catch (Throwable $error) {
+				$this->report('configops_deactivation_error', $error, $networkId, (int) get_current_blog_id());
+			}
+		} else {
+			foreach ($this->sites->siteIds($networkId) as $siteId) {
+				try {
+					$this->sites->run($siteId, fn (): null => $this->deactivateCurrentSite(), $networkId);
+				} catch (Throwable $error) {
+					$this->report('configops_deactivation_error', $error, $networkId, $siteId);
+				}
 			}
 		}
 
@@ -197,6 +217,38 @@ final readonly class SiteLifecycle
 		$plugins = get_network_option($networkId, 'active_sitewide_plugins', array());
 
 		return is_array($plugins) && isset($plugins[plugin_basename(CONFIGOPS_FILE)]);
+	}
+
+	private function isLargeNetwork(int $networkId): bool
+	{
+		return function_exists('wp_is_large_network')
+			&& wp_is_large_network('sites', $networkId);
+	}
+
+	private function interruptLargeNetworkSiteCaptures(int $networkId): void
+	{
+		$prefix  = (string) ($this->database->base_prefix ?: $this->database->prefix);
+		$table   = '`' . str_replace('`', '``', $prefix . 'configops_capture_sessions') . '`';
+		$now     = current_time('mysql', true);
+		$updated = $this->database->query(
+			$this->database->prepare(
+				"UPDATE {$table}
+				SET status = 'interrupted',
+					capture_error_count = capture_error_count + 1,
+					last_error_code = 'plugin_deactivated',
+					last_error_at = %s,
+					ended_at = %s
+				WHERE network_id = %d
+					AND blog_id > 0
+					AND status IN ('starting', 'active', 'stopping')",
+				$now,
+				$now,
+				$networkId
+			)
+		);
+		if (false === $updated) {
+			throw new RuntimeException('ConfigOps could not interrupt open site captures for the large network.');
+		}
 	}
 
 	private function deleteSharedEvidence(int $siteId): void

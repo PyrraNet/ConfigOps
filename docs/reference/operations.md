@@ -19,7 +19,7 @@ ConfigOps is suitable for production observation only when it sits inside ordina
 - Monitor WordPress/PHP logs and database write health.
 - Verify behavior after undo; do not rely on a success badge alone.
 
-Automatic observation is limited to authorized administrative, REST, and WP-CLI contexts and begins lazily on the first Options API mutation. Named Change Sessions observe site option writes across their active window. High traffic is not itself a problem, but a long named session creates more unrelated evidence and more ambiguity. Duration and operational scope matter more than visitor count.
+Automatic observation is limited to authorized administrative, REST, and WP-CLI contexts and begins lazily on the first Options API mutation. WP-CLI itself is the administrative authority when its optional `--user` argument is omitted; ConfigOps records that evidence with actor ID `0`. Named Change Sessions observe site option writes across their active window. High traffic is not itself a problem, but a long named session creates more unrelated evidence and more ambiguity. Duration and operational scope matter more than visitor count.
 
 ## Local storage
 
@@ -53,7 +53,7 @@ After installation or an incident, verify:
 7. The daily `configops_history_retention` event is scheduled.
 8. If the generic array experiment is enabled, a harmless unknown-plugin array update shows **Smart undo changed keys**, preserves an unrelated later key, and refuses a deliberately changed target key without writing.
 
-On Multisite, also verify one disposable site's evidence cannot be read from another site, **Network Admin → ConfigOps** identifies its network-wide scope, and a harmless Network Options update can be reviewed and undone by a super administrator.
+On Multisite, also verify one disposable site's evidence cannot be read from another site, **Network Admin → ConfigOps** identifies its network-wide scope, and a harmless Network Options update can be reviewed and undone by a super administrator. Networks WordPress classifies as large are provisioned lazily per site instead of being synchronously traversed during activation; new sites still use the normal initialization hook. Deactivation closes open site evidence with one network-scoped storage update and lets each skipped site's stale active pointer reconcile on its next ConfigOps request.
 
 ## Incident response
 

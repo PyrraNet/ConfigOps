@@ -256,21 +256,28 @@ $siteBoundaryRestoreSession = $captures->start('Site boundary restore guard', 0,
 update_option('site_boundary_restore_setting', 'after', false);
 $captures->stop();
 $siteBoundaryRestoreMutation = $mutations->forSession($siteBoundaryRestoreSession)[0];
-$switchDuringRestoreRead = static function (mixed $value) use ($foreignSiteId): mixed {
+$originOptionsTable = $wpdb->options;
+$switchDuringRestoreRead = static function (string $query) use ($foreignSiteId, $originOptionsTable): string {
+	if (
+		! str_contains($query, "SELECT autoload FROM {$originOptionsTable}")
+		|| ! str_contains($query, 'site_boundary_restore_setting')
+	) {
+		return $query;
+	}
 	if (! switch_to_blog($foreignSiteId)) {
 		throw new RuntimeException('Could not enter the foreign site context during restore guarding.');
 	}
 
-	return $value;
+	return $query;
 };
-add_filter('option_site_boundary_restore_setting', $switchDuringRestoreRead);
+add_filter('query', $switchDuringRestoreRead);
 $crossSiteRestoreRejected = false;
 try {
 	$restore->restoreMutation((int) $siteBoundaryRestoreMutation->id);
 } catch (RuntimeException) {
 	$crossSiteRestoreRejected = true;
 }
-remove_filter('option_site_boundary_restore_setting', $switchDuringRestoreRead);
+remove_filter('query', $switchDuringRestoreRead);
 $assert($crossSiteRestoreRejected, 'Undo must abort before writing if an option callback changes the WordPress site context.');
 $assert($foreignSiteId === get_current_blog_id(), 'Failed undo cleanup must preserve the caller\'s changed site context.');
 $assert(restore_current_blog(), 'The guarded undo check should restore the original WordPress site context.');
@@ -283,6 +290,31 @@ $assert(
 	'failed' === (string) $siteBoundaryRestoreAudits[array_key_last($siteBoundaryRestoreAudits)]->status,
 	'A site-boundary restore refusal must retain a value-free failed audit record.'
 );
+
+$filteredReadOption = 'fixture_filtered_restore_value';
+update_option($filteredReadOption, 'stored-before', false);
+$filteredReadSession = $captures->start('Filtered option restore guard', 0, '/wp-admin/options-general.php');
+update_option($filteredReadOption, 'stored-after', false);
+$captures->stop();
+$filteredReadMutation = $mutations->forSession($filteredReadSession)[0];
+$virtualOptionRead = static fn (): string => 'virtual-runtime-value';
+add_filter("pre_option_{$filteredReadOption}", $virtualOptionRead);
+$filteredReadRejected = false;
+try {
+	$restore->restoreMutation((int) $filteredReadMutation->id);
+} catch (RuntimeException $error) {
+	$filteredReadRejected = str_contains($error->getMessage(), 'filters its runtime value');
+}
+remove_filter("pre_option_{$filteredReadOption}", $virtualOptionRead);
+$filteredReadAudits = $restoreAudit->forSession($filteredReadSession);
+$assert(
+	$filteredReadRejected
+	&& 'stored-after' === get_option($filteredReadOption)
+	&& 'failed' === (string) $filteredReadAudits[0]->status
+	&& 'filtered_option_value' === (string) $filteredReadAudits[0]->failure_code,
+	'Undo must fail before writing when an Options API filter virtualizes the current database value.'
+);
+delete_option($filteredReadOption);
 
 $createMediaFixture = static function (string $filename, string $title, int $width, int $height): int {
 	$attachment = wp_insert_attachment(

@@ -494,6 +494,15 @@ $updatedRestoreRequest = new \WP_REST_Request(
 	'/configops/v1/network/mutations/' . (int) $networkRowsByOption[$networkUpdatedOption]->id . '/restore'
 );
 $networkRestoreLockOption = 'configops_operation_lock_' . hash('sha256', 'network:restore');
+$virtualNetworkRead = static fn (): string => 'virtual-network-runtime-value';
+add_filter("pre_site_option_{$networkUpdatedOption}", $virtualNetworkRead);
+$filteredNetworkRestoreResponse = rest_do_request($updatedRestoreRequest);
+remove_filter("pre_site_option_{$networkUpdatedOption}", $virtualNetworkRead);
+$assert(
+	409 === $filteredNetworkRestoreResponse->get_status()
+	&& 'network-after' === get_network_option($originNetworkId, $networkUpdatedOption),
+	'Network undo must fail before writing when a Network Options filter virtualizes the current database value.'
+);
 add_network_option(
 	$originNetworkId,
 	$networkRestoreLockOption,
@@ -580,11 +589,12 @@ $networkAuditStatuses = array_count_values(array_map(static fn (object $row): st
 $networkAuditCodes = array_column($networkAuditRows, 'failure_code');
 $assert(
 	2 === ($networkAuditStatuses['succeeded'] ?? 0)
-	&& 4 === ($networkAuditStatuses['failed'] ?? 0)
+	&& 5 === ($networkAuditStatuses['failed'] ?? 0)
 	&& 1 === ($networkAuditStatuses['compensated'] ?? 0)
 	&& in_array('apply_failed_compensated', $networkAuditCodes, true)
 	&& in_array('network_restore_unsupported', $networkAuditCodes, true)
 	&& in_array('network_restore_failed', $networkAuditCodes, true)
+	&& in_array('filtered_network_option_value', $networkAuditCodes, true)
 	&& in_array('target_conflict', $networkAuditCodes, true)
 	&& array_reduce(
 		$networkAuditRows,
@@ -996,6 +1006,109 @@ $assert(
 	'Deleting a site must remove any retained legacy ConfigOps tables for that site.'
 );
 $assert(null === get_site($deletedSiteId), 'The disposable site should no longer exist after its cleanup contract runs.');
+
+$largeNetworkOriginSession = $captures->start('Large-network origin deactivation fixture', 0, '/wp-admin/options-general.php');
+$largeNetworkScopeSession = $networkCaptures->start('Large-network network deactivation fixture', 1, '/wp-admin/network/settings.php');
+$assert(switch_to_blog($foreignSiteId), 'The large-network lifecycle check should enter its second site.');
+$largeNetworkForeignCaptures = new \ConfigOps\Database\CaptureRepository($wpdb, \ConfigOps\Multisite\SiteScope::current());
+$largeNetworkForeignSession = $largeNetworkForeignCaptures->start(
+	'Large-network foreign deactivation fixture',
+	0,
+	'/wp-admin/options-general.php'
+);
+$assert(restore_current_blog(), 'The large-network lifecycle check should restore the origin site.');
+$forceLargeNetwork = static function (bool $isLarge, string $component, int $count, int $networkId) use ($originNetworkId): bool {
+	unset($count);
+
+	return 'sites' === $component && $originNetworkId === $networkId ? true : $isLarge;
+};
+add_filter('wp_is_large_network', $forceLargeNetwork, 10, 4);
+\ConfigOps\Plugin::deactivate(true);
+$largeNetworkOriginRow = $captures->find($largeNetworkOriginSession);
+$largeNetworkScopeRow = $networkCaptures->find($largeNetworkScopeSession);
+$assert(
+	$largeNetworkOriginRow
+	&& 'interrupted' === (string) $largeNetworkOriginRow->status
+	&& false === get_option('configops_active_capture_id', false)
+	&& false === wp_next_scheduled(\ConfigOps\Maintenance\HistoryRetention::HOOK)
+	&& $largeNetworkScopeRow
+	&& 'interrupted' === (string) $largeNetworkScopeRow->status
+	&& false === get_network_option($originNetworkId, 'configops_active_capture_id', false),
+	'Large-network deactivation should close all shared evidence in bounded SQL while cleaning the current site and network pointers.'
+);
+$assert(switch_to_blog($foreignSiteId), 'The large-network cleanup check should enter its second site.');
+$largeNetworkForeignRow = $largeNetworkForeignCaptures->find($largeNetworkForeignSession);
+$staleForeignPointer = (int) get_option('configops_active_capture_id', 0);
+$freshLargeNetworkForeignCaptures = new \ConfigOps\Database\CaptureRepository(
+	$wpdb,
+	\ConfigOps\Multisite\SiteScope::current()
+);
+$assert(
+	$largeNetworkForeignRow
+	&& 'interrupted' === (string) $largeNetworkForeignRow->status
+	&& $largeNetworkForeignSession === $staleForeignPointer
+	&& null === $freshLargeNetworkForeignCaptures->activeId()
+	&& false === get_option('configops_active_capture_id', false),
+	'A large network may retain an unwritten site pointer until its next request, where repository reconciliation must remove it safely.'
+);
+delete_option('configops_schema_version');
+delete_option('configops_capabilities_version');
+$largeNetworkForeignAdministrator = get_role('administrator');
+if ($largeNetworkForeignAdministrator) {
+	foreach (\ConfigOps\Plugin::capabilities() as $capability) {
+		$largeNetworkForeignAdministrator->remove_cap($capability);
+	}
+}
+\ConfigOps\Maintenance\HistoryRetention::unschedule();
+$assert(restore_current_blog(), 'The large-network provisioning check should restore the origin site.');
+
+\ConfigOps\Plugin::activate(true);
+$assert(switch_to_blog($foreignSiteId), 'The large-network activation check should inspect its second site.');
+$largeNetworkForeignAdministrator = get_role('administrator');
+$assert(
+	false === get_option('configops_schema_version', false)
+	&& $largeNetworkForeignAdministrator
+	&& ! $largeNetworkForeignAdministrator->has_cap('configops_view')
+	&& false === wp_next_scheduled(\ConfigOps\Maintenance\HistoryRetention::HOOK),
+	'Large-network activation should avoid synchronously iterating and provisioning every existing site.'
+);
+(new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
+(new \ConfigOps\Access\CapabilityManager())->maybeInstall();
+\ConfigOps\Maintenance\HistoryRetention::schedule();
+$assert(
+	10 === (int) get_option('configops_schema_version', 0)
+	&& get_role('administrator')->has_cap('configops_view')
+	&& false !== wp_next_scheduled(\ConfigOps\Maintenance\HistoryRetention::HOOK),
+	'The normal idempotent site boot path should lazily provision a skipped site after large-network activation.'
+);
+$assert(restore_current_blog(), 'The large-network activation check should restore the origin site.');
+remove_filter('wp_is_large_network', $forceLargeNetwork, 10);
+
+if (! defined('WP_CLI')) {
+	define('WP_CLI', true);
+}
+wp_set_current_user(0);
+$networkCliRecorder = new \ConfigOps\Capture\NetworkAutomaticRecorder(
+	$networkCaptures,
+	new \ConfigOps\Capture\RequestContext(),
+	\ConfigOps\Multisite\NetworkScope::current()
+);
+$networkCliSessionId = $networkCliRecorder->sessionId($originNetworkId);
+$networkCliSession = null === $networkCliSessionId ? null : $networkCaptures->find($networkCliSessionId);
+$assert(
+	$networkCliSession
+	&& 'automatic' === (string) $networkCliSession->capture_mode
+	&& 'active' === (string) $networkCliSession->status
+	&& 0 === (int) $networkCliSession->actor_id,
+	'A WP-CLI request without --user should open network evidence under actor ID zero.'
+);
+$networkCliRecorder->finalize();
+$networkCliSession = $networkCaptures->find((int) $networkCliSessionId);
+$assert(
+	$networkCliSession && 'discarded' === (string) $networkCliSession->status,
+	'An empty no-user WP-CLI network observation should finalize without leaving open evidence.'
+);
+wp_set_current_user(1);
 
 $originLifecycleSession = $captures->start('Network deactivation origin fixture', 0, '/wp-admin/options-general.php');
 $originLifecycleAutomatic = $captures->startAutomatic('Network deactivation origin automatic fixture', 0, '/wp-admin/options-general.php');

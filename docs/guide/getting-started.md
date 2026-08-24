@@ -32,7 +32,7 @@ To inspect the workflow before installing anything, open the [disposable ConfigO
 
 Activation creates the local evidence tables and grants the versioned ConfigOps capabilities to the administrator role. It does not create an account or send evidence to pyrra.
 
-On Multisite, use **Network Admin → Plugins** to network-activate ConfigOps. Existing and newly created sites receive isolated site evidence state. Super administrators can open **Network Admin → ConfigOps** for the separate network-wide ledger and start a named Network Change Session before planned, multi-request work. Network sessions group evidence; they do not enable whole-session undo.
+On Multisite, use **Network Admin → Plugins** to network-activate ConfigOps. Existing and newly created sites receive isolated site evidence state. On networks WordPress classifies as large, ConfigOps provisions the current site immediately and the remaining existing sites idempotently on their next request, avoiding a synchronous all-site activation loop. Super administrators can open **Network Admin → ConfigOps** for the separate network-wide ledger and start a named Network Change Session before planned, multi-request work. Network sessions group evidence; they do not enable whole-session undo.
 
 ## Observe one settings save
 

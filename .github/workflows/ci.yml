@@ -280,6 +280,14 @@ jobs:
           --mount=tests/fixtures/configops-hostile-fixture:/wordpress/wp-content/plugins/configops-hostile-fixture
           -- /wordpress/wp-content/plugins/configops/tests/integration.php
 
+      - name: Run WP-CLI no-user compatibility checks
+        run: >-
+          node_modules/.bin/wp-playground-cli php
+          --php=${{ matrix.php }}
+          --wp=${{ matrix.wordpress }}
+          --mount=.:/wordpress/wp-content/plugins/configops
+          -- /wordpress/wp-content/plugins/configops/tests/wp-cli-integration.php
+
       - name: Run Multisite boundary and lifecycle checks
         run: >-
           node_modules/.bin/wp-playground-cli php

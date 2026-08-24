@@ -39,6 +39,8 @@ Named Change Sessions remain the focused mode for planned maintenance, support c
 
 On a network-active Multisite installation, every site keeps an isolated local ledger while Network Admin receives a separate network-wide evidence view. Multi-Network installs are pinned to each site's actual network ownership: lifecycle work refuses a site from another network, and a foreign Network Options write never enters the current network's evidence. Network administrators can group planned work into named Network Change Sessions. Complete Network Options additions and updates can be undone one mutation at a time after the same conflict and compensation checks; deletes and whole-session undo remain unavailable.
 
+WP-CLI changes are observed even when the optional global `--user` argument is omitted; those shell-authorized observations use actor ID `0` instead of inventing a WordPress user. Site and network restores fail before writing when an option's runtime read is virtualized by a WordPress Options API filter, because the filtered value may differ from the database state ConfigOps would change.
+
 ```diff
 WP Mail SMTP → Sender email
 - admin@localhost.test

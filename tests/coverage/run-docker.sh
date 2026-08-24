@@ -84,6 +84,7 @@ collect() {
 collect tests/run.php unit
 collect tests/adversarial.php adversarial
 collect tests/integration.php integration
+collect tests/wp-cli-integration.php wp-cli
 
 wp plugin install 'https://downloads.wordpress.org/plugin/wp-mail-smtp.4.9.0.zip' --activate --quiet
 wp plugin install 'https://downloads.wordpress.org/plugin/wordpress-seo.28.2.zip' --activate --quiet
