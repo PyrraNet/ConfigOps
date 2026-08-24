@@ -21,6 +21,9 @@ use ConfigOps\Admin\NetworkAdminPayloadFactory;
 use ConfigOps\Admin\ReviewPresenter;
 use ConfigOps\Api\NetworkRestController;
 use ConfigOps\Api\RestController;
+use ConfigOps\Agent\AbilityController;
+use ConfigOps\Agent\AgentService;
+use ConfigOps\Agent\CliController;
 use ConfigOps\Capture\InternalOptionPolicy;
 use ConfigOps\Capture\AutomaticRecorder;
 use ConfigOps\Capture\HeuristicSensitiveValueDetector;
@@ -148,6 +151,16 @@ final class Plugin
 			$genericArrayUndo,
 			$experimentalFeatures
 		);
+		$agent = new AgentService(
+			$captures,
+			$mutations,
+			$commands,
+			$payloads,
+			$restore,
+			$siteBoundary
+		);
+		(new AbilityController($agent, $siteBoundary))->register();
+		(new CliController())->register();
 
 		(new RestController(
 			$captures,
@@ -289,7 +302,7 @@ final class Plugin
 			<div class="notice notice-error">
 				<p>
 					<strong><?php esc_html_e('ConfigOps is not recording.', 'configops'); ?></strong>
-					<?php esc_html_e('Its storage could not be prepared safely. WordPress is still running; check the database health, then reactivate ConfigOps after fixing the storage problem.', 'configops'); ?>
+					<?php esc_html_e('The ConfigOps tables could not be created or verified. WordPress is still running. Check the database error log, fix the table problem, then reactivate ConfigOps.', 'configops'); ?>
 				</p>
 			</div>
 			<?php
@@ -308,8 +321,8 @@ final class Plugin
 			?>
 			<div class="notice notice-error">
 				<p>
-					<strong><?php esc_html_e('ConfigOps found unresolved capture-integrity evidence.', 'configops'); ?></strong>
-					<?php esc_html_e('At least one recording warning could not be attached to its original session. Do not treat that recording as complete; repair the ConfigOps database tables and review the PHP error log.', 'configops'); ?>
+					<strong><?php esc_html_e('Some recording failures have no session.', 'configops'); ?></strong>
+					<?php esc_html_e('At least one recording failure could not be attached to its original session. Treat the affected recording as incomplete; inspect the ConfigOps tables and the PHP error log.', 'configops'); ?>
 				</p>
 			</div>
 			<?php

@@ -50,7 +50,7 @@ const startCapture = async (name) => {
 	}
 	await page.locator('#configops-capture-name').fill(name);
 	await page.getByRole('button', { name: 'Start session' }).click();
-	await page.getByText('Recording now', { exact: true }).first().waitFor();
+	await page.getByText('Named session · Recording', { exact: true }).first().waitFor();
 };
 
 const stopCapture = async () => {
@@ -63,7 +63,7 @@ const stopCapture = async () => {
 const undoVisibleSetting = async (name) => {
 	page.once('dialog', (dialog) => dialog.accept());
 	await page.getByRole('button', { name }).click();
-	await page.getByText(/supported setting values were undone|option was restored/i).waitFor();
+	await page.getByText(/current value matched the recording|option was restored/i).waitFor();
 	assert.equal(await page.getByRole('button', { name }).count(), 0, 'A completed undo must not offer the same historical action again.');
 	await page.getByText('Undone', { exact: true }).first().waitFor();
 };
@@ -101,7 +101,7 @@ try {
 
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops&view=support`, { waitUntil: 'domcontentloaded' });
 	assert.match(page.url(), /\/wp-admin\/admin\.php/, 'The browser should reach the authenticated ConfigOps support screen.');
-	await page.getByRole('heading', { name: 'Plugin support', exact: true }).waitFor();
+	await page.getByRole('heading', { name: 'Support contracts', exact: true }).waitFor();
 	const readyPlugins = page.getByText('Active', { exact: true });
 	await readyPlugins.first().waitFor();
 	assert.equal(await readyPlugins.count(), 3, 'WordPress Core and both exact plugin releases should be active before user-flow testing.');
@@ -138,7 +138,7 @@ try {
 	assert.equal(await mailReview.getByText(/defaults$/, { exact: false }).count(), 0, 'Unused provider defaults must not pollute the default settings review.');
 	assert.equal(await mailReview.locator('.configops-write-signal').count(), 0, 'Known runtime locks must not be presented as unmanaged user changes.');
 	assert.equal((await mailReview.innerText()).includes('not-a-real-password'), false, 'The typed SMTP password must never be rendered or bootstrapped.');
-	assert.equal(await mailReview.getByRole('button', { name: 'Undo 7 safe settings' }).count(), 1, 'Visible non-secret SMTP fields should remain individually reversible.');
+	assert.equal(await mailReview.getByRole('button', { name: 'Undo 7 restorable settings' }).count(), 1, 'Visible non-secret SMTP fields should remain individually reversible.');
 	assert.equal(await mailReview.locator('.configops-option > span').getByText('WP Mail SMTP', { exact: true }).count(), 1, 'A user should see the responsible plugin before its technical source path.');
 	assert.equal(await page.locator('#wp-admin-bar-configops-recording').count(), 0, 'Stopping from the React control should remove the recording badge immediately.');
 	assert.equal(await mailReview.locator('.configops-request-index').first().innerText(), 'SAVE ACTION 01', 'Filtered request groups should begin at one.');
@@ -149,7 +149,7 @@ try {
 	await page.screenshot({ path: new URL('wp-mail-smtp-review-mobile.png', artifacts).pathname, fullPage: true });
 	await page.setViewportSize({ width: 1440, height: 1100 });
 
-	await undoVisibleSetting('Undo 7 safe settings');
+	await undoVisibleSetting('Undo 7 restorable settings');
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wp-mail-smtp`, { waitUntil: 'domcontentloaded' });
 	assert.equal(await page.locator('#wp-mail-smtp-setting-from_email').inputValue(), initialSenderEmail, 'Safe undo should restore the site’s actual previous sender email.');
 	assert.equal(await page.locator('#wp-mail-smtp-setting-mailer-mail').isChecked(), initialDefaultMailer, 'Safe undo should restore the site’s actual previous delivery method.');

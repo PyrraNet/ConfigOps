@@ -13,6 +13,37 @@ if (! defined('WP_CLI')) {
 	define('WP_CLI', true);
 }
 
+if (! class_exists('WP_CLI')) {
+	final class WP_CLI
+	{
+		/** @var array<string, array{callback: callable, args: array<string, mixed>}> */
+		public static array $commands = array();
+		/** @var list<string> */
+		public static array $lines = array();
+
+		/**
+		 * @param callable               $callback Command callback.
+		 * @param array<string, mixed>   $args Registration arguments.
+		 */
+		public static function add_command(string $name, callable $callback, array $args = array()): bool
+		{
+			self::$commands[$name] = array('callback' => $callback, 'args' => $args);
+
+			return true;
+		}
+
+		public static function line(string $message): void
+		{
+			self::$lines[] = $message;
+		}
+
+		public static function error(string $message): never
+		{
+			throw new RuntimeException($message);
+		}
+	}
+}
+
 $wordpressRoot = rtrim((string) (getenv('CONFIGOPS_WP_ROOT') ?: '/wordpress'), '/');
 require_once $wordpressRoot . '/wp-load.php';
 require_once ABSPATH . 'wp-admin/includes/plugin.php';
@@ -61,6 +92,50 @@ $session = $captures->find((int) $sessionId);
 $assert(
 	$session && 'discarded' === (string) $session->status,
 	'An empty WP-CLI observation should finalize cleanly without leaving an open session.'
+);
+
+$expectedCommands = array(
+	'configops state',
+	'configops captures list',
+	'configops capture get',
+	'configops mutations list',
+	'configops mutation inspect',
+	'configops restore plan',
+	'configops capture start',
+	'configops capture stop',
+);
+$assert(
+	$expectedCommands === array_keys(WP_CLI::$commands),
+	'ConfigOps should register its complete JSON WP-CLI command vocabulary when WP-CLI is available.'
+);
+$assert(
+	false === (WP_CLI::$commands['configops restore plan']['args']['synopsis'][0]['optional'] ?? true),
+	'The restore-plan command must require an explicit mutation ID.'
+);
+
+wp_set_current_user(1);
+$stateCommand = WP_CLI::$commands['configops state']['callback'];
+$stateCommand(array(), array());
+$stateOutput = json_decode(WP_CLI::$lines[0] ?? '', true);
+$assert(
+	is_array($stateOutput)
+	&& true === ($stateOutput['ok'] ?? false)
+	&& 'site' === ($stateOutput['scope']['type'] ?? ''),
+	'The WP-CLI transport should execute the registered ability and emit one versioned JSON object.'
+);
+wp_set_current_user(0);
+$anonymousReadRejected = false;
+try {
+	$stateCommand(array(), array());
+} catch (RuntimeException $error) {
+	$errorPayload = json_decode($error->getMessage(), true);
+	$anonymousReadRejected = is_array($errorPayload)
+		&& false === ($errorPayload['ok'] ?? true)
+		&& 'ability_invalid_permissions' === ($errorPayload['error']['code'] ?? '');
+}
+$assert(
+	$anonymousReadRejected,
+	'ConfigOps WP-CLI operations should require an explicit WordPress user even though passive shell observation accepts actor zero.'
 );
 
 fwrite(STDOUT, "ConfigOps WP-CLI compatibility checks passed ({$assertions} assertions).\n");

@@ -48,7 +48,7 @@ try {
 	await page.waitForLoadState('networkidle');
 
 	await page.goto(`${baseUrl}/wp-admin/network/admin.php?page=configops`, { waitUntil: 'networkidle' });
-	await page.getByRole('heading', { name: 'Network changes', exact: true }).waitFor();
+	await page.getByRole('heading', { name: 'Network evidence', exact: true }).waitFor();
 	if (!await page.locator('#adminmenu').getByRole('link', { name: 'ConfigOps', exact: true }).isVisible()) {
 		throw new Error('ConfigOps is missing from the Network Admin navigation.');
 	}
@@ -69,7 +69,7 @@ try {
 		if (!await page.locator('#configops-capture-island').isVisible()) {
 			throw new Error('The Network Admin view did not render its network capture controls.');
 		}
-	if (!await page.getByText('Add/update undo', { exact: true }).isVisible()) {
+	if (!await page.getByText('Adds and updates only', { exact: true }).isVisible()) {
 		throw new Error('The permanent network scope band does not disclose the undo boundary.');
 	}
 	if (!await page.getByText('Network-wide', { exact: true }).isVisible()) {

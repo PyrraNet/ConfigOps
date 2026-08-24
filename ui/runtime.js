@@ -8,7 +8,7 @@ const renderFailure = (element) => {
 	const message = document.createElement('p');
 	message.className = 'configops-island-error';
 	message.setAttribute('role', 'alert');
-	message.textContent = window.wp.i18n.__('This ConfigOps instrument could not be loaded. Reload the page to try again.', 'configops');
+	message.textContent = window.wp.i18n.__('This part of ConfigOps did not load. Reload the page.', 'configops');
 	element.replaceChildren(message);
 };
 

@@ -77,18 +77,18 @@ const AdapterRow = ({ adapter }) => {
 			</summary>
 			<div className="configops-support-detail">
 				<section>
-					<h4>{__('Features', 'configops')}</h4>
+					<h4>{__('Capability checks', 'configops')}</h4>
 					<div className="configops-support-capabilities">
 						{capabilities.map((capability) => <Capability capability={capability} versionUntested={versionUntested} key={capability.id} />)}
 					</div>
 				</section>
 				<div className="configops-support-notes">
 					<section>
-						<h4>{__('Covered', 'configops')}</h4>
+						<h4>{__('Contract includes', 'configops')}</h4>
 						<ul>{adapter.coverage.map((item) => <li key={item}>{item}</li>)}</ul>
 					</section>
 					<section>
-						<h4>{__('Limits', 'configops')}</h4>
+						<h4>{__('Refused or unmapped', 'configops')}</h4>
 						<ul>{adapter.limitations.map((item) => <li key={item}>{item}</li>)}</ul>
 					</section>
 				</div>
@@ -112,7 +112,7 @@ export default function SupportMatrix() {
 					<header>
 						<span className="configops-sql-mark" aria-hidden="true">β</span>
 						<div className="configops-write-identity">
-							<strong>{__('Smart undo for ordinary settings arrays', 'configops')}</strong>
+							<strong>{__('Verified key undo for plugin arrays', 'configops')}</strong>
 							<span className={`configops-experiment-state configops-plugin-state ${genericArrayUndo.enabled ? 'is-ready' : 'is-inactive'}`} role="status">
 								{genericArrayUndo.enabled ? __('Experimental · enabled', 'configops') : __('Experimental · off', 'configops')}
 							</span>
@@ -127,12 +127,12 @@ export default function SupportMatrix() {
 							{experimentBusy
 								? __('Saving…', 'configops')
 								: genericArrayUndo.enabled
-									? __('Turn off', 'configops')
-									: __('Enable experiment', 'configops')}
+									? __('Disable verified key undo', 'configops')
+									: __('Enable verified key undo', 'configops')}
 						</button>
 					</header>
 					<p>
-						{__('For unrecognized wp_options arrays, ConfigOps reverses only snapshot-verified keys and preserves unrelated later changes. List-index edits, roots, secrets, truncated diffs, and changed target fields are refused.', 'configops')}
+						{__('For wp_options arrays with no tested adapter owner, ConfigOps reverses only snapshot-verified keys and preserves unrelated later changes. List-index edits, roots, secrets, truncated diffs, and changed target fields are refused.', 'configops')}
 						{!genericArrayUndo.canManage && <> {__('A site administrator must change this setting.', 'configops')}</>}
 					</p>
 				</section>

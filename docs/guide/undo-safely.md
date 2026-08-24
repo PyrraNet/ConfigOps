@@ -23,7 +23,7 @@ Three restore modes can appear:
 
 - **Full option:** the complete typed before/after values are safely encoded and the entire current option matches.
 - **Field patch:** a tested adapter can restore supported non-secret paths while preserving an existing hidden credential or unrelated field.
-- **Experimental generic array patch:** when a site administrator explicitly enables the experiment under **Plugin support**, an unclaimed associative `wp_options` array can restore only its captured paths while preserving unrelated later keys.
+- **Experimental generic array patch:** when a site administrator explicitly enables the experiment under **Support contracts**, an unclaimed associative `wp_options` array can restore only its captured paths while preserving unrelated later keys.
 
 Adapter patches remain schema-bound. The generic experiment does not guess field meaning: it verifies every patch entry against both encoded snapshots, resolves current adapter ownership again, requires every current parent to remain a string-keyed associative map, and requires the current target paths to match the captured after-state. It refuses roots, integer-keyed parent arrays, list-index edits, secrets, truncated diffs, malformed evidence, adapter-owned options, and derived state. If any target path or parent structure conflicts, it writes nothing.
 
@@ -34,7 +34,7 @@ For a generic patch, current state is evaluated path by path:
 | A captured target still equals its recorded after-state | That target remains eligible for reversal |
 | Any captured target differs or has the wrong structure | The complete generic patch is refused without writing |
 | An unrelated sibling was changed or added later | The sibling is retained in the current array |
-| One stored patch entry disagrees with either typed snapshot | Smart undo is unavailable for the mutation |
+| One stored patch entry disagrees with either typed snapshot | Verified key undo is unavailable for the mutation |
 
 This protects later work in the same option without pretending to understand the owning plugin. A successful structural write still cannot reverse email, webhooks, cache purges, remote API calls, or another side effect caused by the original save.
 

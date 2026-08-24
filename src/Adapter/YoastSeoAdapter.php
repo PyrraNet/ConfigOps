@@ -130,12 +130,12 @@ final class YoastSeoAdapter extends AbstractOptionAdapter implements DatabaseWri
 			'=28.2',
 			3,
 			array(
-				array('id' => 'capture', 'label' => 'Find changes', 'level' => 'full', 'note' => 'The exact 28.2 Free settings groups and dynamic content-type/taxonomy families are captured; content metadata is excluded.'),
-				array('id' => 'explain', 'label' => 'Explain fields', 'level' => 'full', 'note' => 'Features, integrations, crawl cleanup, schema, identity, search appearance, social, and LLMs.txt paths have pinned semantics.'),
-				array('id' => 'secrets', 'label' => 'Hide secrets', 'level' => 'full', 'note' => 'MyYoast, Semrush, Wincher, and OAuth credentials are removed before storage.'),
-				array('id' => 'noise', 'label' => 'Separate technical noise', 'level' => 'full', 'note' => 'Indexing, caches, migrations, dismissals, tracking, LLMs.txt generation state, and maintenance writes are separated.'),
-				array('id' => 'restore', 'label' => 'Undo safely', 'level' => 'partial', 'note' => 'Supported settings use field-level conflict checks; media and content IDs must still resolve before undo.'),
-				array('id' => 'apply', 'label' => 'Apply to another site', 'level' => 'planned', 'note' => 'IDs require semantic references before Release Packs can apply them elsewhere.'),
+				array('id' => 'capture', 'label' => 'Record Options API writes', 'level' => 'full', 'note' => 'The exact 28.2 Free settings groups and dynamic content-type/taxonomy families are captured; content metadata is excluded.'),
+				array('id' => 'explain', 'label' => 'Map settings fields', 'level' => 'full', 'note' => 'Features, integrations, crawl cleanup, schema, identity, search appearance, social, and LLMs.txt paths have pinned semantics.'),
+				array('id' => 'secrets', 'label' => 'Redact credentials', 'level' => 'full', 'note' => 'MyYoast, Semrush, Wincher, and OAuth credentials are removed before storage.'),
+				array('id' => 'noise', 'label' => 'Classify runtime values', 'level' => 'full', 'note' => 'Indexing, caches, migrations, dismissals, tracking, LLMs.txt generation state, and maintenance writes are separated.'),
+				array('id' => 'restore', 'label' => 'Conflict-checked undo', 'level' => 'partial', 'note' => 'Supported settings use field-level conflict checks; media and content IDs must still resolve before undo.'),
+				array('id' => 'apply', 'label' => 'Cross-site apply', 'level' => 'planned', 'note' => 'Cross-site apply is not implemented; local IDs need an explicit reference-resolution contract.'),
 			),
 			array(
 				'Site features, analyses, integrations, crawl cleanup, bot rules, IndexNow, schema, and AI controls',

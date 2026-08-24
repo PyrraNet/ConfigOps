@@ -2125,6 +2125,117 @@ $assert(
 $defaultStopResponse = $restServer->dispatch(new WP_REST_Request('POST', '/configops/v1/captures/active/stop'));
 $assert(200 === $defaultStopResponse->get_status(), 'A default-named capture should stop through the shared command service.');
 
+$abilityNames = array(
+	'configops/get-state',
+	'configops/list-captures',
+	'configops/get-capture',
+	'configops/list-mutations',
+	'configops/inspect-mutation',
+	'configops/plan-restore',
+	'configops/start-capture',
+	'configops/stop-capture',
+);
+foreach ($abilityNames as $abilityName) {
+	$assert(null !== wp_get_ability($abilityName), "The native Abilities API should discover {$abilityName}.");
+}
+$stateAbility = wp_get_ability('configops/get-state');
+$stateAbilityResult = $stateAbility?->execute();
+$assert(
+	is_array($stateAbilityResult)
+	&& '1' === ($stateAbilityResult['schemaVersion'] ?? '')
+	&& true === ($stateAbilityResult['ok'] ?? false)
+	&& 'site' === ($stateAbilityResult['scope']['type'] ?? '')
+	&& false === ($stateAbilityResult['data']['capabilities']['applyRestore'] ?? true),
+	'Agent state should use a versioned, site-pinned envelope and advertise restore apply as unavailable.'
+);
+$stateAbilityMeta = $stateAbility?->get_meta() ?? array();
+$assert(
+	true === ($stateAbilityMeta['annotations']['readonly'] ?? false)
+	&& true === ($stateAbilityMeta['annotations']['idempotent'] ?? false)
+	&& true === ($stateAbilityMeta['show_in_rest'] ?? false),
+	'Read abilities should expose accurate discovery annotations and authenticated REST availability.'
+);
+$abilityDiscoveryResponse = $restServer->dispatch(new WP_REST_Request('GET', '/wp-abilities/v1/abilities'));
+$abilityDiscoveryData = (array) $abilityDiscoveryResponse->get_data();
+$abilityDiscoveryNames = array_column($abilityDiscoveryData, 'name');
+$abilityRunResponse = $restServer->dispatch(new WP_REST_Request('GET', '/wp-abilities/v1/abilities/configops/get-state/run'));
+$abilityRunData = $abilityRunResponse->get_data();
+$assert(
+	200 === $abilityDiscoveryResponse->get_status()
+	&& array() === array_diff($abilityNames, $abilityDiscoveryNames)
+	&& 200 === $abilityRunResponse->get_status()
+	&& is_array($abilityRunData)
+	&& true === ($abilityRunData['ok'] ?? false),
+	sprintf(
+		'Authenticated native REST discovery and execution should expose every public ConfigOps ability for compatible adapters (discovery %d, missing %s, run %d, code %s).',
+		$abilityDiscoveryResponse->get_status(),
+		implode(',', array_diff($abilityNames, $abilityDiscoveryNames)),
+		$abilityRunResponse->get_status(),
+		(string) ($abilityRunData['code'] ?? '')
+	)
+);
+
+$agentPlanOption = 'fixture_agent_restore_plan';
+update_option($agentPlanOption, 'before', false);
+$agentPlanSession = $freshCaptures->start('Agent restore plan', 1, '/wp-admin/options-general.php');
+update_option($agentPlanOption, 'after', false);
+$freshCaptures->stop();
+$agentPlanMutation = $mutations->forSession($agentPlanSession)[0] ?? null;
+$assert(is_object($agentPlanMutation), 'The agent restore-plan fixture should produce one mutation.');
+$captureListResult = wp_get_ability('configops/list-captures')?->execute();
+$captureResult = wp_get_ability('configops/get-capture')?->execute(array('id' => $agentPlanSession));
+$mutationListResult = wp_get_ability('configops/list-mutations')?->execute(
+	array('captureId' => $agentPlanSession, 'after' => 0, 'limit' => 1)
+);
+$assert(
+	is_array($captureListResult)
+	&& ! empty($captureListResult['data']['items'] ?? array())
+	&& is_array($captureResult)
+	&& $agentPlanSession === ($captureResult['data']['capture']['id'] ?? 0)
+	&& is_array($mutationListResult)
+	&& $agentPlanSession === ($mutationListResult['data']['captureId'] ?? 0),
+	'Capture and mutation discovery abilities should execute their bounded read contracts.'
+);
+$planAbility = wp_get_ability('configops/plan-restore');
+$planAbilityResult = $planAbility?->execute(array('mutationId' => (int) $agentPlanMutation->id));
+$assert(
+	is_array($planAbilityResult)
+	&& (int) $agentPlanMutation->id === ($planAbilityResult['data']['plan']['targetId'] ?? 0)
+	&& true === ($planAbilityResult['data']['plan']['requiresConfirmation'] ?? false)
+	&& false === ($planAbilityResult['data']['plan']['applySupported'] ?? true)
+	&& 64 === strlen((string) ($planAbilityResult['data']['plan']['stateFingerprint'] ?? ''))
+	&& 'after' === get_option($agentPlanOption),
+	'Restore planning should validate current state and return a non-writing confirmation boundary.'
+);
+$inspectAbility = wp_get_ability('configops/inspect-mutation');
+$inspectAbilityResult = $inspectAbility?->execute(array('id' => (int) $agentPlanMutation->id));
+$assert(
+	is_array($inspectAbilityResult)
+	&& (int) $agentPlanMutation->id === ($inspectAbilityResult['data']['mutation']['id'] ?? 0),
+	'Mutation inspection should return exactly the requested redacted evidence item.'
+);
+update_option($agentPlanOption, 'changed-again', false);
+$conflictedPlanResult = $planAbility?->execute(array('mutationId' => (int) $agentPlanMutation->id));
+$assert(
+	is_wp_error($conflictedPlanResult)
+	&& 'configops_operation_failed' === $conflictedPlanResult->get_error_code()
+	&& 'changed-again' === get_option($agentPlanOption),
+	'Restore planning must fail closed on current-state drift and perform no compensating write.'
+);
+delete_option($agentPlanOption);
+
+$startAbility = wp_get_ability('configops/start-capture');
+$stopAbility = wp_get_ability('configops/stop-capture');
+$startAbilityResult = $startAbility?->execute(array('name' => 'Ability command contract'));
+$stopAbilityResult = $stopAbility?->execute();
+$assert(
+	is_array($startAbilityResult)
+	&& 'started' === ($startAbilityResult['data']['status'] ?? '')
+	&& is_array($stopAbilityResult)
+	&& 'stopped' === ($stopAbilityResult['data']['status'] ?? ''),
+	'Capture abilities should route through the shared domain commands and return JSON-safe envelopes.'
+);
+
 $viewerId = wp_create_user('configops-viewer', wp_generate_password(32), 'configops-viewer@example.test');
 $assert(! is_wp_error($viewerId), 'The capability-boundary fixture user should be created.');
 $viewer = get_user_by('id', (int) $viewerId);
@@ -2147,6 +2258,12 @@ $assert(
 	$viewerRestoreResponse->get_status() >= 400
 	&& 'rest_forbidden' === ($viewerRestoreResponse->get_data()['code'] ?? ''),
 	'Read-only operators must not execute undo through the Agent API.'
+);
+$viewerPlanResult = $planAbility?->execute(array('mutationId' => (int) $agentPlanMutation->id));
+$assert(
+	is_wp_error($viewerPlanResult)
+	&& 'ability_invalid_permissions' === $viewerPlanResult->get_error_code(),
+	'Read-only operators must not validate restore plans without configops_plan authority.'
 );
 $viewerExperimentRequest = new WP_REST_Request('POST', '/configops/v1/experiments/generic-array-undo');
 $viewerExperimentRequest->set_body_params(array('enabled' => true));
@@ -2178,6 +2295,15 @@ $assert(
 wp_set_current_user(0);
 $forbiddenResponse = $restServer->dispatch(new WP_REST_Request('GET', '/configops/v1/state'));
 $assert($forbiddenResponse->get_status() >= 400, 'The local Agent API must fail closed without a ConfigOps capability.');
+$anonymousAbilityDiscovery = $restServer->dispatch(new WP_REST_Request('GET', '/wp-abilities/v1/abilities'));
+$anonymousAbilityRun = $restServer->dispatch(
+	new WP_REST_Request('GET', '/wp-abilities/v1/abilities/configops/get-state/run')
+);
+$assert(
+	$anonymousAbilityDiscovery->get_status() >= 400
+	&& $anonymousAbilityRun->get_status() >= 400,
+	'Native ability discovery and execution must fail closed without an authenticated WordPress user.'
+);
 
 wp_dequeue_style('configops-admin');
 wp_dequeue_script('configops-intent-observer');

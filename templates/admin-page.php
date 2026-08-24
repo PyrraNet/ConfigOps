@@ -37,11 +37,11 @@ $configopsSiteUrl = get_admin_url(get_current_blog_id(), 'admin.php?page=configo
 			<span class="configops-app-divider" aria-hidden="true"></span>
 			<h1>
 				<?php
-				echo esc_html(
+					echo esc_html(
 					match ($view) {
-						'support' => __('Plugin support', 'configops'),
-						'network' => __('Network changes', 'configops'),
-						default => __('Review changes', 'configops'),
+						'support' => __('Support contracts', 'configops'),
+						'network' => __('Network evidence', 'configops'),
+						default => __('Change evidence', 'configops'),
 					}
 				);
 				?>
@@ -52,8 +52,8 @@ $configopsSiteUrl = get_admin_url(get_current_blog_id(), 'admin.php?page=configo
 				<a class="is-current" aria-current="page" href="<?php echo esc_url(add_query_arg('page', 'configops', $configopsPageUrl)); ?>"><?php esc_html_e('Network evidence', 'configops'); ?></a>
 				<a href="<?php echo esc_url($configopsSiteUrl); ?>"><?php esc_html_e('Current site', 'configops'); ?></a>
 			<?php else : ?>
-				<a class="<?php echo esc_attr('review' === $view ? 'is-current' : ''); ?>" <?php if ('review' === $view) : ?>aria-current="page"<?php endif; ?> href="<?php echo esc_url(admin_url('admin.php?page=configops')); ?>"><?php esc_html_e('Changes', 'configops'); ?></a>
-				<a class="<?php echo esc_attr('support' === $view ? 'is-current' : ''); ?>" <?php if ('support' === $view) : ?>aria-current="page"<?php endif; ?> href="<?php echo esc_url(admin_url('admin.php?page=configops&view=support')); ?>"><?php esc_html_e('Plugin support', 'configops'); ?></a>
+				<a class="<?php echo esc_attr('review' === $view ? 'is-current' : ''); ?>" <?php if ('review' === $view) : ?>aria-current="page"<?php endif; ?> href="<?php echo esc_url(admin_url('admin.php?page=configops')); ?>"><?php esc_html_e('Evidence', 'configops'); ?></a>
+				<a class="<?php echo esc_attr('support' === $view ? 'is-current' : ''); ?>" <?php if ('support' === $view) : ?>aria-current="page"<?php endif; ?> href="<?php echo esc_url(admin_url('admin.php?page=configops&view=support')); ?>"><?php esc_html_e('Support contracts', 'configops'); ?></a>
 			<?php endif; ?>
 		</nav>
 	</header>
@@ -68,7 +68,7 @@ $configopsSiteUrl = get_admin_url(get_current_blog_id(), 'admin.php?page=configo
 			<dl>
 				<div><dt><?php esc_html_e('Network', 'configops'); ?></dt><dd>#<?php echo esc_html((string) ($bootstrap['scope']['networkId'] ?? 0)); ?></dd></div>
 				<div><dt><?php esc_html_e('Sites', 'configops'); ?></dt><dd><?php echo esc_html((string) ($bootstrap['scope']['siteCount'] ?? 0)); ?></dd></div>
-				<div><dt><?php esc_html_e('Mode', 'configops'); ?></dt><dd><?php esc_html_e('Add/update undo', 'configops'); ?></dd></div>
+				<div><dt><?php esc_html_e('Undo', 'configops'); ?></dt><dd><?php esc_html_e('Adds and updates only', 'configops'); ?></dd></div>
 			</dl>
 		</section>
 	<?php endif; ?>
@@ -89,7 +89,7 @@ $configopsSiteUrl = get_admin_url(get_current_blog_id(), 'admin.php?page=configo
 		<?php endif; ?>
 
 		<div class="configops-workspace">
-			<aside id="configops-sessions-island" class="configops-session-rail configops-island" aria-label="<?php esc_attr_e('Capture sessions', 'configops'); ?>" aria-busy="true">
+			<aside id="configops-sessions-island" class="configops-session-rail configops-island" aria-label="<?php esc_attr_e('Recorded changes', 'configops'); ?>" aria-busy="true">
 				<div class="configops-island-placeholder configops-island-placeholder--sessions">
 					<span></span><span></span><span></span>
 				</div>

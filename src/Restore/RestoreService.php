@@ -60,6 +60,86 @@ final class RestoreService
 		);
 	}
 
+	/**
+	 * Validate a mutation restore without changing WordPress state.
+	 *
+	 * This is the read-only half of the agent-safe plan/apply boundary. A future
+	 * apply command must repeat every validation immediately before writing; a
+	 * successful plan is evidence, not authority to skip conflict checks.
+	 *
+	 * @return array{
+	 *   targetType: string,
+	 *   targetId: int,
+	 *   sessionId: int,
+	 *   optionName: string,
+	 *   restoreMode: string,
+	 *   changeCount: int,
+	 *   stateFingerprint: string,
+	 *   requiresConfirmation: bool,
+	 *   applySupported: bool
+	 * }
+	 */
+	public function planMutation(int $mutationId): array
+	{
+		$this->siteBoundary->assertCurrentSite();
+		$this->assertNoActiveNamedCapture();
+
+		$mutation = $this->mutations->find($mutationId);
+		if (! $mutation) {
+			throw new RuntimeException('The mutation no longer exists.');
+		}
+
+		$this->assertRestorable($mutation);
+		$optionName     = (string) $mutation->option_name;
+		$restoreMode    = $this->restoreMode($mutation);
+		$changeCount    = 1;
+		$genericChanges = $this->genericArrayUndo->changesFor($mutation);
+		if (! empty($genericChanges)) {
+			$this->assertUnfilteredOptionRead($optionName);
+			$prepared = $this->prepareSafeFields($mutation, $genericChanges, true);
+			$restoreMode = 'generic';
+			$changeCount = count($prepared['changes']);
+		} elseif ('patch' === $restoreMode) {
+			$this->assertUnfilteredOptionRead($optionName);
+			$prepared = $this->prepareSafeFields($mutation);
+			$changeCount = count($prepared['changes']);
+		} else {
+			$this->adapters->assertRestorableReferences($this->storedDiff($mutation));
+			$this->assertUnfilteredOptionRead($optionName);
+			$this->assertCurrentState(
+				$optionName,
+				(string) $mutation->new_value,
+				isset($mutation->new_autoload) ? (string) $mutation->new_autoload : null
+			);
+		}
+
+		$fingerprintSource = implode(
+			"\n",
+			array(
+				$this->siteBoundary->key('restore-plan'),
+				(string) $mutationId,
+				(string) $mutation->session_id,
+				$optionName,
+				$restoreMode,
+				(string) ($mutation->new_value ?? ''),
+				(string) ($mutation->new_autoload ?? ''),
+				(string) ($mutation->diff ?? ''),
+			)
+		);
+
+		return array(
+			'targetType'           => 'mutation',
+			'targetId'             => $mutationId,
+			'sessionId'            => (int) $mutation->session_id,
+			'optionName'           => $optionName,
+			'restoreMode'          => $restoreMode,
+			'changeCount'          => $changeCount,
+			'stateFingerprint'     => hash_hmac('sha256', $fingerprintSource, wp_salt('auth')),
+			'requiresConfirmation' => true,
+			'applySupported'       => false,
+		);
+	}
+
 	public function restoreSession(int $sessionId): int
 	{
 		$this->siteBoundary->assertCurrentSite();
@@ -367,54 +447,12 @@ final class RestoreService
 	 */
 	private function restoreSafeFields(object $mutation, ?array $verifiedChanges = null, bool $generic = false): void
 	{
-		$this->siteBoundary->assertCurrentSite();
-		$diff = json_decode((string) ($mutation->diff ?? ''), true);
-		if (! is_array($diff)) {
-			throw new RuntimeException('The stored field comparison is malformed. Nothing was changed.');
-		}
-
-		$changes = $verifiedChanges ?? $this->adapters->safeRestoreChanges(
-			(string) ($mutation->adapter_id ?? ''),
-			(int) ($mutation->adapter_schema_version ?? 0),
-			(string) $mutation->option_name,
-			$diff
-		);
-		if (empty($changes)) {
-			throw new RuntimeException(
-				$generic
-					? 'The generic array patch could not be verified. Nothing was changed.'
-					: 'No adapter-backed field in this setting can still be undone safely. Nothing was changed.'
-			);
-		}
-		$this->adapters->assertRestorableReferences($changes);
-
-		$optionName = (string) $mutation->option_name;
-		$sentinel   = new \stdClass();
-		$current    = get_option($optionName, $sentinel);
-		$this->siteBoundary->assertCurrentSite();
-		if ($current === $sentinel || ! is_array($current)) {
-			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
-			throw $this->runtimeFailure("Conflict: {$optionName} no longer contains the captured settings array. Nothing was restored.");
-		}
-		if ($generic && ! $this->genericArrayUndo->currentStructureSupports($current, $changes)) {
-			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
-			throw $this->runtimeFailure("Conflict: {$optionName} no longer has the captured associative settings structure. Nothing was restored.");
-		}
-
-		$currentAutoload = $this->optionMetadata->autoloadFor($optionName);
-		$this->siteBoundary->assertCurrentSite();
-		$expectedAutoload = isset($mutation->new_autoload) ? (string) $mutation->new_autoload : null;
-		if (
-			null !== $expectedAutoload
-			&& $this->autoloadMode($expectedAutoload) !== $this->autoloadMode($currentAutoload)
-		) {
-			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
-			throw $this->runtimeFailure("Conflict: {$optionName} has a different autoload state. Nothing was restored.");
-		}
-
-		foreach ($changes as $change) {
-			$this->assertPatchAfterState($current, $change, $optionName);
-		}
+		$prepared = $this->prepareSafeFields($mutation, $verifiedChanges, $generic);
+		$changes         = $prepared['changes'];
+		$current         = $prepared['current'];
+		$currentAutoload = $prepared['currentAutoload'];
+		$optionName      = (string) $mutation->option_name;
+		$sentinel        = new \stdClass();
 
 		$patched = $current;
 		foreach (array_reverse($changes) as $change) {
@@ -477,6 +515,70 @@ final class RestoreService
 			);
 			// phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
 		}
+	}
+
+	/**
+	 * Validate and retain only the state required by a safe-field restore.
+	 *
+	 * @param list<array<string, mixed>>|null $verifiedChanges Preverified generic patch, or null for adapter policy.
+	 * @return array{changes: list<array<string, mixed>>, current: array<int|string, mixed>, currentAutoload: ?string}
+	 */
+	private function prepareSafeFields(object $mutation, ?array $verifiedChanges = null, bool $generic = false): array
+	{
+		$this->siteBoundary->assertCurrentSite();
+		$diff = json_decode((string) ($mutation->diff ?? ''), true);
+		if (! is_array($diff)) {
+			throw new RuntimeException('The stored field comparison is malformed. Nothing was changed.');
+		}
+
+		$changes = $verifiedChanges ?? $this->adapters->safeRestoreChanges(
+			(string) ($mutation->adapter_id ?? ''),
+			(int) ($mutation->adapter_schema_version ?? 0),
+			(string) $mutation->option_name,
+			$diff
+		);
+		if (empty($changes)) {
+			throw new RuntimeException(
+				$generic
+					? 'The generic array patch could not be verified. Nothing was changed.'
+					: 'No adapter-backed field in this setting can still be undone safely. Nothing was changed.'
+			);
+		}
+		$this->adapters->assertRestorableReferences($changes);
+
+		$optionName = (string) $mutation->option_name;
+		$sentinel   = new \stdClass();
+		$current    = get_option($optionName, $sentinel);
+		$this->siteBoundary->assertCurrentSite();
+		if ($current === $sentinel || ! is_array($current)) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
+			throw $this->runtimeFailure("Conflict: {$optionName} no longer contains the captured settings array. Nothing was restored.");
+		}
+		if ($generic && ! $this->genericArrayUndo->currentStructureSupports($current, $changes)) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
+			throw $this->runtimeFailure("Conflict: {$optionName} no longer has the captured associative settings structure. Nothing was restored.");
+		}
+
+		$currentAutoload = $this->optionMetadata->autoloadFor($optionName);
+		$this->siteBoundary->assertCurrentSite();
+		$expectedAutoload = isset($mutation->new_autoload) ? (string) $mutation->new_autoload : null;
+		if (
+			null !== $expectedAutoload
+			&& $this->autoloadMode($expectedAutoload) !== $this->autoloadMode($currentAutoload)
+		) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
+			throw $this->runtimeFailure("Conflict: {$optionName} has a different autoload state. Nothing was restored.");
+		}
+
+		foreach ($changes as $change) {
+			$this->assertPatchAfterState($current, $change, $optionName);
+		}
+
+		return array(
+			'changes'         => $changes,
+			'current'         => $current,
+			'currentAutoload' => $currentAutoload,
+		);
 	}
 
 	/**

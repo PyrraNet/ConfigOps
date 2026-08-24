@@ -56,7 +56,7 @@ export default function CaptureControls() {
 					<div className="configops-recording-state">
 						<span className="configops-pulse" aria-hidden="true"></span>
 						<div>
-							<p className="configops-state-label">{__('Recording now', 'configops')}</p>
+							<p className="configops-state-label">{__('Named session · Recording', 'configops')}</p>
 							<h2 id="configops-recording-title">{state.active.name}</h2>
 						</div>
 					</div>
@@ -80,8 +80,8 @@ export default function CaptureControls() {
 			) : !composerOpen ? (
 				<section className="configops-capture-command is-compact" aria-labelledby="configops-new-capture-title">
 					<div>
-						<p className="configops-state-label">{isNetwork ? __('Automatic network recording is on', 'configops') : __('Automatic recording is on', 'configops')}</p>
-						<h2 id="configops-new-capture-title">{isNetwork ? __('Network settings changes are recorded as they happen', 'configops') : __('Settings changes are recorded as they happen', 'configops')}</h2>
+						<p className="configops-state-label">{isNetwork ? __('Automatic network capture · On', 'configops') : __('Automatic capture · On', 'configops')}</p>
+						<h2 id="configops-new-capture-title">{isNetwork ? __('Save a network setting; its writes will appear below.', 'configops') : __('Save a setting; its writes will appear below.', 'configops')}</h2>
 					</div>
 					<button className="button" type="button" onClick={() => setComposerOpen(true)}>{isNetwork ? __('Start network session', 'configops') : __('Start change session', 'configops')}</button>
 				</section>
@@ -89,9 +89,9 @@ export default function CaptureControls() {
 				<section className="configops-capture-command" aria-labelledby="configops-start-title">
 					<form className="configops-capture-form" onSubmit={submit}>
 						<div className="configops-capture-intro">
-							<p className="configops-state-label">{__('Focused mode', 'configops')}</p>
-							<h2 id="configops-start-title">{isNetwork ? __('Start a named network session', 'configops') : __('Start a named change session', 'configops')}</h2>
-							<p>{__('Group a planned maintenance task, support case, or investigation under one name.', 'configops')}</p>
+							<p className="configops-state-label">{__('Multi-request capture', 'configops')}</p>
+							<h2 id="configops-start-title">{isNetwork ? __('Group several network saves under one name.', 'configops') : __('Group several settings saves under one name.', 'configops')}</h2>
+							<p>{__('Use a named session for maintenance or support work that spans more than one request.', 'configops')}</p>
 						</div>
 						<div className="configops-capture-field">
 							<label className="screen-reader-text" htmlFor="configops-capture-name">{__('Capture name', 'configops')}</label>
@@ -100,7 +100,7 @@ export default function CaptureControls() {
 								name="capture_name"
 								type="text"
 								maxLength="191"
-								placeholder={__('What are you changing?', 'configops')}
+								placeholder={__('Example: Change SMTP sender', 'configops')}
 								value={name}
 								onChange={(event) => setName(event.target.value)}
 							/>

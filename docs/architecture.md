@@ -7,7 +7,7 @@ Date: 2026-08-19
 
 ConfigOps is a native WordPress plugin whose supported floor is PHP 8.2. Its site boundary is request-local automatic observations plus optional named Change Sessions, Options API mutations, semantic nested diffs, provenance, and compensating restore. On a network-active Multisite installation, the 0.4 boundary also observes Network Options API mutations into a separate Network Admin ledger and can undo complete additions and updates one mutation at a time.
 
-JavaScript is the interaction layer and may later observe labels, field names, tabs, and client-side requests, but only the PHP observer can assert that WordPress actually persisted a mutation. The wp-admin interface uses code-split React islands over a capability-gated REST boundary. There is no Node service, monolithic SPA, cloud account, or remote control plane in the evidence layer.
+JavaScript is the interaction layer and may later observe labels, field names, tabs, and client-side requests, but only the PHP observer can assert that WordPress actually persisted a mutation. The wp-admin interface uses code-split React islands over a capability-gated REST boundary. Site-scoped WordPress Abilities and machine-readable JSON WP-CLI commands reuse the same PHP application services for bounded automation; restore planning is read-only and restore apply is not exposed. There is no Node service, monolithic SPA, cloud account, or remote control plane in the evidence layer.
 
 ## Why PHP is the right primary language
 
@@ -83,7 +83,7 @@ PHP 8.2 is the oldest branch in the 0.4.0 runtime contract. The full parser, uni
 
 ## Admin direction
 
-The interface is a forensic change ledger: dense enough for professional review, calm enough to scan under incident pressure. Automatic evidence feedback provides the immediate site entry point; Change History and named Change Sessions provide the deeper site review surface. Network Admin reuses the same evidence grammar behind a permanent scope band and omits controls it cannot safely honor. Future Packs, Plans, Policies, and Drift do not masquerade as inactive product tiles. The design avoids equal-card dashboards and decorative infrastructure diagrams.
+The interface is a forensic change ledger: dense enough for professional review, calm enough to scan under incident pressure. Automatic evidence feedback provides the immediate site entry point; **Recorded changes** and named Change Sessions provide the deeper site review surface. Network Admin reuses the same evidence grammar behind a permanent scope band and omits controls it cannot safely honor. Unshipped product areas do not appear as inactive tiles. The design avoids equal-card dashboards and decorative infrastructure diagrams.
 
 Three directions were considered:
 
@@ -91,7 +91,7 @@ Three directions were considered:
 2. a pull-request imitation, useful for diffs but too code-host-specific as the whole product identity;
 3. a forensic ledger with request chapters and nested evidence, selected because provenance and uncertainty are the actual product material.
 
-The visual direction remains server-shell plus forensic instruments: a compact product bar and evidence shell render before Change History, Change Sessions, and Review become interactive. This preserves the ledger rather than replacing it with framework-shaped cards. The company brand is expressed through a scoped token mapping and the supplied SVG wordmark; Paper carries the ledger, Ink carries evidence headers, and Brand Blue marks the command or selection without a webfont or visual runtime. Explanations stay attached to specialist terms and restore actions through accessible hover/focus help instead of lengthening every row.
+The visual direction remains server-shell plus forensic instruments: a compact product bar and evidence shell render before Recorded changes, Change Sessions, and Review become interactive. This preserves the ledger rather than replacing it with framework-shaped cards. The company brand is expressed through a scoped token mapping and the supplied SVG wordmark; Paper carries the ledger, Ink carries evidence headers, and Brand Blue marks the command or selection without a webfont or visual runtime. Explanations stay attached to specialist terms and restore actions through accessible hover/focus help instead of lengthening every row.
 
 ## Trust harness
 

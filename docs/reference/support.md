@@ -1,6 +1,6 @@
 ---
 title: Support contracts
-description: Exact WordPress, PHP, database, Multisite, adapter, and Smart Undo support for ConfigOps 0.5.0.
+description: Exact WordPress, PHP, database, Multisite, adapter, and verified key undo support for ConfigOps 0.5.0.
 ---
 
 # Support contracts
@@ -41,7 +41,7 @@ Network undo excludes authority and plugin-lifecycle state plus derived counters
 
 Versions outside an adapter’s tested range keep generic evidence. Adapter-dependent explanations, field patches, and automatic undo fail closed until the contract is verified.
 
-The generic array experiment is available only for site-owned `wp_options` evidence and is disabled by default. A user with `manage_options` can change the experiment setting under **ConfigOps → Plugin support**; attempting the resulting mutation undo still requires `configops_rollback`. It does not apply to Network Options or bypass an installed adapter's ownership and version boundary.
+The generic array experiment is available only for site-owned `wp_options` evidence and is disabled by default. A user with `manage_options` can change the experiment setting under **ConfigOps → Support contracts**; attempting the resulting mutation undo still requires `configops_rollback`. It does not apply to Network Options or bypass an installed adapter's ownership and version boundary.
 
 ## What “with limits” means
 

@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name:       ConfigOps – Undo Settings Changes
+ * Plugin Name:       ConfigOps – Agent-Ready Settings Undo
  * Plugin URI:        https://configops.pyrra.net/
- * Description:       See what WordPress and plugins changed, then safely restore matching settings—even without a dedicated adapter.
+ * Description:       Record WordPress settings writes, inspect redacted diffs, and undo values that still match. Includes agent-readable restore planning.
  * Version:           0.5.0
  * Requires at least: 7.0
  * Requires PHP:      8.2

@@ -24,19 +24,20 @@ export default defineConfig({
 	themeConfig: {
 		siteTitle: 'ConfigOps / Docs',
 		nav: [
-			{ text: 'Operate', link: '/guide/getting-started' },
+			{ text: 'Use ConfigOps', link: '/guide/getting-started' },
 			{ text: 'Safety', link: '/security/secrets-privacy' },
 			{ text: 'Reference', link: '/reference/support' },
 			{ text: 'v0.5.0', link: '/releases/0.5.0' },
 		],
 		sidebar: [
 			{
-				text: 'Operate ConfigOps',
+				text: 'Use ConfigOps',
 				items: [
-					{ text: 'Get started', link: '/guide/getting-started' },
+					{ text: 'Install & record', link: '/guide/getting-started' },
 					{ text: 'Observe a change', link: '/guide/first-capture' },
 					{ text: 'Read the evidence', link: '/guide/read-change' },
 					{ text: 'Undo safely', link: '/guide/undo-safely' },
+					{ text: 'Automation & agents', link: '/guide/automation' },
 				],
 			},
 			{
@@ -87,7 +88,7 @@ export default defineConfig({
 		},
 		outline: { level: [2, 3], label: 'On this page' },
 		lastUpdated: {
-			text: 'Evidence updated',
+			text: 'Page updated',
 			formatOptions: { dateStyle: 'medium' },
 		},
 		footer: {
@@ -95,8 +96,8 @@ export default defineConfig({
 			copyright: 'ConfigOps by pyrra · GPL-2.0-or-later',
 		},
 		docFooter: {
-			prev: 'Previous evidence',
-			next: 'Next evidence',
+			prev: 'Previous page',
+			next: 'Next page',
 		},
 	},
 });

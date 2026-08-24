@@ -4,6 +4,13 @@ ConfigOps follows semantic versioning. While the major version is `0`, adapter c
 
 ## Unreleased
 
+### Added
+
+- Eight site-scoped native WordPress Abilities for state, capture discovery, bounded mutation evidence, named capture control, and read-only mutation restore planning.
+- A machine-readable JSON `wp configops` vocabulary that executes the same registered abilities with explicit WordPress capability checks.
+- Versioned response envelopes, immutable scope metadata, bounded JSON Schemas, behavioral annotations, and machine-readable failure contracts for automation clients.
+- Read-only restore planning that reuses the real restore engine's site, active-capture, reference, filter, autoload, current-state, adapter, and Smart Undo validations without changing WordPress state.
+
 ### Hardened
 
 - WP-CLI automatic observations now work when the optional `--user` global argument is omitted, recording actor ID `0` for the shell-authorized command instead of silently dropping its evidence.

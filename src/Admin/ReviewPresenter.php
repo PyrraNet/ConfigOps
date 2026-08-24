@@ -147,10 +147,10 @@ final class ReviewPresenter
 	public function noticeText(string $code, string $message): string
 	{
 		return match ($code) {
-			'started' => __('Capture started. Make the configuration change in WordPress, then return here to review it.', 'configops'),
-			'stopped' => __('Capture stopped. The recorded request groups are ready for review.', 'configops'),
-			'nothing-to-stop' => __('There was no active capture to stop.', 'configops'),
-			'mutation-restored' => __('The supported setting values were undone after a conflict check.', 'configops'),
+			'started' => __('Named session started. Save the intended settings, then return to stop and review the session.', 'configops'),
+			'stopped' => __('Named session stopped. Its recorded writes are ready for review.', 'configops'),
+			'nothing-to-stop' => __('No named session is currently recording.', 'configops'),
+			'mutation-restored' => __('The current value matched the recording, so ConfigOps restored the previous value.', 'configops'),
 			'session-restored' => sprintf(
 				/* translators: %d: number of restored options. */
 				_n('%d option was restored.', '%d options were restored.', (int) $message, 'configops'),
@@ -215,7 +215,7 @@ final class ReviewPresenter
 			$label,
 			__('WordPress setting', 'configops'),
 			'unknown',
-			__('No trusted plugin adapter describes this value yet. The exact option name remains visible for review.', 'configops')
+			__('No tested adapter maps this value to a plugin field. Review the option name and stored diff before acting.', 'configops')
 		);
 	}
 }

@@ -29,7 +29,7 @@ A request group shows the actor, HTTP method, path, WordPress admin screen when 
 | Derived / technical | Cache, lock, status, rewrite, cron, or migration-like state | Shown separately and excluded from the settings decision |
 | Unknown | A persisted option change exists without an exact field contract | Evidence remains visible; undo is conservative |
 
-When the site-local generic array experiment is enabled, an eligible Unknown mutation is labeled **Experimental** and its action reads **Smart undo changed keys**. That label means the complete structural patch passed the snapshot policy; it does not mean ConfigOps understands the plugin or the consequences of its save.
+When the site-local generic array experiment is enabled, an eligible Unknown mutation is labeled **Experimental** and its action reads **Undo verified keys**. That label means the complete structural patch passed the snapshot policy; it does not mean ConfigOps understands the plugin or the consequences of its save.
 
 ## Read the diff
 

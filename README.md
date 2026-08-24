@@ -8,8 +8,13 @@
 <p align="center"><strong>The undo layer for WordPress settings.</strong></p>
 
 <p align="center">
+  <strong>Agent-ready. Human-authorized.</strong><br>
+  <sub>Agents can inspect and plan. Restore apply stays in wp-admin.</sub>
+</p>
+
+<p align="center">
   v0.5.0
-  &nbsp;·&nbsp; Smart undo beyond adapters
+  &nbsp;·&nbsp; Verified key undo beyond adapters
   &nbsp;·&nbsp; No account required
 </p>
 
@@ -22,16 +27,16 @@
 <br>
 
 <p align="center">
-  <img src=".wordpress-org/screenshot-1.png" width="1120" alt="ConfigOps automatically showing observed writes, one likely decision, housekeeping, Review, and Undo after a normal WordPress settings save">
+  <img src=".wordpress-org/screenshot-1.png" width="1120" alt="ConfigOps showing six recorded writes, one likely decision, five housekeeping values, Review writes, and Undo save after a WordPress settings save">
 </p>
 
-<p align="center"><sub>Save normally. ConfigOps appears with the evidence: observed writes, the likely decision, housekeeping, Review, and safe Undo.</sub></p>
+<p align="center"><sub>One WordPress settings save produced six writes: one likely decision and five housekeeping values. ConfigOps recorded both and offered conflict-checked Undo.</sub></p>
 
 ## The undo button WordPress forgot
 
 WordPress shows you the settings form. ConfigOps shows you what the save actually changed.
 
-Change a supported WordPress or plugin setting as usual. ConfigOps opens one isolated observation for that request, groups its writes, collapses repeated same-owner writes to one option into the original-to-final decision, and separates the settings you chose from plugin housekeeping, secrets, and changes it cannot safely interpret. The resulting evidence card links to Review and offers whole-save Undo only when the complete change is safe.
+Change a supported WordPress or plugin setting as usual. ConfigOps opens one isolated observation for that request, groups its writes, collapses repeated same-owner writes to one option into the original-to-final decision, and separates the settings you chose from plugin housekeeping, secrets, and changes it cannot interpret. The resulting evidence card links to the recorded diff and offers whole-save Undo only when every value is restorable.
 
 **One action → hidden writes → a clear diff → conflict-checked undo.**
 
@@ -53,12 +58,12 @@ WP Mail SMTP → SMTP password
 
 Every undo is checked against the current value first. If the website changed again, ConfigOps refuses to overwrite it. If observation evidence is incomplete, whole-save undo is disabled rather than presented as safe.
 
-## Smart undo beyond adapters
+## Verified key undo without an adapter
 
-Version 0.5 can undo verified setting keys from ordinary plugin arrays even when ConfigOps has no dedicated adapter for that plugin. A site administrator explicitly enables **Smart undo for ordinary settings arrays** under **ConfigOps → Plugin support**. For an unclaimed associative `wp_options` update, ConfigOps then treats the captured before value, captured after value, and current value as a three-way check:
+Version 0.5 can undo verified setting keys from ordinary plugin arrays even when ConfigOps has no dedicated adapter for that plugin. A site administrator explicitly enables **Verified key undo for plugin arrays** under **ConfigOps → Support contracts**. For an unclaimed associative `wp_options` update, ConfigOps then treats the captured before value, captured after value, and current value as a three-way check:
 
 <p align="center">
-  <img src=".wordpress-org/screenshot-5.png" width="1120" alt="ConfigOps Plugin support showing Smart Undo for ordinary settings arrays and its fail-closed limits">
+  <img src=".wordpress-org/screenshot-5.png" width="1120" alt="ConfigOps Support contracts showing verified key undo for plugin arrays and the structures it refuses">
 </p>
 
 - every patch entry must agree with both typed snapshots;
@@ -78,18 +83,30 @@ This remains deliberately experimental and site-local. It does not infer plugin 
 | Yoast SEO Free | 28.2 | Supported | Supported | Removed | With limits |
 | Unknown plugins | — | Options API only | Needs review | Conservative | Exact undo; opt-in verified array-key experiment |
 
-The exact field coverage and limitations are available inside **ConfigOps → Plugin support**. Versions outside a tested adapter range keep their evidence, but automatic undo is disabled.
+The exact field coverage and limitations are available inside **ConfigOps → Support contracts**. Versions outside a tested adapter range keep their evidence, but automatic undo is disabled.
 
 ## First change
 
 1. Install ConfigOps from WordPress.org, or use a release ZIP provided by pyrra.
 2. In WordPress, open **Plugins → Add Plugin**. Use **Upload Plugin** when installing a ZIP.
 3. Activate ConfigOps, change one WordPress or plugin setting, and save it.
-4. Use the ConfigOps evidence card to review the writes or undo a fully safe save. Open **ConfigOps** to start a named Change Session for wider work.
+4. Use the ConfigOps evidence card to review the writes or undo a save whose recorded values all pass the restore policy. Open **ConfigOps** to start a named Change Session for wider work.
 
 Requires WordPress 7.0 or newer and PHP 8.2 or newer. PHP 8.2 is the oldest supported runtime; production sites should prefer a newer actively supported PHP branch.
 
-> **Version 0.5 scope:** ConfigOps supports both single-site WordPress and network-active Multisite. Site evidence remains isolated per site; Network Admin has automatic and named Network Options evidence plus guarded add/update undo. Opt-in smart undo extends safe site-option patches beyond dedicated adapters, but ConfigOps remains neither a backup nor a generic database rollback, cross-site bulk console, or fleet manager.
+> **Version 0.5 scope:** ConfigOps supports both single-site WordPress and network-active Multisite. Site evidence remains isolated per site; Network Admin has automatic and named Network Options evidence plus guarded add/update undo. Opt-in verified key undo extends site-option patches beyond dedicated adapters, but ConfigOps remains neither a backup nor a generic database rollback, cross-site bulk console, or fleet manager.
+
+## Automation and agents
+
+ConfigOps is **Agent Ready** through native WordPress Abilities and machine-readable JSON `wp configops` commands. An authorized tool can inspect site state and recorded mutations, start or stop a named Change Session, and run the real conflict and reference checks as a read-only restore plan. Compatible MCP adapters can expose the same abilities as tools.
+
+```bash
+wp --user=configops-agent configops state
+wp --user=configops-agent configops captures list --limit=20
+wp --user=configops-agent configops restore plan --mutation=842
+```
+
+There is no generic option writer or automated restore apply. Plan results explicitly report `applySupported: false`; restore remains a human-authorized action until short-lived confirmation, retry idempotency, and agent provenance have a complete tested contract. Native abilities can be discovered through authenticated WordPress REST and translated by compatible MCP adapters. See [Automation & agents](docs/guide/automation.md) for the complete vocabulary, capability map, privacy boundary, and service-user guidance.
 
 ## Safety model
 
@@ -103,8 +120,6 @@ Requires WordPress 7.0 or newer and PHP 8.2 or newer. PHP 8.2 is the oldest supp
 - interrupted, incomplete, or version-uncertain evidence fails closed;
 - while ConfigOps is active, completed local history is retained for 30 days by default;
 - uninstalling ConfigOps removes its observation history, installation options, scheduled cleanup, and capabilities.
-
-Release Packs, Plans, Policies, and Drift are the direction after the recorder earns trust.
 
 ## Development
 

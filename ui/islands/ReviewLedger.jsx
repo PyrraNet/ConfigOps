@@ -210,7 +210,7 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 			: missingRestoreReference
 			? __('The earlier referenced item no longer exists on this website. ConfigOps will not restore a broken local reference.', 'configops')
 			: !mutation.restorable && !mutation.redacted
-				? __('The adapter marks this as technical, unsupported, or outside its tested version range. ConfigOps keeps the evidence but will not guess during rollback.', 'configops')
+				? __('This value is technical, unsupported, or owned by an untested plugin version. ConfigOps records it but will not write it back.', 'configops')
 				: '';
 	const canUndo = canRestore
 		&& mutation.restorable
@@ -221,11 +221,11 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 	const undoLabel = fieldRestore
 		? (!mutation.redacted
 			? genericRestore
-				? __('Smart undo changed keys', 'configops')
+				? __('Undo verified keys', 'configops')
 				: __('Undo this change', 'configops')
 			: mutation.changeCounts.safeUndo === 1
-			? __('Undo 1 safe setting', 'configops')
-			: `${__('Undo', 'configops')} ${mutation.changeCounts.safeUndo} ${__('safe settings', 'configops')}`)
+			? __('Undo 1 restorable setting', 'configops')
+			: `${__('Undo', 'configops')} ${mutation.changeCounts.safeUndo} ${__('restorable settings', 'configops')}`)
 		: __('Undo this setting', 'configops');
 
 	return (
@@ -305,7 +305,7 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 								<div><dt>{__('Observed form fields', 'configops')}</dt><dd className="configops-evidence-paths">{observedFields.map((field) => <code key={field}>{field}</code>)}</dd></div>
 							)}
 							<div><dt>{__('Fields', 'configops')}</dt><dd className="configops-evidence-paths">{mutation.diff.map((change, index) => <code key={`${change.path || '/'}-${index}`}>{change.path || '/'}</code>)}</dd></div>
-							<div><dt>{__('Why it is here', 'configops')}</dt><dd>{mutation.classificationReason}</dd></div>
+							<div><dt>{__('Classification', 'configops')}</dt><dd>{mutation.classificationReason}</dd></div>
 						</dl>
 					</details>
 					<div className="configops-mutation-action">
@@ -317,8 +317,8 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 					)}
 					{undoUncertain && (
 						<span className="configops-undo-unavailable">
-							<strong>{__('Undo needs inspection', 'configops')}</strong>
-							<span>{__('Check the current plugin setting before continuing.', 'configops')}</span>
+							<strong>{__('Previous undo not confirmed', 'configops')}</strong>
+							<span>{__('Verify the current value in the owning plugin before retrying.', 'configops')}</span>
 						</span>
 					)}
 					{undoUnavailableExplanation && (
@@ -326,17 +326,17 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 					)}
 					{canUndo && (
 						<span className="configops-undo-ready">
-							<span id={restoreDescriptionId}>{__('Current value is checked first.', 'configops')}</span>
+							<span id={restoreDescriptionId}>{__('ConfigOps rechecks the current value before writing.', 'configops')}</span>
 							<button
 								className="button button-small configops-undo-button"
 								type="button"
 								disabled={busy}
 								aria-describedby={restoreDescriptionId}
-								onClick={() => {
-									const question = scopeType === 'network'
-										? __('Undo this network setting? ConfigOps will stop if its current network value changed after the capture.', 'configops')
-										: genericRestore
-										? __('Smart undo only these captured keys? ConfigOps will preserve unrelated keys and stop without writing if any target key changed after the capture.', 'configops')
+									onClick={() => {
+										const question = scopeType === 'network'
+											? __('Undo this network setting? ConfigOps will stop if its current network value changed after the capture.', 'configops')
+											: genericRestore
+											? __('Undo only these verified keys? ConfigOps will preserve unrelated keys and stop before writing if any target key changed after the capture.', 'configops')
 										: patchRestore
 										? __('Undo only the supported, non-secret settings shown here? ConfigOps will preserve protected and technical values and stop if a visible setting changed again.', 'configops')
 										: __('Undo this setting? ConfigOps will stop if it has changed again since the capture.', 'configops');
@@ -395,13 +395,13 @@ const RequestGroup = window.wp.element.memo(function RequestGroup({ group, canRe
 	const intent = group.intent;
 	const intentLabels = Array.isArray(intent?.labels) ? intent.labels.filter(Boolean) : [];
 	const intentStatement = intentLabels.length === 1
-		? sprintf(__('Changed “%s”', 'configops'), intentLabels[0])
+		? sprintf(__('Touched “%s” before save', 'configops'), intentLabels[0])
 		: intentLabels.length > 1
-			? sprintf(__('Changed fields: %s', 'configops'), intentLabels.join(' · '))
-			: intent?.action || __('Changed admin field', 'configops');
+			? sprintf(__('Touched before save: %s', 'configops'), intentLabels.join(' · '))
+			: intent?.action || __('Submitted an observed settings form', 'configops');
 	const intentEvidence = intent?.confidence === 'high'
-		? sprintf(__('Matched %1$d of %2$d saved settings directly', 'configops'), intent.matchedFields, visibleChangeCount)
-		: sprintf(__('Matched %1$d of %2$d saved settings by option scope', 'configops'), intent?.matchedFields || 0, visibleChangeCount);
+		? sprintf(__('Field names matched %1$d of %2$d saved settings', 'configops'), intent.matchedFields, visibleChangeCount)
+		: sprintf(__('Option scope matched %1$d of %2$d saved settings', 'configops'), intent?.matchedFields || 0, visibleChangeCount);
 
 	return (
 		<section className="configops-request-group">
@@ -421,7 +421,7 @@ const RequestGroup = window.wp.element.memo(function RequestGroup({ group, canRe
 							<div className="configops-intent-summary">
 								<span className="configops-intent-mark" aria-hidden="true">↳</span>
 								<div>
-									<span>{__('Observed intent', 'configops')}</span>
+									<span>{__('Form evidence', 'configops')}</span>
 									<strong>{intentStatement}</strong>
 									<em>{intentEvidence}</em>
 								</div>
@@ -478,7 +478,7 @@ export default function ReviewLedger() {
 		? { className: 'is-live', label: __('Recording', 'configops') }
 		: ['interrupted', 'stopping'].includes(selected?.status)
 			? { className: 'is-incomplete', label: __('Interrupted', 'configops') }
-			: { className: 'is-recorded', label: selected?.mode === 'automatic' ? __('Observed', 'configops') : __('Recorded', 'configops') };
+			: { className: 'is-recorded', label: selected?.mode === 'automatic' ? __('Automatic', 'configops') : __('Recorded', 'configops') };
 	const sessionUndo = review.summary.lastSessionRestore;
 	const sessionUndoSucceeded = sessionUndo?.status === 'succeeded';
 	const sessionUndoUncertain = ['running', 'compensation_failed'].includes(sessionUndo?.status);
@@ -548,8 +548,8 @@ export default function ReviewLedger() {
 	if (!selected) {
 		return (
 			<section className="configops-empty-state">
-				<h2>{__('No capture selected', 'configops')}</h2>
-				<p>{__('Save a setting or choose an existing change.', 'configops')}</p>
+				<h2>{__('No change to review', 'configops')}</h2>
+				<p>{__('Save a WordPress setting; its recorded writes will open here.', 'configops')}</p>
 			</section>
 		);
 	}
@@ -579,19 +579,19 @@ export default function ReviewLedger() {
 					)}
 					{sessionUndoUncertain && (
 						<span className="configops-restore-state configops-restore-state--session is-uncertain">
-							<strong>{__('Undo needs inspection', 'configops')}</strong>
-							<span>{__('Check the current settings before continuing.', 'configops')}</span>
+							<strong>{__('Previous undo not confirmed', 'configops')}</strong>
+							<span>{__('Verify the affected settings in their owning plugins before retrying.', 'configops')}</span>
 						</span>
 					)}
 					{canRestoreSession && !visibleMissingRestoreReference && (
 						<>
-							<span className="configops-capture-undo-ready"><strong>{__('Capture undo ready', 'configops')}</strong><span>{__('Current values are checked first.', 'configops')}</span></span>
+							<span className="configops-capture-undo-ready"><strong>{__('Whole-change undo available', 'configops')}</strong><span>{__('Every current value is rechecked before the first write.', 'configops')}</span></span>
 							<button
 								className="button"
 								type="button"
 								disabled={Boolean(state.ui.pending)}
 								onClick={() => {
-									if (window.confirm(__('Undo every safe setting in this capture? ConfigOps will stop before making changes if anything changed again.', 'configops'))) {
+									if (window.confirm(__('Undo every restorable setting in this change? ConfigOps will stop before the first write if any current value no longer matches.', 'configops'))) {
 										restoreSession(selected.id);
 									}
 								}}
@@ -617,7 +617,7 @@ export default function ReviewLedger() {
 					</div>
 					<strong>{review.summary.captureErrors}</strong>
 					<Hint label={__('What can I do?', 'configops')} align="end">
-						{__('You can still inspect the evidence and undo supported settings individually. Start a new capture and repeat the save before turning these changes into a release.', 'configops')}
+						{__('You can still inspect the recorded writes and undo supported settings individually. Repeat the save in a new capture before relying on it as a complete record.', 'configops')}
 					</Hint>
 				</section>
 			)}
@@ -629,7 +629,7 @@ export default function ReviewLedger() {
 					<ReviewFilter
 						active={filter === 'review'}
 						count={review.summary.needsReview + review.summary.unmanagedWrites}
-						description={__('Settings worth reading. Technical cache and maintenance values are left out.', 'configops')}
+						description={__('Settings and outside-API write signals. Cache and maintenance values are excluded.', 'configops')}
 						label={__('Review', 'configops')}
 						onSelect={() => setFilter('review')}
 					/>
@@ -656,12 +656,16 @@ export default function ReviewLedger() {
 						</Hint>
 					)}
 					{review.summary.captureErrors > 0 && (
-						<Hint label={__('Why is this capture incomplete?', 'configops')} align="end" trigger={`${review.summary.captureErrors} ${__('missed', 'configops')}`}>
+						<Hint
+							label={__('Why is this capture incomplete?', 'configops')}
+							align="end"
+							trigger={`${review.summary.captureErrors} ${review.summary.captureErrors === 1 ? __('recording failure', 'configops') : __('recording failures', 'configops')}`}
+						>
 							{__('At least one observation failed after WordPress processed a settings change. ConfigOps kept the host save running, marked the evidence incomplete, and disabled whole-capture undo.', 'configops')}
 						</Hint>
 					)}
 					{review.summary.unmanagedWrites > 0 && (
-						<Hint label={__('What is an unmanaged write?', 'configops')} align="end" trigger={`${review.summary.unmanagedWrites} ${__('unmanaged DB', 'configops')}`}>
+						<Hint label={__('What is an outside-API write?', 'configops')} align="end" trigger={`${review.summary.unmanagedWrites} ${__('outside Options API', 'configops')}`}>
 							{__('A plugin wrote outside WordPress settings. ConfigOps kept no query or values, so undoing the whole capture is disabled.', 'configops')}
 						</Hint>
 					)}
@@ -680,15 +684,14 @@ export default function ReviewLedger() {
 
 			{review.groups.length === 0 && (
 				<section className="configops-empty-state configops-empty-state--compact">
-					<h3>{__('No changes', 'configops')}</h3>
-					<p>{selected.status === 'active' ? __('Change a setting while recording.', 'configops') : __('This capture contains no supported mutation or unmanaged database write signal.', 'configops')}</p>
+					<h3>{selected.status === 'active' ? __('No writes yet', 'configops') : __('No supported writes recorded', 'configops')}</h3>
+					<p>{selected.status === 'active' ? __('Save a setting before stopping this session.', 'configops') : __('This change contains no Options API mutation or outside-API write signal that ConfigOps can show.', 'configops')}</p>
 				</section>
 			)}
 
 			{review.groups.length > 0 && filteredGroups.length === 0 && (
 				<section className="configops-empty-state configops-empty-state--compact">
-					<h3>{__('Nothing in this filter', 'configops')}</h3>
-					<p>{__('Choose another change filter to continue the review.', 'configops')}</p>
+					<h3>{filter === 'noise' ? __('No technical writes in this change', 'configops') : __('No settings need review in this change', 'configops')}</h3>
 				</section>
 			)}
 

@@ -7,7 +7,7 @@ description: Understand automatic observations, named Change Sessions, and what 
 
 Automatic observation is the default. On the first Options API mutation in an authorized administrative request, ConfigOps opens one request-local observation, stores the resulting configuration evidence, verifies its summary at shutdown, and closes it. A save that contains only classified technical noise is discarded instead of becoming operator history.
 
-The completed observation appears in Change History and in a short-lived evidence card for the administrator who caused it. The card offers whole-save Undo only when every observed setting is reconstructable, no unmanaged write was observed, the evidence is complete, and no prior undo blocks the plan.
+The completed observation appears under **Recorded changes** and in a short-lived evidence card for the administrator who caused it. The card offers **Undo save** only when every observed setting is reconstructable, no unmanaged write was observed, the evidence is complete, and no prior undo blocks the plan.
 
 ## Use a Change Session for a wider task
 

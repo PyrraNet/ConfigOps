@@ -64,7 +64,7 @@ try {
 	let reviewReady = false;
 	for (let attempt = 0; attempt < 6 && !reviewReady; attempt += 1) {
 		await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops`, { waitUntil: 'domcontentloaded' });
-		reviewReady = await page.getByRole('heading', { name: 'Review changes', exact: true }).isVisible().catch(() => false);
+		reviewReady = await page.getByRole('heading', { name: 'Change evidence', exact: true }).isVisible().catch(() => false);
 	}
 	if (!reviewReady) {
 		const diagnostic = await page.locator('body').innerText().catch(() => 'Body unavailable.');
@@ -95,11 +95,11 @@ try {
 		throw new Error(`ConfigOps app bar must remain gradient-free: ${brandContract.appbarBackgroundImage}.`);
 	}
 	const appNavigation = page.locator('.configops-app-nav');
-	if ((await appNavigation.getByRole('link', { name: 'Changes' }).getAttribute('aria-current')) !== 'page') {
+	if ((await appNavigation.getByRole('link', { name: 'Evidence' }).getAttribute('aria-current')) !== 'page') {
 		throw new Error('Server-routed navigation does not expose the current page to assistive technology.');
 	}
-	if (!await appNavigation.getByRole('link', { name: 'Plugin support' }).isVisible()) {
-		throw new Error('Plugin support is missing from the product navigation.');
+	if (!await appNavigation.getByRole('link', { name: 'Support contracts' }).isVisible()) {
+		throw new Error('Support contracts is missing from the product navigation.');
 	}
 	const bootstrap = await page.locator('#configops-bootstrap').evaluate((element) => ({
 		bytes: new TextEncoder().encode(element.textContent || '').byteLength,
@@ -119,7 +119,7 @@ try {
 	const captureIsland = page.locator('#configops-capture-island');
 	await captureIsland.waitFor();
 	await page.waitForFunction(() => document.getElementById('configops-capture-island')?.getAttribute('aria-busy') !== 'true');
-	await captureIsland.getByText('Automatic recording is on', { exact: true }).waitFor();
+	await captureIsland.getByText('Automatic capture · On', { exact: true }).waitFor();
 
 	await page.goto(`${baseUrl}/wp-admin/options-reading.php`, { waitUntil: 'networkidle' });
 	const automaticPageSize = page.locator('#posts_per_page');
@@ -129,10 +129,10 @@ try {
 	await page.waitForLoadState('networkidle');
 	const evidenceCard = page.locator('.configops-evidence-card').last();
 	await evidenceCard.waitFor();
-	if (!await evidenceCard.getByText(/ConfigOps observed \d+ write/).isVisible()) {
+	if (!await evidenceCard.getByText(/This save produced \d+ recorded write/).isVisible()) {
 		throw new Error('An ordinary settings save did not produce immediate ConfigOps evidence.');
 	}
-	if (!await evidenceCard.getByRole('link', { name: 'Review' }).isVisible()) {
+	if (!await evidenceCard.getByRole('link', { name: 'Review writes' }).isVisible()) {
 		throw new Error('Automatic evidence did not expose its review action.');
 	}
 	await page.screenshot({ path: new URL('configops-automatic-evidence.png', artifacts).pathname, fullPage: true });
@@ -172,7 +172,7 @@ try {
 	}
 	await recordButton.click();
 	await page.waitForLoadState('networkidle');
-	await page.locator('#configops-capture-island').getByText('Recording now', { exact: true }).waitFor();
+	await page.locator('#configops-capture-island').getByText('Named session · Recording', { exact: true }).waitFor();
 
 	await page.goto(`${baseUrl}/wp-admin/options-general.php`, { waitUntil: 'networkidle' });
 	const description = page.locator('#blogdescription');
@@ -222,7 +222,7 @@ try {
 	}
 	const blogDescriptionRow = page.locator('.configops-mutation', { hasText: 'blogdescription' }).first();
 	const intentSummary = page.locator('.configops-intent-summary').first();
-	if (!await intentSummary.getByText('Observed intent', { exact: true }).isVisible()) {
+	if (!await intentSummary.getByText('Form evidence', { exact: true }).isVisible()) {
 		throw new Error('The settings save did not expose its locally observed form intent.');
 	}
 	if (!await blogDescriptionRow.getByText('Observed field', { exact: true }).isVisible()) {
@@ -257,7 +257,7 @@ try {
 	}
 	const technicalEvidence = blogDescriptionRow.locator('.configops-technical-evidence');
 	await technicalEvidence.locator('summary').click();
-	if (!await technicalEvidence.getByText('Why it is here', { exact: true }).isVisible()) {
+	if (!await technicalEvidence.getByText('Classification', { exact: true }).isVisible()) {
 		throw new Error('Classification evidence is not available through native disclosure.');
 	}
 	const reviewFilter = page.locator('.configops-review-filters button').first();
@@ -273,7 +273,7 @@ try {
 	await page.locator('.configops-review-filters button').nth(2).click();
 	const restoreOption = blogDescriptionRow.getByRole('button', { name: 'Undo this setting' });
 	await restoreOption.focus();
-	if (!await restoreOption.locator('xpath=..').getByText('Current value is checked first.', { exact: true }).isVisible()) {
+	if (!await restoreOption.locator('xpath=..').getByText('ConfigOps rechecks the current value before writing.', { exact: true }).isVisible()) {
 		throw new Error('Restore safety explanation is not attached to the risky action.');
 	}
 	await page.locator('.configops-review-header h2').click();
@@ -463,12 +463,12 @@ try {
 
 	await page.setViewportSize({ width: 1440, height: 1100 });
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops&view=support`, { waitUntil: 'networkidle' });
-	await page.getByRole('heading', { name: 'Plugin support', exact: true }).waitFor();
+	await page.getByRole('heading', { name: 'Support contracts', exact: true }).waitFor();
 	if (await page.locator('.configops-support-row').count() !== 3) {
 		throw new Error('The support contract should list WordPress Core and both shipped real-plugin adapters.');
 	}
 	const experimentControl = page.locator('.configops-experiment-control');
-	await experimentControl.getByText('Smart undo for ordinary settings arrays', { exact: true }).waitFor();
+	await experimentControl.getByText('Verified key undo for plugin arrays', { exact: true }).waitFor();
 	const experimentToggle = experimentControl.getByRole('button');
 	const initialExperimentState = await experimentToggle.getAttribute('aria-pressed');
 	if (!['true', 'false'].includes(initialExperimentState)) {
@@ -498,7 +498,7 @@ try {
 	if (await experimentToggle.getAttribute('aria-pressed') !== initialExperimentState) {
 		throw new Error('A failed generic array experiment request changed the visible toggle state.');
 	}
-	await page.getByRole('button', { name: 'Dismiss this notice.' }).click();
+	await page.getByRole('button', { name: 'Dismiss ConfigOps notice.' }).click();
 	await page.unroute('**/*', experimentFailure);
 
 	await experimentToggle.click();

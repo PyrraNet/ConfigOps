@@ -27,6 +27,8 @@ ConfigOps uses dedicated WordPress tables for observation sessions, mutations, v
 
 The REST interface is local to WordPress, scope- and capability-gated, and returns private `no-store` responses. Network routes additionally require `manage_network_options`. There is no ConfigOps account, cloud collector, or remote control plane in 0.5.0.
 
+The development branch also registers site-scoped native WordPress Abilities and machine-readable JSON `wp configops` commands. These are authenticated transports over the existing application services, not a second control plane. Read operations require `configops_view`, capture control requires `configops_capture`, and non-writing restore validation requires `configops_plan`. See [Automation & agents](/guide/automation).
+
 ## Retention
 
 History retention runs daily and removes completed or interrupted observation evidence older than 30 days by default. Change the period only through site code:
@@ -51,7 +53,7 @@ After installation or an incident, verify:
 5. A harmless conflict test refuses undo after the setting is changed again.
 6. WordPress and PHP logs contain no ConfigOps warnings, notices, or deprecations.
 7. The daily `configops_history_retention` event is scheduled.
-8. If the generic array experiment is enabled, a harmless unknown-plugin array update shows **Smart undo changed keys**, preserves an unrelated later key, and refuses a deliberately changed target key without writing.
+8. If the generic array experiment is enabled, a harmless unknown-plugin array update shows **Undo verified keys**, preserves an unrelated later key, and refuses a deliberately changed target key without writing.
 
 On Multisite, also verify one disposable site's evidence cannot be read from another site, **Network Admin → ConfigOps** identifies its network-wide scope, and a harmless Network Options update can be reviewed and undone by a super administrator. Networks WordPress classifies as large are provisioned lazily per site instead of being synchronously traversed during activation; new sites still use the normal initialization hook. Deactivation closes open site evidence with one network-scoped storage update and lets each skipped site's stale active pointer reconcile on its next ConfigOps request.
 

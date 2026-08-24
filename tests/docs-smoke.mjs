@@ -132,10 +132,10 @@ try {
 						throw new Error(`${profile.name} home does not expose the automatic evidence card image`);
 					}
 					if (
-						!home.text.includes('Undo plugin settings without waiting for an adapter.')
-						|| !home.smartUndoAlt.includes('opt-in Smart Undo control')
+						!home.text.includes('Undo verified plugin keys without an adapter.')
+						|| !home.smartUndoAlt.includes('opt-in verified key undo')
 					) {
-						throw new Error(`${profile.name} home does not expose the 0.5.0 Smart Undo product proof`);
+						throw new Error(`${profile.name} home does not expose the 0.5.0 verified key undo product proof`);
 					}
 				}
 				if (runtimeErrors.length > 0) {

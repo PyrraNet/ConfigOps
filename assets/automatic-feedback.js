@@ -56,7 +56,7 @@
 		const close = document.createElement('button');
 		close.type = 'button';
 		close.className = 'configops-evidence-close';
-		close.setAttribute('aria-label', __('Dismiss ConfigOps evidence', 'configops'));
+		close.setAttribute('aria-label', __('Dismiss recorded change', 'configops'));
 		close.textContent = '×';
 		close.addEventListener('click', () => card.remove());
 
@@ -66,9 +66,9 @@
 
 		const title = document.createElement('strong');
 		title.textContent = item.incomplete
-			? __('ConfigOps could not record this save completely', 'configops')
+			? __('WordPress saved the setting; ConfigOps missed part of the evidence', 'configops')
 			: sprintf(
-				_n('ConfigOps observed %d write', 'ConfigOps observed %d writes', item.writeCount, 'configops'),
+				_n('This save produced %d recorded write', 'This save produced %d recorded writes', item.writeCount, 'configops'),
 				item.writeCount,
 			);
 
@@ -81,7 +81,7 @@
 			parts.push(metric(item.secretCount, '%d secret protected', '%d secrets protected'));
 		}
 		if (item.incomplete) {
-			parts.push(__('undo disabled', 'configops'));
+			parts.push(__('whole-save undo unavailable', 'configops'));
 		}
 		metrics.textContent = parts.join(' · ');
 
@@ -90,7 +90,7 @@
 		const review = document.createElement('a');
 		review.className = 'button button-primary';
 		review.href = item.reviewUrl;
-		review.textContent = __('Review', 'configops');
+		review.textContent = __('Review writes', 'configops');
 		actions.append(review);
 
 		if (item.undo) {
@@ -105,9 +105,9 @@
 			const undo = document.createElement('button');
 			undo.type = 'submit';
 			undo.className = 'button';
-			undo.textContent = __('Undo', 'configops');
+			undo.textContent = __('Undo save', 'configops');
 			undo.addEventListener('click', (event) => {
-				if (!window.confirm(__('Undo this settings save? ConfigOps will stop if a value changed again.', 'configops'))) {
+				if (!window.confirm(__('Undo every restorable value from this save? ConfigOps will stop before writing if any current value no longer matches.', 'configops'))) {
 					event.preventDefault();
 				}
 			});

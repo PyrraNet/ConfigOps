@@ -36,12 +36,12 @@ final class WordPressCoreAdapter extends AbstractOptionAdapter implements Option
 			'>=7.0 <7.2',
 			1,
 			array(
-				array('id' => 'capture', 'label' => 'Find changes', 'level' => 'full', 'note' => 'The standard single-site General, Writing, Reading, Discussion, Media, and Permalink options are captured.'),
-				array('id' => 'explain', 'label' => 'Explain fields', 'level' => 'full', 'note' => 'Common WordPress options receive stable names and portable, per-website, or local-reference semantics.'),
-				array('id' => 'secrets', 'label' => 'Hide secrets', 'level' => 'full', 'note' => 'The mapped Core settings contain no credentials; ConfigOps still applies its conservative global secret detector.'),
-				array('id' => 'noise', 'label' => 'Separate technical noise', 'level' => 'full', 'note' => 'Core caches, update state, rewrite rules, cron, locks, and migration markers remain outside the settings decision set.'),
-				array('id' => 'restore', 'label' => 'Undo safely', 'level' => 'partial', 'note' => 'Ordinary settings use conflict-checked undo. Site URLs are review-only, and referenced media or pages must still exist.'),
-				array('id' => 'apply', 'label' => 'Apply to another site', 'level' => 'planned', 'note' => 'Per-website values and local object references must be resolved before a Core setting can move between sites.'),
+				array('id' => 'capture', 'label' => 'Record Options API writes', 'level' => 'full', 'note' => 'The standard single-site General, Writing, Reading, Discussion, Media, and Permalink options are captured.'),
+				array('id' => 'explain', 'label' => 'Map settings fields', 'level' => 'full', 'note' => 'Common WordPress options receive stable names and portable, per-website, or local-reference semantics.'),
+				array('id' => 'secrets', 'label' => 'Redact credentials', 'level' => 'full', 'note' => 'The mapped Core settings contain no credentials; ConfigOps still applies its conservative global secret detector.'),
+				array('id' => 'noise', 'label' => 'Classify runtime values', 'level' => 'full', 'note' => 'Core caches, update state, rewrite rules, cron, locks, and migration markers remain outside the settings decision set.'),
+				array('id' => 'restore', 'label' => 'Conflict-checked undo', 'level' => 'partial', 'note' => 'Ordinary settings use conflict-checked undo. Site URLs are review-only, and referenced media or pages must still exist.'),
+				array('id' => 'apply', 'label' => 'Cross-site apply', 'level' => 'planned', 'note' => 'Per-website values and local object references must be resolved before a Core setting can move between sites.'),
 			),
 			array(
 				'General identity, locale, registration, date, time, and privacy-page settings',

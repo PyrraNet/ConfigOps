@@ -1,9 +1,9 @@
 ---
-title: Get started
-description: Install ConfigOps 0.5.0, review a settings change, and try safe Smart Undo without a dedicated adapter.
+title: Install and record a change
+description: Install ConfigOps 0.5.0, record one WordPress settings save, and test opt-in verified key undo in staging.
 ---
 
-# Get started
+# Install and record a change
 
 ConfigOps automatically observes configuration mutations made by authorized administrators. Start with a small, reversible settings change so the first review is easy to verify against the screen you just used. Evidence stays local to WordPress.
 
@@ -38,7 +38,7 @@ On Multisite, use **Network Admin → Plugins** to network-activate ConfigOps. E
 
 1. Open the intended WordPress or plugin settings screen.
 2. Make one small settings change and save it.
-3. Use the ConfigOps evidence card to select **Review** or, when the complete save is safe, **Undo**.
+3. Use the ConfigOps evidence card to select **Review writes** or, when every recorded value is restorable, **Undo save**.
 4. Inspect the likely decision, technical writes, protected secrets, provenance, and undo eligibility.
 
 Automatic observations are request-local: concurrent admin requests do not share an observation boundary. For a planned task that spans several requests, start a named **Change Session** in ConfigOps, perform only that task, then stop and review it.
@@ -49,15 +49,15 @@ Network Settings changes use a stricter boundary. ConfigOps records supported Ne
 
 Version 0.5 adds a structural undo path for ordinary associative plugin settings even when ConfigOps has no dedicated adapter. It remains experimental and off by default; test it in staging before enabling it on a production site:
 
-1. Open **ConfigOps → Plugin support** as a site administrator.
-2. Enable **Smart undo for ordinary settings arrays**.
+1. Open **ConfigOps → Support contracts** as a site administrator.
+2. Enable **Verified key undo for plugin arrays**.
 3. Save one harmless setting owned by a plugin without a ConfigOps adapter.
-4. Open its mutation in Review and look for **Experimental** and **Smart undo changed keys**.
+4. Open its mutation in Review and look for **Experimental** and **Undo verified keys**.
 5. Undo it, then verify the result in the owning plugin's screen.
 
-The experiment is site-local and applies only to unclaimed associative `wp_options` updates. It never enables generic custom-table, Network Options, secret, root, or list-index undo. Disable it again from Plugin support when the staging exercise is complete.
+The experiment is site-local and applies only to unclaimed associative `wp_options` updates. It never enables generic custom-table, Network Options, secret, root, or list-index undo. Disable it again from Support contracts when the staging exercise is complete.
 
-## What success looks like
+## Verify the first recording
 
 A completed change shows:
 

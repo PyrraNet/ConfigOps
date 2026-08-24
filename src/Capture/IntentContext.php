@@ -70,7 +70,7 @@ final class IntentContext
 			$change['group'] = $group;
 			$change['kind'] = 'unknown';
 			$change['explanation'] = __(
-				'ConfigOps matched this saved path to a field you changed in the WordPress admin. This explains likely intent, but it does not make the field adapter-trusted or expand automatic undo.',
+				'ConfigOps matched this saved path to a field touched before the form was submitted. This is form evidence, not proof of intent, and it does not expand undo permission.',
 				'configops'
 			);
 		}

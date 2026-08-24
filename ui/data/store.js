@@ -35,7 +35,7 @@ const errorMessage = (error) => {
 		return error.message;
 	}
 
-	return window.wp.i18n.__('ConfigOps could not complete that operation.', 'configops');
+	return window.wp.i18n.__('ConfigOps did not receive a usable response. Reload the page and try again.', 'configops');
 };
 
 const publishError = (error, overrides = {}) => {

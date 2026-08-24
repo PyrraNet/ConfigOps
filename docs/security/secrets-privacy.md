@@ -39,10 +39,14 @@ Version 0.5.0 uses separate WordPress capabilities for its site observation surf
 | `configops_view` | Read ConfigOps state and observation evidence |
 | `configops_capture` | Start and stop named Change Sessions |
 | `configops_rollback` | Attempt mutation or whole-change undo |
+| `configops_plan` | Validate a read-only automation restore plan |
+| `configops_apply` | Reserved; no automation apply operation is registered |
 
 These are the capabilities used by the site observation REST routes. Administrators receive the set on activation. Sites with custom roles should grant only the minimum active capabilities needed.
 
-Changing the site-local generic array experiment requires WordPress's `manage_options` capability. The switch does not grant undo authority: using an eligible smart-array mutation still requires `configops_rollback`. Its setting contains only an enabled/disabled flag and is removed on uninstall.
+Native Abilities and `wp configops` use the same WordPress user and capability checks. Capture summaries are value-free, but mutation-list and mutation-inspection responses can contain non-secret before/after evidence. A connected external client receives that evidence at the operator's request; ConfigOps itself does not initiate transmission. Use a dedicated service user and grant `configops_view`, `configops_capture`, or `configops_plan` independently.
+
+Changing the site-local generic array experiment requires WordPress's `manage_options` capability. The switch does not grant undo authority: using eligible verified key undo still requires `configops_rollback`. Its setting contains only an enabled/disabled flag and is removed on uninstall.
 
 Network Admin evidence and mutation undo additionally require WordPress's `manage_network_options` capability. Network routes are available only in a Multisite Network Admin request, remain pinned to the current network, and do not accept a caller-supplied site or network identity. On Multi-Network installations, foreign Network Options values are excluded and internal site switches are checked against the site's actual network ownership. REST responses are capability-gated, private, and marked `no-store`.
 

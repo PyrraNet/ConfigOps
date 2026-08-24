@@ -12,7 +12,7 @@ The command builds a pinned WordPress 7.0 / PHP 8.3 container with Xdebug, start
 
 - unit and deterministic fuzz checks;
 - adversarial input and hostile value-shape checks;
-- 273 WordPress observation, persistence, concurrency, privacy, retention, and restore integration assertions, including generic array eligibility, add/remove/replace reversal, sibling preservation, target conflicts, filtered option refusal, current-parent type safety, current adapter ownership, malformed evidence, list refusal, post-write autoload compensation, REST authorization, pointer ownership races, and restore/retention exclusion;
+- 292 WordPress observation, persistence, concurrency, privacy, retention, agent-transport, and restore integration assertions, including generic array eligibility, add/remove/replace reversal, sibling preservation, target conflicts, filtered option refusal, current-parent type safety, current adapter ownership, malformed evidence, list refusal, post-write autoload compensation, REST authorization, native Ability discovery, pointer ownership races, and restore/retention exclusion;
 - WP-CLI observation without an impersonated WordPress user;
 - real adapter-contract checks;
 - network-active Multisite and Multi-Network observation, virtualized Network Options refusal, mutation undo, audit, locking, REST authorization, scope isolation, retention, large-network behavior, lifecycle, migration, site-deletion, and uninstall checks.

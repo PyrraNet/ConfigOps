@@ -93,12 +93,12 @@ final class WpMailSmtpAdapter extends AbstractOptionAdapter implements ChangeAwa
 			'=4.9.0',
 			3,
 			array(
-				array('id' => 'capture', 'label' => 'Find changes', 'level' => 'full', 'note' => 'The exact 4.9.0 Lite option schema is captured, including every bundled mailer and Misc setting.'),
-				array('id' => 'explain', 'label' => 'Explain fields', 'level' => 'full', 'note' => 'Sender, SMTP, provider, privacy, delivery-policy, report, and lifecycle fields have exact names and boundaries.'),
-				array('id' => 'secrets', 'label' => 'Hide secrets', 'level' => 'full', 'note' => 'Passwords, API keys, OAuth secrets, access-key IDs, signed account links, and license keys are removed before storage.'),
-				array('id' => 'noise', 'label' => 'Separate technical noise', 'level' => 'full', 'note' => 'Version, activation, debug, migration, counters, notices, scheduler, and provider-usage state are separated.'),
-				array('id' => 'restore', 'label' => 'Undo safely', 'level' => 'partial', 'note' => 'Supported non-secret fields use conflict checks and can be undone without reading or replacing a stored credential.'),
-				array('id' => 'apply', 'label' => 'Apply to another site', 'level' => 'planned', 'note' => 'Release Packs are the next product iteration, not a hidden promise.'),
+				array('id' => 'capture', 'label' => 'Record Options API writes', 'level' => 'full', 'note' => 'The exact 4.9.0 Lite option schema is captured, including every bundled mailer and Misc setting.'),
+				array('id' => 'explain', 'label' => 'Map settings fields', 'level' => 'full', 'note' => 'Sender, SMTP, provider, privacy, delivery-policy, report, and lifecycle fields have exact names and boundaries.'),
+				array('id' => 'secrets', 'label' => 'Redact credentials', 'level' => 'full', 'note' => 'Passwords, API keys, OAuth secrets, access-key IDs, signed account links, and license keys are removed before storage.'),
+				array('id' => 'noise', 'label' => 'Classify runtime values', 'level' => 'full', 'note' => 'Version, activation, debug, migration, counters, notices, scheduler, and provider-usage state are separated.'),
+				array('id' => 'restore', 'label' => 'Conflict-checked undo', 'level' => 'partial', 'note' => 'Supported non-secret fields use conflict checks and can be undone without reading or replacing a stored credential.'),
+				array('id' => 'apply', 'label' => 'Cross-site apply', 'level' => 'planned', 'note' => 'Cross-site apply is not implemented; credentials and per-site mail endpoints need a separate transport contract.'),
 			),
 			array(
 				'Sender identity, delivery method, SMTP, and every bundled Lite mailer',

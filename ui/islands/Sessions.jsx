@@ -17,7 +17,7 @@ export default function Sessions() {
 		<>
 		{state.sessions.length > 0 && (
 			<div className="configops-session-picker">
-				<label htmlFor="configops-session-select">{__('Selected change', 'configops')}</label>
+				<label htmlFor="configops-session-select">{__('Open change', 'configops')}</label>
 				<select
 					id="configops-session-select"
 					value={selected?.id || ''}
@@ -38,7 +38,7 @@ export default function Sessions() {
 			</div>
 		)}
 			<div className="configops-section-heading">
-				<h2>{__('Change history', 'configops')}</h2>
+				<h2>{__('Recorded changes', 'configops')}</h2>
 				<span aria-label={sprintf(__('%d recorded changes', 'configops'), state.sessions.length)}>{state.sessions.length}</span>
 			</div>
 			{state.sessions.length > 5 && (
@@ -54,9 +54,9 @@ export default function Sessions() {
 				</div>
 			)}
 			{state.sessions.length === 0 ? (
-				<p className="configops-empty-copy">{__('Automatic changes and named sessions will appear here.', 'configops')}</p>
+				<p className="configops-empty-copy">{__('Save a setting. ConfigOps records its Options API writes here.', 'configops')}</p>
 			) : visibleSessions.length === 0 ? (
-				<p className="configops-empty-copy">{__('No captures match this search.', 'configops')}</p>
+				<p className="configops-empty-copy">{__('No recorded change matches this search.', 'configops')}</p>
 			) : (
 				<ol className="configops-session-list">
 					{visibleSessions.map((session) => {
