@@ -19,6 +19,7 @@ use ConfigOps\Diff\NestedDiff;
 use ConfigOps\Adapter\WpMailSmtpAdapter;
 use ConfigOps\Adapter\WordPressCoreAdapter;
 use ConfigOps\Adapter\YoastSeoAdapter;
+use ConfigOps\Adapter\WooCommerceAdapter;
 use ConfigOps\Adapter\AdapterRegistry;
 use ConfigOps\Adapter\AdapterAnalysis;
 use ConfigOps\Adapter\AdapterManifest;
@@ -355,9 +356,10 @@ $assert($mailAdapter->isSensitive('wp_mail_smtp', array('sendlayer', 'free_upgra
 $assert($mailAdapter->isSensitive('wp_mail_smtp', array('license', 'key')), 'WP Mail SMTP license keys should be redacted despite their generic nested key name.');
 $assert('Message stream' === $mailAdapter->field('wp_mail_smtp', '/postmark/message_stream')?->label, 'WP Mail SMTP should name provider-specific delivery fields.');
 $assert('environment' === $mailAdapter->field('wp_mail_smtp', '/mailgun/domain')?->kind, 'Provider sending domains should be checked per website.');
-$assert('unknown' === $mailAdapter->field('wp_mail_smtp', '/sendgrid/future_field')?->kind, 'Unknown future provider fields should fail closed outside the exact 4.9.0 contract.');
+$assert('unknown' === $mailAdapter->field('wp_mail_smtp', '/sendgrid/future_field')?->kind, 'Unknown future provider fields should fail closed outside the tested 4.7–4.9 contract.');
 $assert('Stop all outgoing email' === $mailAdapter->field('wp_mail_smtp', '/general/do_not_send')?->label, 'WP Mail SMTP delivery-policy settings should have exact operational labels.');
 $assert($mailAdapter->isSensitive('wp_mail_smtp_connect', array()), 'WP Mail SMTP Connect handoff values should be treated as local secrets.');
+$assert('>=4.7 <5.0' === $mailAdapter->manifest()->testedVersion, 'WP Mail SMTP should cover every version line currently exposed by WordPress.org statistics.');
 $mailRuntime = $mailAdapter->analyze('wp_mail_smtp_version', array(array('path' => '/')));
 $assert('derived' === $mailRuntime->classification && ! $mailRuntime->allowsGenericRestore, 'WP Mail SMTP version state should stay outside rollback.');
 $mailSecretOnly = $mailAdapter->analyze('wp_mail_smtp', array(array('path' => '/', 'redacted' => true)));
@@ -376,7 +378,7 @@ $assert('media' === $yoastAdapter->field('wpseo_titles', '/social-image-id-produ
 $assert('content' === $yoastAdapter->field('wpseo_titles', '/publishing_principles_id')?->referenceType, 'Yoast publisher-policy pages should keep bounded content identity.');
 $assert('user' === $yoastAdapter->field('wpseo_titles', '/company_or_person_user_id')?->referenceType, 'Yoast person-schema users should keep bounded display identity.');
 $assert('reference' === $yoastAdapter->field('wpseo_llmstxt', '/other_included_pages/0')?->kind, 'Yoast page-reference lists should retain their meaning at nested diff paths.');
-$assert('LLMs.txt page selection' === $yoastAdapter->field('wpseo_llmstxt', '/llms_txt_selection_mode')?->label, 'Yoast LLMs.txt fields should match the exact 28.2 option schema.');
+$assert('LLMs.txt page selection' === $yoastAdapter->field('wpseo_llmstxt', '/llms_txt_selection_mode')?->label, 'Yoast LLMs.txt fields should match the tested 28.1–28.3 option schema.');
 $assert($yoastAdapter->isSensitive('wpseo', array('myyoast-oauth', 'config', 'secret')), 'Yoast connected-service credentials should be redacted by full path.');
 $yoastRuntime = $yoastAdapter->analyze('wpseo', array(array('path' => '/indexing_started')));
 $assert('derived' === $yoastRuntime->classification, 'Yoast indexing progress should be separated from intentional settings.');
@@ -387,11 +389,43 @@ $assert('environment' === $yoastVerification->classification, 'Yoast site-verifi
 $assert('content' === $yoastAdapter->field('wpseo', '/least_linked_ignore_list/0')?->referenceType, 'Yoast content ignore lists should retain content identity at nested paths.');
 $assert('Block GPTBot' === $yoastAdapter->field('wpseo', '/deny_gptbot_crawling')?->label, 'Yoast crawl controls should use the wording of the pinned settings contract.');
 $assert('unknown' === $yoastAdapter->field('wpseo', '/future_setting')?->kind, 'Unknown future Yoast fields should remain visible without entering automatic undo.');
+$assert('>=28.1 <28.4' === $yoastAdapter->manifest()->testedVersion, 'Yoast should cover every version line currently exposed by WordPress.org statistics.');
 $yoastContent = $yoastAdapter->analyze('wpseo_taxonomy_meta', array(array('path' => '/category/1')));
 $assert('unsupported' === $yoastContent->classification && ! $yoastContent->allowsGenericRestore, 'Yoast taxonomy content must not masquerade as portable configuration.');
 $yoastMultisite = $yoastAdapter->analyze('wpseo_ms', array(array('path' => '/access')));
 $assert('unsupported' === $yoastMultisite->classification, 'The Yoast adapter should make the Multisite boundary explicit.');
 $assert(6 === count($yoastAdapter->manifest()->capabilities), 'Yoast support should disclose every current product capability.');
+
+$wooAdapter = new WooCommerceAdapter();
+$assert('Store currency' === $wooAdapter->field('woocommerce_currency', '/')?->label, 'WooCommerce currency changes should use the wording from Store settings.');
+$assert('environment' === $wooAdapter->field('woocommerce_stock_email_recipient', '/')?->kind, 'WooCommerce stock recipients should be checked per store.');
+$assert('content' === $wooAdapter->field('woocommerce_checkout_page_id', '/')?->referenceType, 'WooCommerce store pages should retain bounded local content identity.');
+$assert('environment' === $wooAdapter->field('woocommerce_specific_allowed_countries', '/0')?->kind, 'WooCommerce country-list entries should retain the meaning of their owning setting.');
+$assert($wooAdapter->isSensitive('woocommerce_bacs_accounts', array(0, 'account_number')), 'WooCommerce bank-account records should never enter ConfigOps evidence in clear text.');
+$wooBankAccounts = $wooAdapter->analyze('woocommerce_bacs_accounts', array(array('path' => '/0/account_number')));
+$assert('secret' === $wooBankAccounts->classification && ! $wooBankAccounts->allowsGenericRestore, 'WooCommerce bank-account changes should be redacted and excluded from undo.');
+$wooRuntime = $wooAdapter->analyze('woocommerce_db_version', array(array('path' => '/')));
+$assert('derived' === $wooRuntime->classification && ! $wooRuntime->allowsGenericRestore, 'WooCommerce database-version markers should stay out of the settings review.');
+$wooInboxRuntime = $wooAdapter->analyze('wc_remote_inbox_notifications_wca_updated', array(array('path' => '/')));
+$assert('derived' === $wooInboxRuntime->classification, 'WooCommerce remote-inbox polling state should not mask the setting a user changed.');
+$assert(
+	$wooAdapter->isKnownNonConfigurationWrite('wp_actionscheduler_actions', array('type' => 'plugin', 'component' => 'woocommerce', 'file' => '/plugins/woocommerce/packages/action-scheduler/store.php', 'line' => 10)),
+	'WooCommerce Action Scheduler persistence should be recognized as job metadata.'
+);
+$assert($wooAdapter->isSensitive('woocommerce_share_key', array()), 'WooCommerce share keys should be redacted before plugin initialization evidence is stored.');
+$wooInitializedCountries = $wooAdapter->fieldForChange(
+	'woocommerce_specific_allowed_countries',
+	'/',
+	array('op' => 'replace', 'path' => '/', 'before' => '', 'after' => array()),
+	array()
+);
+$assert('runtime' === $wooInitializedCountries?->kind, 'Empty WooCommerce country selectors initialized beside another save should be classified as housekeeping.');
+$assert(! $wooAdapter->ownsOption('woocommerce_stripe_settings'), 'The WooCommerce core adapter must not claim extension-owned payment settings.');
+$assert(
+	'>=10.3 <10.4 || >=10.7 <10.8 || >=10.9 <11.1' === $wooAdapter->manifest()->testedVersion,
+	'WooCommerce should express the non-contiguous version lines exposed by WordPress.org without claiming untested gaps.'
+);
+$assert(6 === count($wooAdapter->manifest()->capabilities), 'WooCommerce support should disclose every current product capability.');
 
 $referenceField = new FieldDefinition('Fixture logo', 'Fixture identity', 'reference', 'Fixture media reference.', 'media');
 $describedReference = $referenceField->applyTo(array('path' => '/logo'));
@@ -422,13 +456,33 @@ $assert('derived' === $commentMigrationFinished['classification'], 'WordPress co
 
 $builtInAdapters = BuiltInAdapters::create();
 $assert(
-	array('wordpress-core', 'wp-mail-smtp', 'yoast-seo') === array_map(
+	array('wordpress-core', 'wp-mail-smtp', 'yoast-seo', 'woocommerce') === array_map(
 		static fn (ConfigAdapter $adapter): string => $adapter->manifest()->id,
 		$builtInAdapters
 	),
 	'The canonical built-in adapter set should retain every shipped integration in stable order.'
 );
 $registry = new AdapterRegistry($builtInAdapters, new NoiseClassifier(), new HeuristicSensitiveValueDetector());
+$wooCodec = new ValueCodec($registry);
+$wooShareKey = $wooCodec->encode('must-not-store-this-share-key', 'woocommerce_share_key');
+$assert($wooShareKey->redacted && ! str_contains($wooShareKey->payload, 'must-not-store-this-share-key'), 'WooCommerce share keys must be removed before capture persistence.');
+$wooBankDetails = $wooCodec->encode(
+	array(array('account_name' => 'Private account', 'account_number' => '12345678', 'iban' => 'DE0012345678')),
+	'woocommerce_bacs_accounts'
+);
+$assert(
+	$wooBankDetails->redacted
+	&& ! str_contains($wooBankDetails->payload, '12345678')
+	&& ! str_contains($wooBankDetails->payload, 'DE0012345678'),
+	'WooCommerce BACS account values must never enter ConfigOps persistence.'
+);
+$versionMatches = (new ReflectionClass(AdapterRegistry::class))->getMethod('versionMatches');
+$assert(true === $versionMatches->invoke($registry, '10.3.8', $wooAdapter->manifest()->testedVersion), 'WooCommerce 10.3 patch releases should match the first supported line.');
+$assert(false === $versionMatches->invoke($registry, '10.4.0', $wooAdapter->manifest()->testedVersion), 'WooCommerce 10.4 must not enter support through a range gap.');
+$assert(true === $versionMatches->invoke($registry, '10.7.0', $wooAdapter->manifest()->testedVersion), 'WooCommerce 10.7 should match its explicit supported line.');
+$assert(true === $versionMatches->invoke($registry, '11.0.1', $wooAdapter->manifest()->testedVersion), 'WooCommerce 11.0 patch releases should match the final supported line.');
+$assert(false === $versionMatches->invoke($registry, '11.1.0', $wooAdapter->manifest()->testedVersion), 'WooCommerce 11.1 must fail closed until its contract is tested.');
+$assert(false === $versionMatches->invoke($registry, '10.3.8', '>=10.3 ||'), 'A malformed alternative constraint must fail closed even when its first branch matches.');
 $assert($registry->isOptionUnclaimed('fixture_unclaimed_settings'), 'An option outside every adapter contract should remain eligible for generic policy checks.');
 $assert(! $registry->isOptionUnclaimed('site_icon'), 'A currently adapter-owned option must never enter generic restore policy.');
 $coreMedia = $registry->analyze(

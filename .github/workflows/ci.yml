@@ -207,6 +207,97 @@ jobs:
       - name: Scan every PHP source for runtime incompatibilities
         run: composer lint:compatibility
 
+  adapter-version-policy:
+    name: Live WordPress.org adapter version policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Show ConfigOps pipeline mark
+        run: bash build/ci-banner.sh
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Require a tested contract for every visible plugin version line
+        run: npm run check:adapter-support
+
+  adapter-version-lines:
+    name: ${{ matrix.label }} real-plugin contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - adapter: wp-mail-smtp
+            version: 4.7.1
+            label: WP Mail SMTP 4.7
+          - adapter: wp-mail-smtp
+            version: 4.8.0
+            label: WP Mail SMTP 4.8
+          - adapter: wp-mail-smtp
+            version: 4.9.0
+            label: WP Mail SMTP 4.9
+          - adapter: yoast-seo
+            version: "28.1"
+            label: Yoast SEO 28.1
+          - adapter: yoast-seo
+            version: "28.2"
+            label: Yoast SEO 28.2
+          - adapter: yoast-seo
+            version: "28.3"
+            label: Yoast SEO 28.3
+          - adapter: woocommerce
+            version: 10.3.8
+            label: WooCommerce 10.3
+          - adapter: woocommerce
+            version: 10.7.0
+            label: WooCommerce 10.7
+          - adapter: woocommerce
+            version: 10.9.4
+            label: WooCommerce 10.9
+          - adapter: woocommerce
+            version: 11.0.1
+            label: WooCommerce 11.0
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Show ConfigOps pipeline mark
+        run: bash build/ci-banner.sh
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install locked test tooling
+        run: npm ci
+
+      - name: Materialize the exact public plugin release
+        run: >-
+          node tests/materialize-adapter-version-blueprint.mjs
+          "${{ runner.temp }}/adapter-version.json"
+          "${{ matrix.adapter }}"
+          "${{ matrix.version }}"
+
+      - name: Capture, explain, and undo a real setting
+        run: >-
+          node_modules/.bin/wp-playground-cli php
+          --php=8.3
+          --wp=https://wordpress.org/wordpress-7.1-RC4.zip
+          --blueprint="${{ runner.temp }}/adapter-version.json"
+          --mount=.:/wordpress/wp-content/plugins/configops
+          -- /wordpress/wp-content/plugins/configops/tests/adapter-version-contract.php
+
   wordpress:
     name: WordPress ${{ matrix.wordpress_label }} / PHP ${{ matrix.php }}
     runs-on: ubuntu-latest
@@ -323,7 +414,7 @@ jobs:
       - name: Install test tooling
         run: npm ci
 
-      - name: Test exact WP Mail SMTP and Yoast releases
+      - name: Test current WP Mail SMTP, Yoast, and WooCommerce contracts
         run: >-
           node_modules/.bin/wp-playground-cli php
           --php=${{ matrix.php }}
@@ -483,7 +574,7 @@ jobs:
           CONFIGOPS_WP_ROOT: ${{ runner.temp }}/configops-native-wordpress
         run: php tests/integration.php
 
-      - name: Test both real settings screens on the native database
+      - name: Test all three real plugin settings screens on the native database
         env:
           CONFIGOPS_CHROME_PATH: /usr/bin/google-chrome
           CONFIGOPS_TEST_URL: http://127.0.0.1:9402

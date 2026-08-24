@@ -20,6 +20,8 @@ ConfigOps is local by design. Observation evidence is stored in the WordPress da
 
 Tested adapter schemas and conservative key-name heuristics identify probable credentials. Redaction happens before mutation history is written. A redacted node carries only the fact that protected data changed; it cannot reconstruct the original value and is never eligible for undo.
 
+The WooCommerce adapter treats its generated share key and every field in bundled BACS account records as protected. Store currency, tax-display rules, email design, and other mapped non-secret core settings remain reviewable; ConfigOps never stores bank account values in their clear form.
+
 Opaque or structurally unsafe values can also become non-restorable. This favors losing rollback capability over retaining a value ConfigOps cannot safely interpret.
 
 No heuristic can guarantee that an unusually named secret is detected. Plugin authors should provide explicit adapter schemas, and operators should restrict who can view local evidence.

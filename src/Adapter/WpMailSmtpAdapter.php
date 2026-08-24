@@ -90,10 +90,10 @@ final class WpMailSmtpAdapter extends AbstractOptionAdapter implements ChangeAwa
 			'wp-mail-smtp',
 			'WP Mail SMTP',
 			'wp-mail-smtp/wp_mail_smtp.php',
-			'=4.9.0',
+			'>=4.7 <5.0',
 			3,
 			array(
-				array('id' => 'capture', 'label' => 'Record Options API writes', 'level' => 'full', 'note' => 'The exact 4.9.0 Lite option schema is captured, including every bundled mailer and Misc setting.'),
+				array('id' => 'capture', 'label' => 'Record Options API writes', 'level' => 'full', 'note' => 'The active 4.7, 4.8, and 4.9 Lite option schemas are captured, including every bundled mailer and Misc setting.'),
 				array('id' => 'explain', 'label' => 'Map settings fields', 'level' => 'full', 'note' => 'Sender, SMTP, provider, privacy, delivery-policy, report, and lifecycle fields have exact names and boundaries.'),
 				array('id' => 'secrets', 'label' => 'Redact credentials', 'level' => 'full', 'note' => 'Passwords, API keys, OAuth secrets, access-key IDs, signed account links, and license keys are removed before storage.'),
 				array('id' => 'noise', 'label' => 'Classify runtime values', 'level' => 'full', 'note' => 'Version, activation, debug, migration, counters, notices, scheduler, and provider-usage state are separated.'),
@@ -164,7 +164,7 @@ final class WpMailSmtpAdapter extends AbstractOptionAdapter implements ChangeAwa
 			? self::PROVIDER_NAMES[$root] . ' connection'
 			: $this->humanize($root) . ' settings';
 
-		return new FieldDefinition($this->humanize($key), $group, 'unknown', 'This path is not part of the pinned WP Mail SMTP Lite 4.9.0 field contract. ConfigOps keeps it visible but does not guess during undo.');
+		return new FieldDefinition($this->humanize($key), $group, 'unknown', 'This path is not part of the tested WP Mail SMTP Lite 4.7–4.9 field contract. ConfigOps keeps it visible but does not guess during undo.');
 	}
 
 	public function fieldForChange(

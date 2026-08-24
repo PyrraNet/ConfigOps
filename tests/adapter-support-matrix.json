@@ -1,0 +1,44 @@
+{
+  "observedAt": "2026-08-24",
+  "definition": "Every version line that the official WordPress.org plugin statistics API exposes separately from its aggregated other bucket.",
+  "otherBucketPolicy": "WordPress.org does not disclose the versions inside other, so ConfigOps does not present that bucket as version-proven support.",
+  "adapters": [
+    {
+      "id": "wp-mail-smtp",
+      "slug": "wp-mail-smtp",
+      "classFile": "src/Adapter/WpMailSmtpAdapter.php",
+      "constraint": ">=4.7 <5.0",
+      "activeLines": [
+        { "line": "4.7", "share": 11.76, "contractRelease": "4.7.1" },
+        { "line": "4.8", "share": 9.61, "contractRelease": "4.8.0" },
+        { "line": "4.9", "share": 46.94, "contractRelease": "4.9.0" }
+      ],
+      "otherShare": 31.69
+    },
+    {
+      "id": "yoast-seo",
+      "slug": "wordpress-seo",
+      "classFile": "src/Adapter/YoastSeoAdapter.php",
+      "constraint": ">=28.1 <28.4",
+      "activeLines": [
+        { "line": "28.1", "share": 6.6, "contractRelease": "28.1" },
+        { "line": "28.2", "share": 7.92, "contractRelease": "28.2" },
+        { "line": "28.3", "share": 30.56, "contractRelease": "28.3" }
+      ],
+      "otherShare": 54.92
+    },
+    {
+      "id": "woocommerce",
+      "slug": "woocommerce",
+      "classFile": "src/Adapter/WooCommerceAdapter.php",
+      "constraint": ">=10.3 <10.4 || >=10.7 <10.8 || >=10.9 <11.1",
+      "activeLines": [
+        { "line": "10.3", "share": 5.01, "contractRelease": "10.3.8" },
+        { "line": "10.7", "share": 10.37, "contractRelease": "10.7.0" },
+        { "line": "10.9", "share": 9.73, "contractRelease": "10.9.4" },
+        { "line": "11.0", "share": 29.6, "contractRelease": "11.0.1" }
+      ],
+      "otherShare": 45.29
+    }
+  ]
+}

@@ -467,8 +467,8 @@ try {
 	await page.setViewportSize({ width: 1440, height: 1100 });
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops&view=support`, { waitUntil: 'networkidle' });
 	await page.getByRole('heading', { name: 'Support contracts', exact: true }).waitFor();
-	if (await page.locator('.configops-support-row').count() !== 3) {
-		throw new Error('The support contract should list WordPress Core and both shipped real-plugin adapters.');
+	if (await page.locator('.configops-support-row').count() !== 4) {
+		throw new Error('The support contract should list WordPress Core and all three shipped real-plugin adapters.');
 	}
 	const experimentControl = page.locator('.configops-experiment-control');
 	await experimentControl.getByText('Verified key undo for plugin arrays', { exact: true }).waitFor();

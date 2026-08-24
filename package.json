@@ -10,6 +10,7 @@
     "build:plugin": "npm run build:ui && npm run check:release && bash build/package-plugin.sh",
     "check:release": "node build/check-release.mjs",
     "check:runtime-policy": "node tests/runtime-policy.mjs",
+    "check:adapter-support": "node tests/adapter-support-policy.mjs",
     "check:ui-budget": "node build/check-ui-budget.mjs",
     "predev": "npm run build:ui",
     "dev": "wp-playground-cli start --php=8.3 --wp=latest --auto-mount --login",

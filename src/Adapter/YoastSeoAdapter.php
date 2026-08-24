@@ -127,10 +127,10 @@ final class YoastSeoAdapter extends AbstractOptionAdapter implements DatabaseWri
 			'yoast-seo',
 			'Yoast SEO',
 			'wordpress-seo/wp-seo.php',
-			'=28.2',
+			'>=28.1 <28.4',
 			3,
 			array(
-				array('id' => 'capture', 'label' => 'Record Options API writes', 'level' => 'full', 'note' => 'The exact 28.2 Free settings groups and dynamic content-type/taxonomy families are captured; content metadata is excluded.'),
+				array('id' => 'capture', 'label' => 'Record Options API writes', 'level' => 'full', 'note' => 'The active 28.1, 28.2, and 28.3 Free settings groups and dynamic content-type/taxonomy families are captured; content metadata is excluded.'),
 				array('id' => 'explain', 'label' => 'Map settings fields', 'level' => 'full', 'note' => 'Features, integrations, crawl cleanup, schema, identity, search appearance, social, and LLMs.txt paths have pinned semantics.'),
 				array('id' => 'secrets', 'label' => 'Redact credentials', 'level' => 'full', 'note' => 'MyYoast, Semrush, Wincher, and OAuth credentials are removed before storage.'),
 				array('id' => 'noise', 'label' => 'Classify runtime values', 'level' => 'full', 'note' => 'Indexing, caches, migrations, dismissals, tracking, LLMs.txt generation state, and maintenance writes are separated.'),
@@ -257,7 +257,7 @@ final class YoastSeoAdapter extends AbstractOptionAdapter implements DatabaseWri
 				return new FieldDefinition($this->humanize($key), 'Content relationships', 'portable', 'A pinned Yoast relationship between a content type and its primary taxonomy.');
 			}
 
-			return new FieldDefinition($this->humanize($key), 'Search appearance', 'unknown', 'This path is outside the pinned Yoast SEO Free 28.2 field contract. ConfigOps keeps it visible but does not guess during undo.');
+			return new FieldDefinition($this->humanize($key), 'Search appearance', 'unknown', 'This path is outside the tested Yoast SEO Free 28.1–28.3 field contract. ConfigOps keeps it visible but does not guess during undo.');
 		}
 		if ('wpseo_social' === $optionName) {
 			$root = (string) ($parts[0] ?? '');
@@ -265,7 +265,7 @@ final class YoastSeoAdapter extends AbstractOptionAdapter implements DatabaseWri
 				return new FieldDefinition('Other social profile', 'Social profiles', 'environment', 'A public profile URL associated with this website or organization.');
 			}
 
-			return new FieldDefinition($this->humanize($key), 'Social sharing', 'unknown', 'This path is outside the pinned Yoast SEO Free 28.2 social field contract.');
+			return new FieldDefinition($this->humanize($key), 'Social sharing', 'unknown', 'This path is outside the tested Yoast SEO Free 28.1–28.3 social field contract.');
 		}
 		if ('wpseo_llmstxt' === $optionName) {
 			$root = (string) ($parts[0] ?? '');
@@ -273,10 +273,10 @@ final class YoastSeoAdapter extends AbstractOptionAdapter implements DatabaseWri
 				return new FieldDefinition('Included page', 'AI discovery', 'reference', 'A page included in this website’s LLMs.txt file; ConfigOps keeps its local content identity.', 'content');
 			}
 
-			return new FieldDefinition($this->humanize($key), 'AI discovery', 'unknown', 'This path is outside the pinned Yoast SEO Free 28.2 LLMs.txt field contract.');
+			return new FieldDefinition($this->humanize($key), 'AI discovery', 'unknown', 'This path is outside the tested Yoast SEO Free 28.1–28.3 LLMs.txt field contract.');
 		}
 
-		return new FieldDefinition($this->humanize($key), 'Yoast features', 'unknown', 'This path is outside the pinned Yoast SEO Free 28.2 field contract. ConfigOps keeps it visible but does not guess during undo.');
+		return new FieldDefinition($this->humanize($key), 'Yoast features', 'unknown', 'This path is outside the tested Yoast SEO Free 28.1–28.3 field contract. ConfigOps keeps it visible but does not guess during undo.');
 	}
 
 	private function defineGeneralFields(): void

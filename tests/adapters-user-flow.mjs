@@ -104,7 +104,7 @@ try {
 	await page.getByRole('heading', { name: 'Support contracts', exact: true }).waitFor();
 	const readyPlugins = page.getByText('Active', { exact: true });
 	await readyPlugins.first().waitFor();
-	assert.equal(await readyPlugins.count(), 3, 'WordPress Core and both exact plugin releases should be active before user-flow testing.');
+	assert.equal(await readyPlugins.count(), 4, 'WordPress Core and all three plugin adapters should be active before user-flow testing.');
 	await captureFocus(page.locator('#configops-support-island'), 'support-focus.png');
 
 	await startCapture('Configure SMTP delivery');
@@ -198,7 +198,29 @@ try {
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wpseo_page_settings#/site-features`, { waitUntil: 'domcontentloaded' });
 	assert.equal(await page.locator('#card-wpseo-enable_xml_sitemap [role=switch]').getAttribute('aria-checked'), 'true', 'Safe undo should restore the Yoast toggle through the real plugin screen.');
 
-	process.stdout.write('Real WP Mail SMTP and Yoast user flows passed: save, explain, hide noise, preserve secrets, and undo.\n');
+	await startCapture('Change the store currency');
+	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wc-settings&tab=general`, { waitUntil: 'domcontentloaded' });
+	const currencySelect = page.locator('#woocommerce_currency');
+	await currencySelect.waitFor();
+	const initialCurrency = await currencySelect.inputValue();
+	const changedCurrency = initialCurrency === 'EUR' ? 'USD' : 'EUR';
+	await currencySelect.selectOption(changedCurrency);
+	await page.locator('.woocommerce-save-button').click();
+	await page.getByText('Your settings have been saved.', { exact: true }).waitFor();
+	await stopCapture();
+
+	const wooReview = page.locator('#configops-review-island');
+	await wooReview.getByText('Store currency', { exact: true }).waitFor();
+	assert.equal(await wooReview.getByText('Store currency', { exact: true }).count(), 1, 'A WooCommerce currency save should produce one clearly named setting.');
+	assert.equal(await wooReview.locator('.configops-option > span').getByText('WooCommerce', { exact: true }).count(), 1, 'WooCommerce provenance should lead with the product name.');
+	assert.equal(await wooReview.getByRole('button', { name: 'Undo this setting' }).count(), 1, 'The changed WooCommerce currency should be individually reversible.');
+	await captureFocus(wooReview.locator('.configops-request-group').first(), 'woocommerce-observation-focus.png', 470);
+
+	await undoVisibleSetting('Undo this setting');
+	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wc-settings&tab=general`, { waitUntil: 'domcontentloaded' });
+	assert.equal(await page.locator('#woocommerce_currency').inputValue(), initialCurrency, 'Safe undo should restore the store currency through the real WooCommerce screen.');
+
+	process.stdout.write('Real WP Mail SMTP, Yoast, and WooCommerce user flows passed: save, explain, hide noise, preserve secrets, and undo.\n');
 } catch (error) {
 	await page.screenshot({ path: new URL('failure-state.png', artifacts).pathname, fullPage: true }).catch(() => {});
 	const pageSummary = await page.locator('body').innerText({ timeout: 2_000 }).catch(() => '[body unavailable]');

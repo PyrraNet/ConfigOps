@@ -74,10 +74,13 @@ All evidence remains in the website database. ConfigOps does not send observatio
 The current release includes pinned adapters for:
 
 * WordPress Core 7.0–7.1
-* WP Mail SMTP Free 4.9.0
-* Yoast SEO Free 28.2
+* WP Mail SMTP Free 4.7–4.9
+* Yoast SEO Free 28.1–28.3
+* WooCommerce 10.3, 10.7, 10.9, and 11.0 core settings
 
-The **Support contracts** screen lists each tested plugin version, mapped settings family, refused operation, and undo level. An untested component version keeps its observed evidence but disables automatic undo.
+These plugin ranges cover every version line that the official WordPress.org usage API exposed separately on 2026-08-24. CI rechecks that list and fails when a newly visible line has no real-plugin contract. WordPress.org combines the remaining installations under "other" without disclosing their versions, so that bucket is not advertised as verified support.
+
+The **Support contracts** screen lists each tested plugin version, mapped settings family, refused operation, and undo level. The WooCommerce contract covers core Options API settings; orders, products, tax-rate tables, shipping zones, webhooks, extension gateways, and scheduled jobs are not rolled back. An untested component version keeps its observed evidence but disables automatic undo.
 
 = Multisite in version 0.5 =
 

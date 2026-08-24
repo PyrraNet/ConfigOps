@@ -20,6 +20,7 @@ final class BuiltInAdapters
 			new WordPressCoreAdapter(),
 			new WpMailSmtpAdapter(),
 			new YoastSeoAdapter(),
+			new WooCommerceAdapter(),
 		);
 	}
 }

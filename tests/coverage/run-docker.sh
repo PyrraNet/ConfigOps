@@ -87,7 +87,8 @@ collect tests/integration.php integration
 collect tests/wp-cli-integration.php wp-cli
 
 wp plugin install 'https://downloads.wordpress.org/plugin/wp-mail-smtp.4.9.0.zip' --activate --quiet
-wp plugin install 'https://downloads.wordpress.org/plugin/wordpress-seo.28.2.zip' --activate --quiet
+wp plugin install 'https://downloads.wordpress.org/plugin/wordpress-seo.28.3.zip' --activate --quiet
+wp plugin install 'https://downloads.wordpress.org/plugin/woocommerce.11.0.1.zip' --activate --quiet
 collect tests/adapters-integration.php adapters
 
 wp plugin deactivate configops --quiet

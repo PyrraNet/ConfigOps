@@ -79,11 +79,12 @@ This remains deliberately experimental and site-local. It does not infer plugin 
 |---|---:|:---:|:---:|:---:|:---:|
 | WordPress Core | WordPress 7.0–7.1 | Supported | Field map + local references | Redacted | With limits |
 | WordPress Multisite / Multi-Network | WordPress 7.0–7.1 | Sites + Network Options | Generic network evidence | Redacted | Network additions/updates |
-| WP Mail SMTP Free | 4.9.0 | Supported | Supported | Removed | With limits |
-| Yoast SEO Free | 28.2 | Supported | Supported | Removed | With limits |
+| WP Mail SMTP Free | 4.7–4.9 | Supported | Supported | Removed | With limits |
+| Yoast SEO Free | 28.1–28.3 | Supported | Supported | Removed | With limits |
+| WooCommerce | 10.3, 10.7, 10.9, 11.0 | Core settings | Supported | Bank details removed | With limits |
 | Unknown plugins | — | Options API only | Needs review | Conservative | Exact undo; opt-in verified array-key experiment |
 
-The exact field coverage and limitations are available inside **ConfigOps → Support contracts**. Versions outside a tested adapter range keep their evidence, but automatic undo is disabled.
+Plugin ranges cover every version line that the official WordPress.org usage API exposed separately on 2026-08-24. CI checks the live API and fails when a newly visible line has no real-plugin contract. WordPress.org combines the remaining installations under `other` without naming their versions, so ConfigOps does not pretend that bucket is verified. The exact field coverage and limitations are available inside **ConfigOps → Support contracts**. Versions outside a tested adapter range keep their evidence, but automatic undo is disabled.
 
 ## First change
 
@@ -124,7 +125,7 @@ There is no generic option writer or automated restore apply. Plan results expli
 ## Development
 
 For a persistent local WordPress installation with MariaDB, WP-CLI, Query Monitor,
-Xdebug, Mailpit, and the supported WP Mail SMTP and Yoast versions:
+Xdebug, Mailpit, and the current WP Mail SMTP, Yoast, and WooCommerce contract releases:
 
 ```bash
 npm ci

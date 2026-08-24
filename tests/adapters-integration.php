@@ -33,10 +33,17 @@ $assert = static function (bool $condition, string $message) use (&$assertions):
 
 $mailData  = get_plugin_data(WP_PLUGIN_DIR . '/wp-mail-smtp/wp_mail_smtp.php', false, false);
 $yoastData = get_plugin_data(WP_PLUGIN_DIR . '/wordpress-seo/wp-seo.php', false, false);
+$wooData   = get_plugin_data(WP_PLUGIN_DIR . '/woocommerce/woocommerce.php', false, false);
 $assert('4.9.0' === ($mailData['Version'] ?? ''), 'The real-plugin contract must run against WP Mail SMTP 4.9.0.');
-$assert('28.2' === ($yoastData['Version'] ?? ''), 'The real-plugin contract must run against Yoast SEO 28.2.');
+$assert('28.3' === ($yoastData['Version'] ?? ''), 'The current real-plugin contract must run against Yoast SEO 28.3.');
+$assert('11.0.1' === ($wooData['Version'] ?? ''), 'The current real-plugin contract must run against WooCommerce 11.0.1.');
 $assert(class_exists('WPMailSMTP\\Options'), 'WP Mail SMTP should be active, not just unpacked.');
 $assert(class_exists('WPSEO_Options'), 'Yoast SEO should be active, not just unpacked.');
+$assert(defined('WC_ABSPATH'), 'WooCommerce should be active, not just unpacked.');
+if (! class_exists('WC_Admin_Settings')) {
+	require_once WC_ABSPATH . 'includes/admin/class-wc-admin-settings.php';
+}
+$assert(class_exists('WC_Admin_Settings'), 'The WooCommerce settings API should be available.');
 
 $captures  = new \ConfigOps\Database\CaptureRepository($wpdb);
 $mutations = new \ConfigOps\Database\MutationRepository($wpdb);
@@ -121,6 +128,8 @@ $yoastTitlesBefore = get_option('wpseo_titles', array());
 $yoastTitlesBefore = is_array($yoastTitlesBefore) ? $yoastTitlesBefore : array();
 $yoastTitlesBefore['social-image-id-post'] = (int) $yoastLogoBefore;
 update_option('wpseo_titles', $yoastTitlesBefore, false);
+$wooCurrencyBefore = get_option('woocommerce_currency', 'USD');
+update_option('woocommerce_currency', 'USD', false);
 
 $sessionId = $captures->start('Supported plugin contract', 1, '/wp-admin/admin.php?page=configops');
 \WPMailSMTP\Options::init()->set(
@@ -159,6 +168,17 @@ $sessionId = $captures->start('Supported plugin contract', 1, '/wp-admin/admin.p
 \WPSEO_Options::set('contact_page', (int) $yoastPageAfter, 'wpseo_llmstxt');
 \WPSEO_Options::set('social-image-id-post', (int) $yoastLogoAfter, 'wpseo_titles');
 add_option('wpseo_tracking_only', array('last_updated' => time()), '', false);
+\WC_Admin_Settings::save_fields(
+	array(
+		array(
+			'id' => 'woocommerce_currency',
+			'type' => 'select',
+			'options' => array('USD' => 'USD', 'EUR' => 'EUR'),
+			'default' => 'USD',
+		)
+	),
+	array('woocommerce_currency' => 'EUR')
+);
 update_option('posts_per_page', $postsPerPageBefore + 2, false);
 $captures->stop();
 
@@ -178,7 +198,7 @@ $assert(1 === (int) $byName['wp_mail_smtp']->restorable, 'Secret-free WP Mail SM
 $assert(isset($byName['wpseo']), 'The official Yoast options API should be captured.');
 $assert('yoast-seo' === (string) $byName['wpseo']->adapter_id, 'Yoast mutations should persist adapter identity.');
 $assert(3 === (int) $byName['wpseo']->adapter_schema_version, 'Yoast captures should pin the deep field-aware adapter schema.');
-$assert('28.2' === (string) $byName['wpseo']->component_version, 'Yoast captures should pin the observed plugin version.');
+$assert('28.3' === (string) $byName['wpseo']->component_version, 'Yoast captures should pin the observed plugin version.');
 $assert('portable' === (string) $byName['wpseo']->classification, 'A supported Yoast feature toggle should be reusable configuration.');
 $assert(isset($byName['wpseo_social']) && 'reference' === (string) $byName['wpseo_social']->classification, 'A real Yoast social-image selection should be classified as a local reference.');
 $yoastMediaDiff = json_decode((string) $byName['wpseo_social']->diff, true);
@@ -187,7 +207,7 @@ $assert(
 	'media' === ($yoastMediaChange['reference_type'] ?? '')
 	&& 'yoast-social-before.png' === ($yoastMediaChange['before_reference']['filename'] ?? '')
 	&& 1200 === ($yoastMediaChange['after_reference']['width'] ?? 0),
-	'The exact Yoast 28.2 option contract should resolve its default social-image attachments.'
+	'The current Yoast option contract should resolve its default social-image attachments.'
 );
 $assert(isset($byName['wpseo_llmstxt']) && 'reference' === (string) $byName['wpseo_llmstxt']->classification, 'A real Yoast LLMs.txt page selection should be classified as a local content reference.');
 $yoastContentDiff = json_decode((string) $byName['wpseo_llmstxt']->diff, true);
@@ -196,7 +216,7 @@ $assert(
 	'content' === ($yoastContentChange['reference_type'] ?? '')
 	&& 'Original contact page' === ($yoastContentChange['before_reference']['title'] ?? '')
 	&& 'page' === ($yoastContentChange['after_reference']['post_type'] ?? ''),
-	'The exact Yoast 28.2 LLMs.txt contract should resolve selected page identities.'
+	'The current Yoast LLMs.txt contract should resolve selected page identities.'
 );
 $assert(isset($byName['wpseo_titles']) && 'reference' === (string) $byName['wpseo_titles']->classification, 'A dynamic Yoast post-type social image should be a local media reference.');
 $yoastTitleDiff = json_decode((string) $byName['wpseo_titles']->diff, true);
@@ -209,6 +229,12 @@ $assert(
 );
 $assert(isset($byName['wpseo_tracking_only']) && 'derived' === (string) $byName['wpseo_tracking_only']->classification, 'Yoast tracking state should be separated from settings.');
 $assert(0 === (int) $byName['wpseo_tracking_only']->restorable, 'Technical Yoast state should not enter rollback.');
+$assert(isset($byName['woocommerce_currency']), 'The official WooCommerce settings API should be captured.');
+$assert('woocommerce' === (string) $byName['woocommerce_currency']->adapter_id, 'WooCommerce mutations should persist adapter identity.');
+$assert(1 === (int) $byName['woocommerce_currency']->adapter_schema_version, 'WooCommerce captures should pin the field-aware adapter schema.');
+$assert('11.0.1' === (string) $byName['woocommerce_currency']->component_version, 'WooCommerce captures should pin the observed plugin version.');
+$assert('environment' === (string) $byName['woocommerce_currency']->classification, 'A store currency change should require a per-store check.');
+$assert(1 === (int) $byName['woocommerce_currency']->restorable, 'A supported WooCommerce setting should retain conflict-checked undo.');
 $assert(isset($byName['posts_per_page']), 'A standard WordPress Reading setting should be captured by the Core adapter.');
 $assert(
 	'wordpress-core' === (string) $byName['posts_per_page']->adapter_id
@@ -232,6 +258,7 @@ $mailPayload = current(array_filter($payloadRows, static fn (array $row): bool =
 $yoastPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'wpseo' === $row['optionName']));
 $yoastMediaPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'wpseo_social' === $row['optionName']));
 $yoastContentPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'wpseo_llmstxt' === $row['optionName']));
+$wooPayload = current(array_filter($payloadRows, static fn (array $row): bool => 'woocommerce_currency' === $row['optionName']));
 $corePayload = current(array_filter($payloadRows, static fn (array $row): bool => 'posts_per_page' === $row['optionName']));
 $mailLabels = array_column($mailPayload['diff'], 'label');
 $yoastLabels = array_column($yoastPayload['diff'], 'label');
@@ -239,7 +266,8 @@ $assert(in_array('Sender email', $mailLabels, true), 'The review payload should 
 $assert(in_array('Sending domain', $mailLabels, true), 'The review payload should name provider-specific WP Mail SMTP fields.');
 $assert(in_array('Message stream', $mailLabels, true), 'The review payload should identify Postmark routing settings.');
 $assert(in_array('Stop all outgoing email', $mailLabels, true), 'The review payload should identify high-impact WP Mail SMTP delivery policy.');
-$assert(in_array('Admin bar menu', $yoastLabels, true), 'The review payload should use the label from Yoast SEO 28.2 instead of database vocabulary.');
+$assert(in_array('Admin bar menu', $yoastLabels, true), 'The review payload should use the Yoast field label instead of database vocabulary.');
+$assert('Store currency' === ($wooPayload['diff'][0]['label'] ?? ''), 'The review payload should name the WooCommerce setting instead of exposing its option key.');
 $assert('Posts per page' === ($corePayload['diff'][0]['label'] ?? ''), 'The review payload should explain standard WordPress Core settings.');
 $assert(
 	'available' === ($yoastMediaPayload['diff'][0]['after_reference']['current_status'] ?? ''),
@@ -255,6 +283,7 @@ $supportById = array_column($support['adapters'], null, 'id');
 $assert(true === $supportById['wordpress-core']['active'] && true === $supportById['wordpress-core']['compatible'], 'The support list should reflect the running, tested WordPress Core version.');
 $assert(true === $supportById['wp-mail-smtp']['active'] && true === $supportById['wp-mail-smtp']['compatible'], 'The support list should reflect the active, tested WP Mail SMTP installation.');
 $assert(true === $supportById['yoast-seo']['active'] && true === $supportById['yoast-seo']['compatible'], 'The support list should reflect the active, tested Yoast installation.');
+$assert(true === $supportById['woocommerce']['active'] && true === $supportById['woocommerce']['compatible'], 'The support list should reflect the active, tested WooCommerce installation.');
 
 $secretCodec = new \ConfigOps\Capture\ValueCodec($adapters);
 $secretValue = $secretCodec->encode(array('smtp' => array('pass' => 'must-never-be-stored')), 'wp_mail_smtp');
@@ -308,6 +337,8 @@ $restore = new \ConfigOps\Restore\RestoreService(
 	$adapters,
 	new \ConfigOps\Database\RestoreAuditRepository($wpdb)
 );
+$restore->restoreMutation((int) $byName['woocommerce_currency']->id);
+$assert('USD' === get_option('woocommerce_currency'), 'WooCommerce currency undo should restore the prior value through the Options API.');
 wp_delete_post((int) $yoastPageBefore, true);
 $missingContentRejected = false;
 try {
@@ -354,5 +385,6 @@ wp_delete_attachment((int) $yoastLogoAfter, true);
 wp_delete_post((int) $yoastPageBefore, true);
 wp_delete_post((int) $yoastPageAfter, true);
 update_option('posts_per_page', $postsPerPageBefore, false);
+update_option('woocommerce_currency', $wooCurrencyBefore, false);
 
 fwrite(STDOUT, "ConfigOps real-plugin adapter checks passed ({$assertions} assertions).\n");

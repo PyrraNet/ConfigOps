@@ -698,17 +698,29 @@ final class AdapterRegistry implements SensitiveValueDetector, OptionValueNormal
 
 	private function versionMatches(string $version, string $constraint): bool
 	{
-		foreach (preg_split('/\s+/', trim($constraint)) ?: array() as $rule) {
-			if (! preg_match('/^(>=|<=|>|<|=)?(.+)$/', $rule, $matches)) {
-				return false;
+		$alternatives = preg_split('/\s*\|\|\s*/', trim($constraint)) ?: array();
+		if (empty($alternatives) || in_array('', array_map('trim', $alternatives), true)) {
+			return false;
+		}
+		foreach ($alternatives as $alternative) {
+			$matchesAlternative = true;
+			foreach (preg_split('/\s+/', trim($alternative)) ?: array() as $rule) {
+				if (! preg_match('/^(>=|<=|>|<|=)?(.+)$/', $rule, $matches)) {
+					$matchesAlternative = false;
+					break;
+				}
+				$operator = '' === ($matches[1] ?? '') ? '=' : $matches[1];
+				if (! version_compare($version, $matches[2], $operator)) {
+					$matchesAlternative = false;
+					break;
+				}
 			}
-			$operator = '' === ($matches[1] ?? '') ? '=' : $matches[1];
-			if (! version_compare($version, $matches[2], $operator)) {
-				return false;
+			if ($matchesAlternative) {
+				return true;
 			}
 		}
 
-		return true;
+		return false;
 	}
 
 	private function safeSourceUrl(string $sourceUrl): string

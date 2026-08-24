@@ -91,7 +91,11 @@ wp plugin install \
 	--activate \
 	--quiet
 wp plugin install \
-	"https://downloads.wordpress.org/plugin/wordpress-seo.28.2.zip" \
+	"https://downloads.wordpress.org/plugin/wordpress-seo.28.3.zip" \
+	--activate \
+	--quiet
+wp plugin install \
+	"https://downloads.wordpress.org/plugin/woocommerce.11.0.1.zip" \
 	--activate \
 	--quiet
 
@@ -100,3 +104,4 @@ wp db query 'SELECT VERSION() AS database_version'
 wp plugin status configops
 wp plugin status wp-mail-smtp
 wp plugin status wordpress-seo
+wp plugin status woocommerce

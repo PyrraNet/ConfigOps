@@ -35,11 +35,16 @@ Network undo excludes authority and plugin-lifecycle state plus derived counters
 | Integration | Tested release | Observe | Explain | Secrets | Undo |
 | --- | ---: | :---: | :---: | :---: | :---: |
 | WordPress Core | 7.0–7.1 | Supported | Field map + local references | Redacted | With limits |
-| WP Mail SMTP Free | 4.9.0 | Supported | Exact schema | Removed before persistence | Full or safe field patch |
-| Yoast SEO Free | 28.2 | Supported | Exact schema | Removed before persistence | With field and reference limits |
+| WP Mail SMTP Free | 4.7–4.9 | Supported | Version-line schema | Removed before persistence | Full or safe field patch |
+| Yoast SEO Free | 28.1–28.3 | Supported | Version-line schema | Removed before persistence | With field and reference limits |
+| WooCommerce | 10.3, 10.7, 10.9, 11.0 | Core Options API settings | Version-line schema | BACS accounts removed | With storage and reference limits |
 | Unknown plugins | — | Options API evidence | Needs review | Conservative heuristic | Exact full-value undo; opt-in experimental key patch for verified associative arrays |
 
 Versions outside an adapter’s tested range keep generic evidence. Adapter-dependent explanations, field patches, and automatic undo fail closed until the contract is verified.
+
+For plugin adapters, an active version line means a version the official WordPress.org statistics API exposes as its own bucket rather than folding into `other`. The 2026-08-24 snapshot contains WP Mail SMTP 4.7/4.8/4.9, Yoast 28.1/28.2/28.3, and WooCommerce 10.3/10.7/10.9/11.0. Each line installs a real public release in CI, changes a setting through the plugin API, checks the stored component version and field meaning, and undoes it. A separate live policy job fails when WordPress.org exposes a line without a ConfigOps contract. The API does not reveal which versions make up `other`; ConfigOps records that limitation instead of calling those installations supported.
+
+The WooCommerce contract covers the stable core General, Products, Inventory, Accounts & Privacy, Shipping display, Tax display, Advanced page/endpoint, Email, and bundled offline-payment Options API settings. It redacts BACS account records. Orders, products, customers, coupons, tax-rate tables, shipping zones and methods, webhooks, API keys, extension gateways, analytics tables, and scheduled jobs are outside undo.
 
 The generic array experiment is available only for site-owned `wp_options` evidence and is disabled by default. A user with `manage_options` can change the experiment setting under **ConfigOps → Support contracts**; attempting the resulting mutation undo still requires `configops_rollback`. It does not apply to Network Options or bypass an installed adapter's ownership and version boundary.
 

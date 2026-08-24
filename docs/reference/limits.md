@@ -37,6 +37,8 @@ ConfigOps refuses an undo when `pre_option_*` or global `pre_option` short-circu
 
 ## Adapter limits
 
-WP Mail SMTP Free 4.9.0 and Yoast SEO Free 28.2 are exact tested contracts. A newer or older release may retain useful generic option evidence, but adapter-dependent semantics and patches are disabled until verified. The generic array experiment never overrides an adapter ownership or version boundary.
+WP Mail SMTP Free 4.7–4.9, Yoast SEO Free 28.1–28.3, and WooCommerce 10.3/10.7/10.9/11.0 are tested version-line contracts. These are the lines WordPress.org exposed separately from its undisclosed `other` bucket on 2026-08-24; CI rejects a newly visible line until a real-plugin contract exists. A version outside those ranges may retain useful generic evidence, but adapter-dependent semantics and patches are disabled. The generic array experiment never overrides adapter ownership or a version boundary.
+
+WooCommerce support stops at mapped core Options API settings. Custom-table tax rates, shipping zones and methods, orders, products, customers, webhooks, extension gateways, analytics data, and scheduled work are not reconstructed. Proven inbox, scheduler, note, and empty-selector initialization writes stay technical; an unfamiliar WooCommerce table write remains visible and limits whole-capture undo.
 
 Read [Support contracts](/reference/support) for the positive contract and [Failure model](/security/failure-model) for behavior outside it.
