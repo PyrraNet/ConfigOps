@@ -4,6 +4,10 @@ ConfigOps follows semantic versioning. While the major version is `0`, adapter c
 
 ## Unreleased
 
+## 0.5.1 — 2026-08-24
+
+The agent-readable, human-authorized maintenance release.
+
 ### Added
 
 - Eight site-scoped native WordPress Abilities for state, capture discovery, bounded mutation evidence, named capture control, and read-only mutation restore planning.

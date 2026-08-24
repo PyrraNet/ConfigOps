@@ -4,7 +4,7 @@ Tags: settings, rollback, wp-cli, automation, ai
 Requires at least: 7.0
 Tested up to: 7.1
 Requires PHP: 8.2
-Stable tag: 0.5.0
+Stable tag: 0.5.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -159,6 +159,10 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 
 == Upgrade Notice ==
 
+= 0.5.1 =
+
+Adds agent-readable WordPress Abilities, JSON WP-CLI commands, and read-only restore planning. Restore apply remains a human action in wp-admin.
+
 = 0.5.0 =
 
 Verified key undo beyond dedicated adapters is available as an opt-in site setting under ConfigOps → Support contracts. It remains off by default; test the owning plugin's save and undo path in staging before enabling it in production.
@@ -172,6 +176,15 @@ Verified key undo beyond dedicated adapters is available as an opt-in site setti
 5. Enable verified key undo for ordinary plugin settings arrays without a dedicated adapter and review the exact structures it refuses.
 
 == Changelog ==
+
+= 0.5.1 =
+
+* Adds eight site-scoped WordPress Abilities for state, evidence discovery, named Change Sessions, and read-only restore planning.
+* Adds machine-readable JSON `wp configops` commands with the same capability checks and bounded response contracts.
+* Keeps restore apply human-authorized: automation can inspect evidence and validate a plan but cannot write settings.
+* Records WP-CLI observations without `--user` as shell-authorized actor ID 0 instead of silently dropping them.
+* Refuses site and network undo before writing when Options API filters virtualize the target value.
+* Avoids synchronous all-site traversal on large-network activation and provisions existing sites lazily.
 
 = 0.5.0 =
 

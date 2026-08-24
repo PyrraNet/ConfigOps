@@ -32,7 +32,7 @@ Intent evidence may improve a label for review. It cannot change classification,
 
 ## Access control
 
-Version 0.5.0 uses separate WordPress capabilities for its site observation surface. The identifiers retain `capture` for API compatibility:
+Version 0.5.1 uses separate WordPress capabilities for its site observation surface. The identifiers retain `capture` for API compatibility:
 
 | Capability | Grants |
 | --- | --- |

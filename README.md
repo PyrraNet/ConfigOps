@@ -13,13 +13,13 @@
 </p>
 
 <p align="center">
-  v0.5.0
-  &nbsp;·&nbsp; Verified key undo beyond adapters
+  v0.5.1
+  &nbsp;·&nbsp; Agent-readable operations
   &nbsp;·&nbsp; No account required
 </p>
 
 <p align="center">
-  <a href="https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2FPyrraNet%2FConfigOps%2Fv0.5.0%2F.wordpress-org%2Fblueprints%2Fblueprint.json">Try the live demo</a>
+  <a href="https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2FPyrraNet%2FConfigOps%2Fv0.5.1%2F.wordpress-org%2Fblueprints%2Fblueprint.json">Try the live demo</a>
   &nbsp;·&nbsp;
   <a href="https://configops.pyrra.net/docs/">Read the operations &amp; safety docs</a>
 </p>

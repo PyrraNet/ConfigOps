@@ -30,6 +30,7 @@ const routes = [
 	'/adapters',
 	'/frontend',
 	'/wordpress-org-release',
+	'/releases/0.5.1',
 	'/releases/0.5.0',
 	'/releases/0.4.3',
 	'/releases/0.4.2',
@@ -113,14 +114,14 @@ try {
 					const home = await page.evaluate(() => ({
 						text: document.body.textContent || '',
 						hasCurrentReleaseLink: [...document.querySelectorAll('a')].some((link) => (
-							'v0.5.0' === link.textContent?.trim()
-							&& link.getAttribute('href')?.includes('/releases/0.5.0')
+							'v0.5.1' === link.textContent?.trim()
+							&& link.getAttribute('href')?.includes('/releases/0.5.1')
 						)),
 						proofAlt: document.querySelector('.co-proof__figure img')?.getAttribute('alt') || '',
 						smartUndoAlt: document.querySelector('.co-proof__figure--smart img')?.getAttribute('alt') || '',
 					}));
 					if (!home.hasCurrentReleaseLink) {
-						throw new Error(`${profile.name} home does not link the current 0.5.0 release`);
+						throw new Error(`${profile.name} home does not link the current 0.5.1 release`);
 					}
 					if (!home.text.includes('Save normally. ConfigOps appears with the evidence.')) {
 						throw new Error(`${profile.name} home does not lead with the automatic evidence proof`);
@@ -135,7 +136,7 @@ try {
 						!home.text.includes('Undo verified plugin keys without an adapter.')
 						|| !home.smartUndoAlt.includes('opt-in verified key undo')
 					) {
-						throw new Error(`${profile.name} home does not expose the 0.5.0 verified key undo product proof`);
+						throw new Error(`${profile.name} home does not expose the verified key undo product proof`);
 					}
 				}
 				if (runtimeErrors.length > 0) {
