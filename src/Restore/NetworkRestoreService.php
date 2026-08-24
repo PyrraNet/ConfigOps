@@ -110,17 +110,25 @@ final class NetworkRestoreService
 
 	private function assertUnfilteredOptionRead(string $optionName): void
 	{
+		$exists = $this->options->exists($optionName);
 		$hooks = array(
 			"pre_site_option_{$optionName}",
 			'pre_site_option',
-			"default_site_option_{$optionName}",
-			"site_option_{$optionName}",
 		);
+		if (! $exists) {
+			$hooks[] = "default_site_option_{$optionName}";
+		}
 		foreach ($hooks as $hook) {
 			if (false !== has_filter($hook)) {
-				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
 				throw $this->runtimeFailure(
-					"ConfigOps cannot safely undo {$optionName} while WordPress filters its network runtime value through {$hook}. Nothing was changed."
+					esc_html(
+						sprintf(
+							/* translators: 1: WordPress network option name, 2: Network Options API filter hook. */
+							__('ConfigOps cannot safely undo %1$s while WordPress filters its network runtime value through %2$s. Nothing was changed.', 'configops'),
+							$optionName,
+							$hook
+						)
+					)
 				);
 			}
 		}

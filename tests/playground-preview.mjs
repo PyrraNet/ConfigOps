@@ -66,15 +66,15 @@ try {
 	);
 	assert.match(
 		await evidenceCard.innerText(),
-		/This save produced \d+ recorded writes?/,
+		/(?:ConfigOps observed|This save produced) \d+ (?:recorded )?writes?/,
 		'The guided save must produce immediate evidence.',
 	);
-	const reviewLink = evidenceCard.getByRole('link', { name: 'Review writes' });
+	const reviewLink = evidenceCard.getByRole('link', { name: /^Review(?: writes)?$/ });
 	await reviewLink.waitFor();
 	await page.screenshot({ path: new URL('save-evidence.png', artifacts).pathname, fullPage: true });
 
 	await reviewLink.click();
-	await page.getByRole('heading', { name: 'Change evidence', exact: true }).waitFor();
+	await page.getByRole('heading', { name: /^(?:Change evidence|Review changes)$/ }).waitFor();
 	const review = page.locator('#configops-review-island');
 	await review.getByText('Sender email', { exact: true }).waitFor();
 	await review.getByText('WP Mail SMTP', { exact: true }).first().waitFor();
@@ -94,7 +94,7 @@ try {
 	await undo.waitFor();
 	page.once('dialog', (dialog) => dialog.accept());
 	await undo.click();
-	await page.getByText(/current value matched the recording|option was restored/i).waitFor();
+	await page.getByText(/current value matched the recording|option was restored|supported setting values were undone after a conflict check/i).waitFor();
 
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=wp-mail-smtp`, { waitUntil: 'domcontentloaded' });
 	assert.equal(

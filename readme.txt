@@ -183,7 +183,7 @@ Verified key undo beyond dedicated adapters is available as an opt-in site setti
 * Adds machine-readable JSON `wp configops` commands with the same capability checks and bounded response contracts.
 * Keeps restore apply human-authorized: automation can inspect evidence and validate a plan but cannot write settings.
 * Records WP-CLI observations without `--user` as shell-authorized actor ID 0 instead of silently dropping them.
-* Refuses site and network undo before writing when Options API filters virtualize the target value.
+* Refuses site and network undo before writing when a `pre_*` filter or path-relevant missing-row default virtualizes the target, without falsely blocking normal post-read transforms such as Yoast's `option_wpseo`.
 * Avoids synchronous all-site traversal on large-network activation and provisions existing sites lazily.
 
 = 0.5.0 =

@@ -33,7 +33,7 @@ The opt-in generic array experiment is structural, not semantic. It applies only
 
 Undo compensates the option state ConfigOps observed. WordPress hooks triggered by that compensating write can execute again, and third-party side effects may not be reversible. A successful audit record means the guarded option write completed; it does not prove the entire system returned to an earlier moment.
 
-ConfigOps refuses an undo while WordPress has a `pre_option_*`, global `pre_option`, `default_option_*`, or `option_*` filter on a site target's read path. The equivalent `pre_site_option_*`, global `pre_site_option`, `default_site_option_*`, and `site_option_*` network hooks receive the same treatment. Such filters can expose a virtual runtime value that differs from the row an Options API write would change. Remove or bypass the owning virtualization in a controlled maintenance path, or restore through the owning plugin; ConfigOps does not guess which representation is authoritative.
+ConfigOps refuses an undo when `pre_option_*` or global `pre_option` short-circuits a site target's database read. A `default_option_*` hook is blocked only while the row is actually missing. The equivalent `pre_site_option_*`, global `pre_site_option`, and path-relevant `default_site_option_*` network hooks receive the same treatment. Normal post-read `option_*` and `site_option_*` transformations remain subject to the captured/current-state checks; their mere registration does not disable a supported plugin such as Yoast. Remove or bypass an owning read short-circuit in a controlled maintenance path, or restore through the owning plugin; ConfigOps does not guess which hidden representation is authoritative.
 
 ## Adapter limits
 

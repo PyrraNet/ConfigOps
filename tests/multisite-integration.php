@@ -508,12 +508,15 @@ add_network_option(
 	$networkRestoreLockOption,
 	array('token' => 'abandoned', 'expires_at' => time() - 1)
 );
+$virtualNetworkDefault = static fn (): string => 'virtual-missing-network-default';
+add_filter("default_site_option_{$networkUpdatedOption}", $virtualNetworkDefault);
 $updatedRestoreResponse = rest_do_request($updatedRestoreRequest);
+remove_filter("default_site_option_{$networkUpdatedOption}", $virtualNetworkDefault);
 $assert(
 	200 === $updatedRestoreResponse->get_status()
 	&& 'network-before' === get_network_option($originNetworkId, $networkUpdatedOption)
 	&& false === get_network_option($originNetworkId, $networkRestoreLockOption, false),
-	'Network update undo should recover an expired lock, restore the exact captured value, and release its own lock.'
+	'Network update undo should ignore an off-path missing-value default filter, recover an expired lock, restore the exact captured value, and release its own lock.'
 );
 
 $addedRestoreRequest = new \WP_REST_Request(

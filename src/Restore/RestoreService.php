@@ -419,17 +419,27 @@ final class RestoreService
 
 	private function assertUnfilteredOptionRead(string $optionName): void
 	{
+		$this->siteBoundary->assertCurrentSite();
+		$exists = null !== $this->optionMetadata->autoloadFor($optionName);
+		$this->siteBoundary->assertCurrentSite();
 		$hooks = array(
 			"pre_option_{$optionName}",
 			'pre_option',
-			"default_option_{$optionName}",
-			"option_{$optionName}",
 		);
+		if (! $exists) {
+			$hooks[] = "default_option_{$optionName}";
+		}
 		foreach ($hooks as $hook) {
 			if (false !== has_filter($hook)) {
-				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message.
 				throw $this->runtimeFailure(
-					"ConfigOps cannot safely undo {$optionName} while WordPress filters its runtime value through {$hook}. Nothing was changed."
+					esc_html(
+						sprintf(
+							/* translators: 1: WordPress option name, 2: Options API filter hook. */
+							__('ConfigOps cannot safely undo %1$s while WordPress filters its runtime value through %2$s. Nothing was changed.', 'configops'),
+							$optionName,
+							$hook
+						)
+					)
 				);
 			}
 		}

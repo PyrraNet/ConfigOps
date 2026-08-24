@@ -18,7 +18,7 @@ The agent-readable, human-authorized maintenance release.
 ### Hardened
 
 - WP-CLI automatic observations now work when the optional `--user` global argument is omitted, recording actor ID `0` for the shell-authorized command instead of silently dropping its evidence.
-- Site and network restores now fail before writing when WordPress filters the target option's runtime read through the corresponding Options API hooks; value-free restore audits record `filtered_option_value` or `filtered_network_option_value`.
+- Site and network restores now fail before writing when `pre_*` filters short-circuit the target's database read or a path-relevant missing-row default virtualizes it; value-free restore audits record `filtered_option_value` or `filtered_network_option_value`. Normal post-read transforms such as Yoast's `option_wpseo` remain conflict-checked instead of being refused solely because the hook is registered.
 - Network activation no longer synchronously traverses every site when WordPress classifies the network as large. Existing sites provision idempotently on their next request, while network deactivation interrupts open site evidence with a bounded network-scoped update and lazy pointer reconciliation.
 
 ### Verified against

@@ -316,6 +316,43 @@ $assert(
 );
 delete_option($filteredReadOption);
 
+$defaultFilteredReadOption = 'fixture_default_filtered_existing_value';
+update_option($defaultFilteredReadOption, 'stored-before', false);
+$defaultFilteredReadSession = $captures->start('Existing option default filter compatibility', 0, '/wp-admin/options-general.php');
+update_option($defaultFilteredReadOption, 'stored-after', false);
+$captures->stop();
+$defaultFilteredReadMutation = $mutations->forSession($defaultFilteredReadSession)[0];
+$virtualDefaultRead = static fn (): string => 'virtual-missing-default';
+add_filter("default_option_{$defaultFilteredReadOption}", $virtualDefaultRead);
+$restore->restoreMutation((int) $defaultFilteredReadMutation->id);
+remove_filter("default_option_{$defaultFilteredReadOption}", $virtualDefaultRead);
+$assert(
+	'stored-before' === get_option($defaultFilteredReadOption),
+	'A default filter for a missing row must not block undo when the target option currently exists and that filter is not on its read path.'
+);
+delete_option($defaultFilteredReadOption);
+
+$missingDefaultReadOption = 'fixture_default_filtered_missing_value';
+update_option($missingDefaultReadOption, 'stored-before', false);
+$missingDefaultReadSession = $captures->start('Missing option default filter guard', 0, '/wp-admin/options-general.php');
+delete_option($missingDefaultReadOption);
+$captures->stop();
+$missingDefaultReadMutation = $mutations->forSession($missingDefaultReadSession)[0];
+$virtualMissingDefault = static fn (): string => 'virtual-missing-default';
+add_filter("default_option_{$missingDefaultReadOption}", $virtualMissingDefault);
+$missingDefaultReadRejected = false;
+try {
+	$restore->restoreMutation((int) $missingDefaultReadMutation->id);
+} catch (RuntimeException $error) {
+	$missingDefaultReadRejected = str_contains($error->getMessage(), 'filters its runtime value');
+}
+remove_filter("default_option_{$missingDefaultReadOption}", $virtualMissingDefault);
+$assert(
+	$missingDefaultReadRejected
+	&& false === get_option($missingDefaultReadOption, false),
+	'A missing-row default filter must block undo before ConfigOps writes a row behind the virtual runtime value.'
+);
+
 $createMediaFixture = static function (string $filename, string $title, int $width, int $height): int {
 	$attachment = wp_insert_attachment(
 		array(

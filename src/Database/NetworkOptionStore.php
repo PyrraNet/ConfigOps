@@ -41,6 +41,20 @@ final readonly class NetworkOptionStore implements ScopedOptionStore
 		return get_network_option($this->networkId, $name, $default);
 	}
 
+	public function exists(string $name): bool
+	{
+		$table = '`' . str_replace('`', '``', $this->table) . '`';
+		$metaId = $this->database->get_var(
+			$this->database->prepare(
+				"SELECT meta_id FROM {$table} WHERE site_id = %d AND meta_key = %s LIMIT 1",
+				$this->networkId,
+				$name
+			)
+		);
+
+		return null !== $metaId;
+	}
+
 	public function add(string $name, mixed $value): bool
 	{
 		return add_network_option($this->networkId, $name, $value);
