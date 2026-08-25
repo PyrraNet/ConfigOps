@@ -25,9 +25,9 @@ Automatic observation is limited to authorized administrative, REST, and WP-CLI 
 
 ConfigOps uses dedicated WordPress tables for observation sessions, mutations, value-free write signals, and restore audit runs. The internal table identifiers retain `capture` for schema compatibility. On Multisite the shared tables use the network base prefix, and every site-owned row is pinned to its network and blog identity. Network evidence reserves blog ID zero and uses separate network-owned state. Evidence remains in the WordPress database.
 
-The REST interface is local to WordPress, scope- and capability-gated, and returns private `no-store` responses. Network routes additionally require `manage_network_options`. There is no ConfigOps account, cloud collector, or remote control plane in 0.5.1.
+The REST interface is local to WordPress, scope- and capability-gated, and returns private `no-store` responses. Network routes additionally require `manage_network_options`. There is no ConfigOps account, cloud collector, or remote control plane in 0.6.0.
 
-Version 0.5.1 registers site-scoped native WordPress Abilities and machine-readable JSON `wp configops` commands. These are authenticated transports over the existing application services, not a second control plane. Read operations require `configops_view`, capture control requires `configops_capture`, and non-writing restore validation requires `configops_plan`. Single-mutation automated apply additionally requires `configops_apply` and an explicit `dangerously-run-undo` acknowledgement; it retains the ordinary restore checks and audit. See [Automation & agents](/guide/automation).
+Version 0.6.0 registers site-scoped native WordPress Abilities and machine-readable JSON `wp configops` commands. These are authenticated transports over the existing application services, not a second control plane. Read operations require `configops_view`, capture control requires `configops_capture`, and non-writing restore validation requires `configops_plan`. Single-mutation automated apply additionally requires `configops_apply` and an explicit `dangerously-run-undo` acknowledgement; it retains the ordinary restore checks and audit. See [Automation & agents](/guide/automation).
 
 ## Retention
 

@@ -15,20 +15,20 @@ import wordmarkDark from '../../../../assets/brand/configops-wordmark-dark.svg';
 					<img :src="wordmarkLight" width="232" height="52" alt="ConfigOps">
 				</picture>
 				<span aria-hidden="true"></span>
-				<p>Documentation · 0.5.1</p>
+				<p>Documentation · 0.6.0</p>
 			</div>
 			<p class="co-kicker">Settings evidence for WordPress</p>
 			<h1 id="co-home-title">The undo button<br>WordPress forgot.</h1>
-			<p class="co-hero__dek">After a WordPress settings save, ConfigOps records the Options API writes behind it. Authorized tools can inspect that evidence and validate a restore plan; applying the undo stays in wp-admin.</p>
+			<p class="co-hero__dek">After a WordPress settings save, ConfigOps records the Options API writes behind it. Authorized tools can inspect that evidence and validate a restore plan. Human confirmation remains the default; a separately authorized service user can explicitly acknowledge one guarded undo.</p>
 			<div class="co-actions" aria-label="Start reading">
 				<a class="co-action co-action--primary" :href="withBase('/guide/getting-started')">Install and record a change</a>
 				<a class="co-action" :href="withBase('/security/failure-model')">Read the failure model</a>
 			</div>
 			<dl class="co-release-facts" aria-label="Current project facts">
-				<div><dt>Release</dt><dd>0.5.1 · agent-readable operations</dd></div>
+				<div><dt>Release</dt><dd>0.6.0 · guarded agent undo</dd></div>
 				<div><dt>Runtime</dt><dd>WordPress 7.0–7.1 · PHP 8.2–8.5</dd></div>
 				<div><dt>Storage</dt><dd>Local database · no account</dd></div>
-				<div><dt>Test coverage</dt><dd>77.39% production lines · 80.27% trust boundaries</dd></div>
+				<div><dt>Test coverage</dt><dd>78.90% production lines · 79.92% trust boundaries</dd></div>
 			</dl>
 		</section>
 

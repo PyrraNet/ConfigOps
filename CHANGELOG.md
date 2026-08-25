@@ -4,6 +4,28 @@ ConfigOps follows semantic versioning. While the major version is `0`, adapter c
 
 ## Unreleased
 
+## 0.6.0 — 2026-08-25
+
+The WooCommerce and explicitly authorized agent undo release.
+
+### Shipped
+
+- A WooCommerce adapter for the WordPress.org-visible 10.3, 10.7, 10.9, and 11.0 lines, covering mapped core Options API settings, feature flags, performance controls, Point of Sale receipt details, and protected BACS account records.
+- Exact real-release contracts that compare every supported plugin with its published option map, registered defaults, or Settings API, plus a live WordPress.org policy gate that detects newly visible unsupported version lines.
+- Adapterless provenance that retains the responsible plugin slug, capture-time version when resolvable, direct-versus-Settings-API ownership basis, and readable nested leaf labels without inventing plugin semantics.
+- A ninth site-scoped WordPress Ability and matching JSON WP-CLI command for explicitly authorized single-mutation undo. The operation requires the separate `configops_apply` capability plus the exact `dangerously-run-undo` acknowledgement.
+
+### Hardened
+
+- Agent apply repeats restore planning and all ordinary scope, conflict, reference, filtered-read, autoload, adapter, lock, audit, verification, and compensation checks; it exposes no generic option writer and is marked destructive and non-idempotent.
+- Direct plugin, must-use plugin, or theme callers take precedence over Settings API registration attribution. Unregistered, malformed, oversized, or ambiguous ownership evidence fails closed.
+- The three-plugin browser contract keeps its anonymous frontend concurrency assertion bounded to two complete six-worker waves, avoiding a synthetic load-test timeout before the real save, review, and undo flows begin.
+
+### Verified against
+
+- Real WP Mail SMTP, Yoast SEO, and WooCommerce release lines, including browser save/review/undo workflows and exact published-settings-surface audits.
+- Capability isolation, missing danger acknowledgement, successful guarded apply, restore conflicts, and WP-CLI failure contracts for agent operations.
+
 ## 0.5.1 — 2026-08-24
 
 The agent-readable, human-authorized maintenance release.

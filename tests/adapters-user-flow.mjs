@@ -71,7 +71,7 @@ const undoVisibleSetting = async (name) => {
 try {
 	const loginUrl = `${baseUrl}/wp-login.php`;
 	const anonymousBurst = await Promise.all(
-		Array.from({ length: 48 }, (_, index) => page.request.get(`${baseUrl}/?configops_burst=${index}`))
+		Array.from({ length: 12 }, (_, index) => page.request.get(`${baseUrl}/?configops_burst=${index}`))
 	);
 	assert.equal(anonymousBurst.every((response) => response.ok()), true, 'A concurrent anonymous frontend burst must complete without HTTP errors.');
 	const anonymousHtml = await anonymousBurst[0].text();

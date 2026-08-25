@@ -4,7 +4,7 @@ Tags: settings, rollback, wp-cli, automation, ai
 Requires at least: 7.0
 Tested up to: 7.1
 Requires PHP: 8.2
-Stable tag: 0.5.1
+Stable tag: 0.6.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -91,7 +91,7 @@ On a network-active installation, each site keeps its own isolated evidence life
 
 Network option deletes remain review-only because WordPress reports them after the previous value is gone. Named Network Change Sessions can group network-owned evidence, but whole-network-change undo, cross-site aggregation, and bulk operations are not available.
 
-Version 0.5 is a local single-site and Multisite undo and evidence layer for supported WordPress settings. It is not a staging plugin, backup, content migration, database synchronization, fleet manager, or generic activity log.
+Version 0.6 is a local single-site and Multisite undo and evidence layer for supported WordPress settings. It is not a staging plugin, backup, content migration, database synchronization, fleet manager, or generic activity log.
 
 == Installation ==
 
@@ -121,7 +121,7 @@ WP-CLI's optional --user parameter is not required for observation. A shell-auth
 
 = Does ConfigOps support WordPress Multisite? =
 
-Yes. Version 0.5 supports network activation, isolated per-site evidence, lifecycle and retention across sites, Multi-Network ownership boundaries, and a separate Network Admin ledger for supported Network Options changes. Named Network Change Sessions can group a planned task, and complete network additions and updates can be undone one mutation at a time. Network deletes, whole-network-change undo, cross-site aggregation, and bulk actions are not supported.
+Yes. Version 0.6 supports network activation, isolated per-site evidence, lifecycle and retention across sites, Multi-Network ownership boundaries, and a separate Network Admin ledger for supported Network Options changes. Named Network Change Sessions can group a planned task, and complete network additions and updates can be undone one mutation at a time. Network deletes, whole-network-change undo, cross-site aggregation, and bulk actions are not supported.
 
 = Can automation tools operate ConfigOps? =
 
@@ -167,9 +167,13 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 
 == Upgrade Notice ==
 
+= 0.6.0 =
+
+Adds WooCommerce support, precise adapterless provenance, and capability-gated single-mutation agent undo behind an explicit danger acknowledgement.
+
 = 0.5.1 =
 
-Adds agent-readable WordPress Abilities, JSON WP-CLI commands, restore planning, and capability-gated single-mutation apply behind an explicit danger acknowledgement.
+Adds agent-readable WordPress Abilities, JSON WP-CLI commands, and read-only restore planning. Restore apply remains a human action in wp-admin.
 
 = 0.5.0 =
 
@@ -185,16 +189,22 @@ Verified key undo beyond dedicated adapters is available as an opt-in site setti
 
 == Changelog ==
 
+= 0.6.0 =
+
+* Adds a WooCommerce core adapter for the WordPress.org-visible 10.3, 10.7, 10.9, and 11.0 lines, including core settings, feature flags, performance controls, and Point of Sale receipt details.
+* Audits every supported plugin release’s published settings surface in CI and rejects fields or newly visible version lines without a tested contract.
+* Records adapterless plugin identity, capture-time version when resolvable, direct-versus-Settings-API ownership basis, and readable nested leaf labels without claiming plugin semantics.
+* Adds a ninth site-scoped WordPress Ability and matching JSON WP-CLI command for explicitly authorized single-mutation undo.
+* Keeps restore apply human-authorized by default while allowing a `configops_apply` service user to acknowledge `dangerously-run-undo`; the flag does not bypass restore checks, locking, audit, verification, or compensation.
+
 = 0.5.1 =
 
-* Adds nine site-scoped WordPress Abilities for state, evidence discovery, named Change Sessions, restore planning, and explicitly authorized single-mutation undo.
+* Adds eight site-scoped WordPress Abilities for state, evidence discovery, named Change Sessions, and read-only restore planning.
 * Adds machine-readable JSON `wp configops` commands with the same capability checks and bounded response contracts.
-* Keeps restore apply human-authorized by default while allowing a `configops_apply` service user to acknowledge `dangerously-run-undo`; the flag does not bypass restore checks, locking, audit, verification, or compensation.
+* Keeps restore apply human-authorized: automation can inspect evidence and validate a plan but cannot write settings.
 * Records WP-CLI observations without `--user` as shell-authorized actor ID 0 instead of silently dropping them.
 * Refuses site and network undo before writing when a `pre_*` filter or path-relevant missing-row default virtualizes the target, without falsely blocking normal post-read transforms such as Yoast's `option_wpseo`.
 * Avoids synchronous all-site traversal on large-network activation and provisions existing sites lazily.
-* Adds a WooCommerce core adapter for the WordPress.org-visible 10.3, 10.7, 10.9, and 11.0 lines, including core settings, feature flags, performance controls, and Point of Sale receipt details.
-* Audits every supported plugin release’s published settings surface in CI and rejects fields that still lack a tested adapter meaning.
 
 = 0.5.0 =
 
