@@ -36,12 +36,20 @@ final class ReviewPresenter
 		foreach (array_values($grouped) as $offset => $requestMutations) {
 			$preparedMutations = array();
 			$adapterNames      = array();
+			$sourceNames       = array();
 			foreach ($requestMutations as $mutation) {
 				$diff = json_decode((string) $mutation->diff, true);
 				$adapterId = (string) ($mutation->adapter_id ?? '');
 				$manifest  = '' !== $adapterId ? $this->adapters->manifest($adapterId) : null;
 				if (null !== $manifest) {
 					$adapterNames[$manifest->id] = $manifest->name;
+				} else {
+					$sourceType = (string) ($mutation->source_type ?? 'unknown');
+					$sourceComponent = (string) ($mutation->source_component ?? '');
+					$sourceNames[$sourceType . ':' . $sourceComponent] = SourcePresentation::displayName(
+						$sourceType,
+						$sourceComponent
+					);
 				}
 				$preparedMutations[] = array(
 					'mutation'             => $mutation,
@@ -49,7 +57,10 @@ final class ReviewPresenter
 						is_array($diff) ? $diff : array(),
 						$adapterId,
 						(int) ($mutation->adapter_schema_version ?? 0),
-						(string) $mutation->option_name
+						(string) $mutation->option_name,
+						(string) ($mutation->source_type ?? 'unknown'),
+						(string) ($mutation->source_component ?? ''),
+						(string) ($mutation->source_basis ?? 'caller')
 					),
 					'classification_label' => $this->classificationLabel((string) $mutation->classification),
 					'adapter'               => null === $manifest ? null : array(
@@ -68,7 +79,9 @@ final class ReviewPresenter
 				'head'       => $requestMutations[0],
 				'title'      => 1 === count($adapterNames)
 					? reset($adapterNames) . ' settings'
-					: (string) ($intent['screen'] ?? ''),
+					: (empty($adapterNames) && 1 === count($sourceNames)
+						? reset($sourceNames) . ' settings'
+						: (string) ($intent['screen'] ?? '')),
 				'intent'     => $intent,
 				'mutations'  => $preparedMutations,
 			);
@@ -180,13 +193,21 @@ final class ReviewPresenter
 	 * @param list<array<string, mixed>> $diff
 	 * @return list<array<string, mixed>>
 	 */
-	private function prepareDiff(array $diff, string $adapterId, int $schemaVersion, string $optionName): array
+	private function prepareDiff(
+		array $diff,
+		string $adapterId,
+		int $schemaVersion,
+		string $optionName,
+		string $sourceType,
+		string $sourceComponent,
+		string $sourceBasis
+	): array
 	{
 		foreach ($diff as &$change) {
 			$path  = is_string($change['path'] ?? null) ? $change['path'] : '/';
 			$field = $this->adapters->field($adapterId, $schemaVersion, $optionName, $path);
-			if (null === $field && '/' === $path) {
-				$field = $this->genericRootField($optionName);
+			if (null === $field) {
+				$field = $this->genericField($optionName, $path, $sourceType, $sourceComponent, $sourceBasis);
 			}
 			if (null !== $field) {
 				$change = $field->applyTo($change);
@@ -197,7 +218,13 @@ final class ReviewPresenter
 		return $this->adapters->presentReferences($diff);
 	}
 
-	private function genericRootField(string $optionName): FieldDefinition
+	private function genericField(
+		string $optionName,
+		string $path,
+		string $sourceType,
+		string $sourceComponent,
+		string $sourceBasis
+	): FieldDefinition
 	{
 		$labels = array(
 			'blogdescription'    => __('Site tagline', 'configops'),
@@ -209,13 +236,15 @@ final class ReviewPresenter
 			'timezone_string'    => __('Time zone', 'configops'),
 			'users_can_register' => __('Anyone can register', 'configops'),
 		);
-		$label = $labels[$optionName] ?? ucwords(str_replace(array('_', '-'), ' ', $optionName));
+		$label = '/' === $path && isset($labels[$optionName])
+			? $labels[$optionName]
+			: SourcePresentation::fieldLabel($optionName, $path);
 
 		return new FieldDefinition(
 			$label,
-			__('WordPress setting', 'configops'),
+			SourcePresentation::settingsGroup($sourceType),
 			'unknown',
-			__('No tested adapter maps this value to a plugin field. Review the option name and stored diff before acting.', 'configops')
+			SourcePresentation::unmappedExplanation($sourceType, $sourceComponent, $sourceBasis)
 		);
 	}
 }

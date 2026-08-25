@@ -18,7 +18,7 @@ The review is an evidence ledger, not a claim that every write was intentional. 
 
 ## Read the request group
 
-A request group shows the actor, HTTP method, path, WordPress admin screen when available, and source attribution. These are provenance signals. They can reveal that a save also triggered another plugin, but they do not prove human intent by themselves.
+A request group shows the actor, HTTP method, path, WordPress admin screen when available, and source attribution. A plugin-owned mutation uses a readable form of the source slug and includes the version captured at save time when WordPress can resolve it; the raw slug and code path remain in Technical evidence. **Changed through** means the plugin or theme was present in the causal write stack. **Setting registered by** means the component registered that exact option through the WordPress Settings API and Core performed the final write; its file and line identify the registration call. These are provenance signals. They can reveal that a save also triggered another plugin, but they do not prove human intent by themselves.
 
 ## Read the classification
 
@@ -33,7 +33,7 @@ When the site-local generic array experiment is enabled, an eligible Unknown mut
 
 ## Read the diff
 
-ConfigOps stores typed nested differences, including meaningful changes in lists and associative values. JSON Pointer paths identify nested fields. Storage-only scalar churn can be normalized, while list order remains meaningful.
+ConfigOps stores typed nested differences, including meaningful changes in lists and associative values. JSON Pointer paths identify nested fields. Storage-only scalar churn can be normalized, while list order remains meaningful. Without an adapter, the review turns an exact leaf key such as `/mail/retry` into **Retry** and labels it as a plugin, must-use plugin, theme, or WordPress setting according to its captured source. That makes the evidence readable; it does not claim to know the field's behavior.
 
 An adapter can add:
 

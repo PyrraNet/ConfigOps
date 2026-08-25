@@ -60,7 +60,7 @@ Every undo is checked against the current value first. If the website changed ag
 
 ## Verified key undo without an adapter
 
-Version 0.5 can undo verified setting keys from ordinary plugin arrays even when ConfigOps has no dedicated adapter for that plugin. A site administrator explicitly enables **Verified key undo for plugin arrays** under **ConfigOps → Support contracts**. For an unclaimed associative `wp_options` update, ConfigOps then treats the captured before value, captured after value, and current value as a three-way check:
+Version 0.5 can undo verified setting keys from ordinary plugin arrays even when ConfigOps has no dedicated adapter for that plugin. Those captures retain the responsible plugin slug and, when WordPress can resolve its main file, the installed version observed at save time. When a plugin registers an option through the WordPress Settings API but Core performs the final write, ConfigOps records that registered ownership separately instead of claiming the plugin called `update_option()`. Nested leaf keys receive readable labels, while the review still states that ConfigOps does not know their plugin-specific meaning. A site administrator explicitly enables **Verified key undo for plugin arrays** under **ConfigOps → Support contracts**. For an unclaimed associative `wp_options` update, ConfigOps then treats the captured before value, captured after value, and current value as a three-way check:
 
 <p align="center">
   <img src=".wordpress-org/screenshot-5.png" width="1120" alt="ConfigOps Support contracts showing verified key undo for plugin arrays and the structures it refuses">
@@ -82,7 +82,7 @@ This remains deliberately experimental and site-local. It does not infer plugin 
 | WP Mail SMTP Free | 4.7–4.9 | Supported | Supported | Removed | With limits |
 | Yoast SEO Free | 28.1–28.3 | Supported | Supported | Removed | With limits |
 | WooCommerce | 10.3, 10.7, 10.9, 11.0 | Core settings + feature flags | Settings API audit | Bank details removed | With storage limits |
-| Unknown plugins | — | Options API only | Needs review | Conservative | Exact undo; opt-in verified array-key experiment |
+| Plugins without an adapter | Detected caller or Settings API owner | Options API only | Source basis, version, and readable leaf keys; semantics unverified | Conservative | Exact undo; opt-in verified array-key experiment |
 
 Plugin ranges cover every version line that the official WordPress.org usage API exposed separately on 2026-08-24. CI checks the live API and fails when a newly visible line has no real-plugin contract. Each release contract also compares ConfigOps with the plugin’s own option map, registered defaults, or Settings API; a newly exposed unknown field fails CI. WordPress.org combines the remaining installations under `other` without naming their versions, so ConfigOps does not pretend that bucket is verified. The exact field coverage and limitations are available inside **ConfigOps → Support contracts**. Versions outside a tested adapter range keep their evidence, but automatic undo is disabled.
 

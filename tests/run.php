@@ -28,7 +28,9 @@ use ConfigOps\Adapter\ConfigAdapter;
 use ConfigOps\Adapter\FieldDefinition;
 use ConfigOps\Capture\HeuristicSensitiveValueDetector;
 use ConfigOps\Capture\IntentContext;
+use ConfigOps\Capture\SourceAttributor;
 use ConfigOps\Noise\NoiseClassifier;
+use ConfigOps\Admin\SourcePresentation;
 
 $assertions = 0;
 
@@ -47,6 +49,37 @@ $assert(RestRoutes::ownsQueryRoute('/configops/v1/state'), 'Direct rest_route va
 $assert(
 	! RestRoutes::ownsQueryRoute('/vendor/v1/configops/v1/state'),
 	'Foreign rest_route values containing the ConfigOps namespace must not suppress automatic recording.'
+);
+$assert(
+	'ConfigOps Hostile Fixture' === SourcePresentation::displayName('plugin', 'configops-hostile-fixture'),
+	'Adapterless plugin slugs should become readable source names without losing the ConfigOps wordmark.'
+);
+$assert(
+	'Contact Page ID' === SourcePresentation::fieldLabel('cofx_settings', '/content/contact_page_id')
+	&& 'Item 3' === SourcePresentation::fieldLabel('cofx_settings', '/allowed_roles/2'),
+	'Adapterless nested paths should expose their exact leaf key or one-based list position instead of a raw JSON Pointer.'
+);
+$assert(
+	'Plugin setting' === SourcePresentation::settingsGroup('plugin')
+	&& str_contains(
+		SourcePresentation::unmappedExplanation('plugin', 'configops-hostile-fixture'),
+		'without guessing what the setting controls'
+	),
+	'Generic plugin fields should disclose the missing semantic adapter instead of implying WordPress owns the setting.'
+);
+$assert(
+	str_contains(
+		SourcePresentation::unmappedExplanation('plugin', 'configops-hostile-fixture', 'registered-setting'),
+		'WordPress performed the captured option write'
+	),
+	'Registered Settings API ownership should never be presented as a direct plugin write.'
+);
+$sourceAttributor = new SourceAttributor(WP_PLUGIN_DIR . '/configops');
+$pluginFileComponent = (new ReflectionClass(SourceAttributor::class))->getMethod('pluginFileComponent');
+$assert(
+	'hello' === $pluginFileComponent->invoke($sourceAttributor, 'hello.php')
+	&& 'woocommerce' === $pluginFileComponent->invoke($sourceAttributor, 'woocommerce/woocommerce.php'),
+	'Source attribution should name single-file plugins without a fake “php” suffix while preserving directory plugin slugs.'
 );
 
 $diff = new NestedDiff();

@@ -385,15 +385,21 @@ final class AdminPayloadFactory
 	}
 
 	/**
-	 * @return array{type: string, component: string, file: string, line: int}
+	 * @return array{type: string, component: string, displayName: string, basis: string, version: string, file: string, line: int}
 	 */
 	private function sourcePayload(object $row): array
 	{
+		$type      = (string) $row->source_type;
+		$component = (string) $row->source_component;
+
 		return array(
-			'type'      => (string) $row->source_type,
-			'component' => (string) $row->source_component,
-			'file'      => (string) $row->source_file,
-			'line'      => (int) $row->source_line,
+			'type'        => $type,
+			'component'   => $component,
+			'displayName' => SourcePresentation::displayName($type, $component),
+			'basis'       => 'registered-setting' === (string) ($row->source_basis ?? '') ? 'registered-setting' : 'caller',
+			'version'     => property_exists($row, 'component_version') ? (string) ($row->component_version ?? '') : '',
+			'file'        => (string) $row->source_file,
+			'line'        => (int) $row->source_line,
 		);
 	}
 

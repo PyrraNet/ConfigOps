@@ -26,3 +26,12 @@ export const fileSizeParts = (bytes) => {
 
 	return { value: Math.round(bytes / 1024 / 102.4) / 10, unit: 'megabytes' };
 };
+
+export const mutationSourceIdentity = (mutation, fallbackOwner) => ({
+	owner: mutation?.adapter?.name
+		|| mutation?.source?.displayName
+		|| mutation?.source?.component
+		|| fallbackOwner,
+	version: mutation?.adapter?.componentVersion || mutation?.source?.version || '',
+	basis: mutation?.source?.basis === 'registered-setting' ? 'registered-setting' : 'caller',
+});

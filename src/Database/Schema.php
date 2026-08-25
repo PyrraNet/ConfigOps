@@ -14,7 +14,7 @@ use wpdb;
 
 final class Schema
 {
-	private const VERSION = 10;
+	private const VERSION = 11;
 
 	public function __construct(private readonly wpdb $database)
 	{
@@ -109,6 +109,7 @@ final class Schema
 			component_version varchar(64) NULL,
 			source_type varchar(20) NOT NULL DEFAULT 'unknown',
 			source_component varchar(191) NULL,
+			source_basis varchar(24) NOT NULL DEFAULT 'caller',
 			source_file text NULL,
 			source_line int(10) unsigned NULL,
 			request_method varchar(12) NULL,
@@ -136,6 +137,7 @@ final class Schema
 			occurrence_count bigint(20) unsigned NOT NULL DEFAULT 1,
 			source_type varchar(20) NOT NULL DEFAULT 'unknown',
 			source_component varchar(191) NULL,
+			source_basis varchar(24) NOT NULL DEFAULT 'caller',
 			source_file text NULL,
 			source_line int(10) unsigned NULL,
 			request_method varchar(12) NULL,
@@ -242,6 +244,7 @@ final class Schema
 				'component_version',
 				'source_type',
 				'source_component',
+				'source_basis',
 				'source_file',
 				'source_line',
 				'request_method',
@@ -265,6 +268,7 @@ final class Schema
 				'occurrence_count',
 				'source_type',
 				'source_component',
+				'source_basis',
 				'source_file',
 				'source_line',
 				'request_method',

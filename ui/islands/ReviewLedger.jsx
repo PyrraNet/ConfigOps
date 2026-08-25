@@ -6,7 +6,7 @@ import {
 	useConfigOpsState,
 } from '../data/store.js';
 import Hint from '../components/Hint.jsx';
-import { fileSizeParts, formatValue } from '../format.js';
+import { fileSizeParts, formatValue, mutationSourceIdentity } from '../format.js';
 
 const fieldKindLabel = (kind, referenceType, __) => {
 	switch (kind) {
@@ -176,7 +176,11 @@ const hasMissingRestoreReference = (changes) => changes.some((change) => (
 const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canRestore, busy, filter, scopeType }) {
 	const { __ } = window.wp.i18n;
 	const sourceLabel = mutation.source.file || mutation.source.type;
-	const sourceOwner = mutation.adapter?.name || mutation.source.component || __('WordPress', 'configops');
+	const { owner: sourceOwner, version: recordedVersion, basis: sourceBasis } = mutationSourceIdentity(
+		mutation,
+		__('WordPress', 'configops'),
+	);
+	const registeredSettingOwner = sourceBasis === 'registered-setting';
 	const [open, setOpen] = window.wp.element.useState(filter !== 'noise');
 	const restoreDescriptionId = `configops-restore-${mutation.id}`;
 	const operationLabels = {
@@ -298,9 +302,9 @@ const MutationRow = window.wp.element.memo(function MutationRow({ mutation, canR
 						<summary>{__('Technical evidence', 'configops')}</summary>
 						<dl>
 							<div><dt>{__('Option', 'configops')}</dt><dd><code>{mutation.optionName}</code></dd></div>
-							<div><dt>{__('Changed through', 'configops')}</dt><dd>{sourceOwner}</dd></div>
-							<div><dt>{__('Source', 'configops')}</dt><dd><code>{sourceLabel}{mutation.source.line > 0 ? `:${mutation.source.line}` : ''}</code></dd></div>
-							{mutation.adapter?.componentVersion && <div><dt>{__('Version', 'configops')}</dt><dd><code>{mutation.adapter.componentVersion}</code></dd></div>}
+							<div><dt>{registeredSettingOwner ? __('Setting registered by', 'configops') : __('Changed through', 'configops')}</dt><dd>{sourceOwner}</dd></div>
+							<div><dt>{registeredSettingOwner ? __('Registration source', 'configops') : __('Source', 'configops')}</dt><dd><code>{sourceLabel}{mutation.source.line > 0 ? `:${mutation.source.line}` : ''}</code></dd></div>
+							{recordedVersion && <div><dt>{__('Recorded version', 'configops')}</dt><dd><code>{recordedVersion}</code></dd></div>}
 							{observedFields.length > 0 && (
 								<div><dt>{__('Observed form fields', 'configops')}</dt><dd className="configops-evidence-paths">{observedFields.map((field) => <code key={field}>{field}</code>)}</dd></div>
 							)}
@@ -376,7 +380,7 @@ const DatabaseWriteSignal = window.wp.element.memo(function DatabaseWriteSignal(
 			<p>{__('No value was stored, so automatic undo is unavailable.', 'configops')}</p>
 			<details>
 				<summary>{__('Technical evidence', 'configops')}</summary>
-				<div><span>{signal.source.component || signal.source.type}</span><code>{sourceLabel}{signal.source.line > 0 ? `:${signal.source.line}` : ''}</code></div>
+				<div><span>{signal.source.displayName || signal.source.component || signal.source.type}</span><code>{sourceLabel}{signal.source.line > 0 ? `:${signal.source.line}` : ''}</code></div>
 			</details>
 		</article>
 	);

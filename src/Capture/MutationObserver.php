@@ -44,7 +44,8 @@ final class MutationObserver
 		RequestContext $request,
 		?IntentContext $intent = null,
 		private readonly ?AutomaticRecorder $automatic = null,
-		?SiteBoundaryGuard $siteBoundary = null
+		?SiteBoundaryGuard $siteBoundary = null,
+		?RegisteredSettingAttributor $registeredSettings = null
 	) {
 		$this->siteBoundary = $siteBoundary ?? new SiteBoundaryGuard(SiteScope::current(), $captures);
 		$this->recorder = new MutationRecorder(
@@ -56,7 +57,8 @@ final class MutationObserver
 			$source,
 			$request,
 			$this->siteBoundary->scope(),
-			$intent ?? new IntentContext()
+			$intent ?? new IntentContext(),
+			$registeredSettings
 		);
 	}
 

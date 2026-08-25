@@ -44,7 +44,8 @@ final class MutationRecorder
 		private readonly SourceAttributor $source,
 		private readonly RequestContext $request,
 		private readonly EvidenceScope $scope,
-		private readonly IntentContext $intent
+		private readonly IntentContext $intent,
+		private readonly ?RegisteredSettingAttributor $registeredSettings = null
 	) {
 	}
 
@@ -58,6 +59,7 @@ final class MutationRecorder
 	): void {
 		$requestId = $this->request->id();
 		$source    = $this->source->capture();
+		$source    = $this->registeredSettings?->resolve($option, $source) ?? $source;
 		$owner     = $this->coalescingOwner($source);
 		$aggregate = $this->aggregate;
 		$canCoalesce = null !== $aggregate
@@ -99,6 +101,9 @@ final class MutationRecorder
 		}
 
 		$classification = $this->adapters->analyze($option, $changes);
+		$componentVersion = null === $classification['adapter_id']
+			? $this->source->componentVersion($source)
+			: $classification['component_version'];
 		$changes        = $this->intent->enrich($sessionId, $option, $classification['changes']);
 		$diffJson       = wp_json_encode($changes, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 		if (! is_string($diffJson) || strlen($diffJson) > self::MAX_DIFF_BYTES) {
@@ -143,7 +148,7 @@ final class MutationRecorder
 				'classification_reason'     => $classification['reason'],
 				'adapter_id'                => $classification['adapter_id'],
 				'adapter_schema_version'    => $classification['adapter_schema_version'],
-				'component_version'         => $classification['component_version'],
+				'component_version'         => $componentVersion,
 			),
 			$this->request->evidenceMetadata($source)
 		);
@@ -181,7 +186,7 @@ final class MutationRecorder
 	}
 
 	/**
-	 * @param array{type: string, component: string, file: string, line: int} $source
+	 * @param array{type: string, component: string, file: string, line: int, basis?: string} $source
 	 */
 	private function coalescingOwner(array $source): ?string
 	{

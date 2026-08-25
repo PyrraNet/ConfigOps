@@ -12,7 +12,7 @@ ConfigOps is local by design. Observation evidence is stored in the WordPress da
 - observation mode, optional Change Session name, status, timestamps, and initiating user ID;
 - request ID, actor ID, method, path, admin screen, and bounded source attribution;
 - typed before/after option evidence and nested diffs where safe;
-- classifications, adapter IDs, schema versions, and undo eligibility;
+- classifications, adapter IDs, schema versions, capture-time component versions when resolvable, caller-versus-Settings-API source basis, and undo eligibility;
 - value-free direct-write warnings and restore audit records;
 - bounded identity for supported local media, content, and user references.
 

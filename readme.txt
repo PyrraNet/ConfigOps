@@ -49,7 +49,7 @@ ConfigOps is not plugin-version rollback. It works with configuration values, no
 * Plain-language nested diffs that turn option arrays into recognizable settings.
 * An immediate link to the recorded diff and whole-save Undo only when every value passes the restore policy.
 * Named Change Sessions for planned maintenance, support cases, and investigations that span several requests.
-* Provenance for the user, request, component, and code path where ConfigOps can determine it.
+* Provenance for the user, request, component, code path, capture-time plugin version, and direct-versus-registered source basis where ConfigOps can determine it.
 * Secret redaction before mutation history is stored.
 * Conflict checks before every restore.
 * Isolated site evidence across network-active WordPress Multisite installations.
@@ -81,6 +81,8 @@ The current release includes pinned adapters for:
 These plugin ranges cover every version line that the official WordPress.org usage API exposed separately on 2026-08-24. CI rechecks that list and fails when a newly visible line has no real-plugin contract. Every contract also audits the release’s published option map, registered defaults, or Settings API and fails on settings ConfigOps still treats as unknown. WordPress.org combines the remaining installations under "other" without disclosing their versions, so that bucket is not advertised as verified support.
 
 The **Support contracts** screen lists each tested plugin version, mapped settings family, refused operation, and undo level. The WooCommerce contract covers core Options API settings, feature flags, REST and catalog performance controls, and Point of Sale receipt details. HPOS datastore switches and Cost of Goods are explained but not undone; orders, products, tax-rate tables, shipping zones, webhooks, extension gateways, and scheduled jobs are not rolled back. An untested component version keeps its observed evidence but disables automatic undo.
+
+Plugins without a dedicated adapter still retain their source slug and, when WordPress can resolve the owning plugin file, the version observed when the setting was saved. When WordPress Core performs the final write for an option that a plugin registered through the Settings API, the review says **Setting registered by** instead of pretending that the plugin directly called the Options API. Their nested leaf keys receive readable labels, but ConfigOps explicitly marks the plugin meaning as unmapped instead of inventing semantics.
 
 = Multisite in version 0.5 =
 

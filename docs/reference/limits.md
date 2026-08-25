@@ -29,6 +29,8 @@ Typed values that are too large, too deep, unsupported, or unsafe to reconstruct
 
 The opt-in generic array experiment is structural, not semantic. It applies only to unclaimed associative `wp_options` updates whose complete patch agrees with both stored snapshots. It does not infer plugin intent, traverse integer-keyed parent arrays, patch list indexes, cross a redacted value, or make custom-table writes restorable. It is site-local and does not extend the stricter Network Options undo contract.
 
+Settings API registration proves that one component registered an exact option in the current request; it does not prove which form field the operator intended to change or what a nested value means. ConfigOps therefore presents the owner and registration source but leaves classification and undo policy on the same adapterless path.
+
 ## Undo limits
 
 Undo compensates the option state ConfigOps observed. WordPress hooks triggered by that compensating write can execute again, and third-party side effects may not be reversible. A successful audit record means the guarded option write completed; it does not prove the entire system returned to an earlier moment.

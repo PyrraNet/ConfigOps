@@ -33,6 +33,7 @@ use ConfigOps\Capture\MutationRecorder;
 use ConfigOps\Capture\NetworkAutomaticRecorder;
 use ConfigOps\Capture\NetworkMutationObserver;
 use ConfigOps\Capture\RequestContext;
+use ConfigOps\Capture\RegisteredSettingAttributor;
 use ConfigOps\Capture\SqlWriteSentry;
 use ConfigOps\Capture\SourceAttributor;
 use ConfigOps\Capture\ValueCodec;
@@ -101,6 +102,8 @@ final class Plugin
 		$experimentalFeatures = new ExperimentalFeatures();
 		$genericArrayUndo = new GenericArrayUndo($codec, $experimentalFeatures, $adapters);
 		$source    = new SourceAttributor(CONFIGOPS_PATH);
+		$registeredSettings = new RegisteredSettingAttributor(new SourceAttributor(CONFIGOPS_PATH));
+		$registeredSettings->register();
 		$request   = new RequestContext();
 		$evidenceNotices = new EvidenceNoticeStore();
 		$automatic = new AutomaticRecorder($captures, $evidenceNotices, $request, $siteBoundary);
@@ -124,7 +127,8 @@ final class Plugin
 			$request,
 			new IntentContext(),
 			$automatic,
-			$siteBoundary
+			$siteBoundary,
+			$registeredSettings
 		);
 		$observer->register();
 
@@ -193,7 +197,8 @@ final class Plugin
 				$source,
 				$request,
 				$networkScope,
-				new IntentContext()
+				new IntentContext(),
+				$registeredSettings
 			);
 			(new NetworkMutationObserver(
 				$networkCaptures,

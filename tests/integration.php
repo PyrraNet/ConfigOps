@@ -45,6 +45,13 @@ $assert = static function (bool $condition, string $message) use (&$assertions):
 	}
 };
 
+$fixturePluginFile = 'configops-hostile-fixture/configops-hostile-fixture.php';
+if (! is_plugin_active($fixturePluginFile)) {
+	$fixtureActivation = activate_plugin($fixturePluginFile);
+	$assert(! is_wp_error($fixtureActivation), 'The adapterless fixture plugin should activate through WordPress before its settings are observed.');
+}
+$assert(is_plugin_active($fixturePluginFile), 'The adapterless fixture must be active so its captured version follows the real plugin lifecycle.');
+
 $sessionTable = $wpdb->prefix . 'configops_capture_sessions';
 $sessionColumns = $wpdb->get_col("SHOW COLUMNS FROM `{$sessionTable}`", 0);
 $assert(
@@ -56,6 +63,30 @@ $assert(
 	&& in_array('last_error_at', $sessionColumns, true),
 	'Schema activation must verify and expose every capture-integrity column before boot.'
 );
+$mutationColumns = $wpdb->get_col("SHOW COLUMNS FROM `{$wpdb->prefix}configops_mutations`", 0);
+$signalColumns = $wpdb->get_col("SHOW COLUMNS FROM `{$wpdb->prefix}configops_write_signals`", 0);
+$assert(
+	in_array('source_basis', $mutationColumns, true)
+	&& in_array('source_basis', $signalColumns, true),
+	'Schema activation must distinguish direct callers from registered Settings API ownership in every provenance table.'
+);
+$mutationTable = $wpdb->prefix . 'configops_mutations';
+$signalTable = $wpdb->prefix . 'configops_write_signals';
+$assert(
+	false !== $wpdb->query("ALTER TABLE `{$mutationTable}` DROP COLUMN `source_basis`")
+	&& false !== $wpdb->query("ALTER TABLE `{$signalTable}` DROP COLUMN `source_basis`"),
+	'The schema fixture should reproduce version 10 provenance tables before testing their upgrade.'
+);
+update_option('configops_schema_version', 10, false);
+(new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
+$mutationColumns = $wpdb->get_col("SHOW COLUMNS FROM `{$mutationTable}`", 0);
+$signalColumns = $wpdb->get_col("SHOW COLUMNS FROM `{$signalTable}`", 0);
+$assert(
+	11 === (int) get_option('configops_schema_version')
+	&& in_array('source_basis', $mutationColumns, true)
+	&& in_array('source_basis', $signalColumns, true),
+	'A version 10 installation should add both source-basis columns before committing schema 11.'
+);
 $restoreRunTable = $wpdb->prefix . 'configops_restore_runs';
 $restoreRunColumns = $wpdb->get_col("SHOW COLUMNS FROM `{$restoreRunTable}`", 0);
 $assert(
@@ -66,7 +97,7 @@ $assert(
 );
 update_option('configops_schema_version', 8, false);
 (new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
-$assert(10 === (int) get_option('configops_schema_version'), 'A stale schema version should upgrade idempotently under the schema lock.');
+$assert(11 === (int) get_option('configops_schema_version'), 'A stale schema version should upgrade idempotently under the schema lock.');
 
 update_option('configops_schema_version', 8, false);
 $hideSchemaTables = static function (string $query): string {
@@ -83,7 +114,7 @@ remove_filter('query', $hideSchemaTables, PHP_INT_MIN);
 $assert($schemaFailureRejected, 'Schema verification should reject a storage layer that cannot prove its tables exist.');
 $assert(8 === (int) get_option('configops_schema_version'), 'A failed schema verification must never advance the committed schema version.');
 (new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
-$assert(10 === (int) get_option('configops_schema_version'), 'A schema upgrade should recover after the injected storage failure clears.');
+$assert(11 === (int) get_option('configops_schema_version'), 'A schema upgrade should recover after the injected storage failure clears.');
 
 $sharedStorageLock = new \ConfigOps\Database\SharedStorageLock($wpdb);
 $nestedSharedLockRejected = false;
@@ -1612,6 +1643,9 @@ delete_transient('configops_flash_integration');
 
 \ConfigOpsHostileFixture\SettingsFixture::cleanup();
 \ConfigOpsHostileFixture\SettingsFixture::seed();
+do_action('register_setting', null, array(), new stdClass());
+$assert(true, 'A malformed third-party register_setting action must not escape through ConfigOps attribution.');
+\ConfigOpsHostileFixture\SettingsFixture::registerSettings();
 $originalRequestMethod = $_SERVER['REQUEST_METHOD'] ?? null;
 $originalRequestUri = $_SERVER['REQUEST_URI'] ?? null;
 $_SERVER['REQUEST_METHOD'] = 'POST';
@@ -1678,8 +1712,10 @@ $assert(
 $assert(
 	'plugin' === (string) $hostileByName[$settingsOption]->source_type
 	&& 'configops-hostile-fixture' === (string) $hostileByName[$settingsOption]->source_component
+	&& 'caller' === (string) $hostileByName[$settingsOption]->source_basis
+	&& '2.0.0' === (string) $hostileByName[$settingsOption]->component_version
 	&& str_contains((string) $hostileByName[$settingsOption]->source_file, 'configops-hostile-fixture.php'),
-	'Source attribution should retain a sibling plugin whose directory starts with the ConfigOps slug.'
+	'Source attribution should retain the exact version of an adapterless sibling plugin whose directory starts with the ConfigOps slug.'
 );
 
 $schemaDiff = json_decode((string) $hostileByName[$schemaOption]->diff, true, 64, JSON_THROW_ON_ERROR);
@@ -1704,6 +1740,7 @@ $assert(
 );
 $assert(
 	'configops-hostile-fixture' === (string) $hostileSignals[0]->source_component
+	&& 'caller' === (string) $hostileSignals[0]->source_basis
 	&& ! property_exists($hostileSignals[0], 'query')
 	&& ! property_exists($hostileSignals[0], 'sql'),
 	'Database write signals should retain plugin provenance without persisting raw SQL. Received: '
@@ -1737,6 +1774,91 @@ $hostilePayloadFactory = new \ConfigOps\Admin\AdminPayloadFactory(
 	$restoreAudit
 );
 $hostilePayload = $hostilePayloadFactory->mutationPage($hostileSession);
+$hostilePayloadMutations = array_merge(
+	...array_map(
+		static fn (array $group): array => $group['mutations'],
+		$hostilePayload['groups']
+	)
+);
+$hostileSettingsPayload = current(
+	array_filter(
+		$hostilePayloadMutations,
+		static fn (array $mutation): bool => $settingsOption === $mutation['optionName']
+	)
+);
+$hostileSettingsPayloadDiff = false === $hostileSettingsPayload
+	? array()
+	: array_column($hostileSettingsPayload['diff'], null, 'path');
+$assert(
+	'ConfigOps Hostile Fixture settings' === ($hostilePayload['groups'][0]['title'] ?? '')
+	&& false !== $hostileSettingsPayload,
+	'One adapterless plugin save should use the responsible plugin as its request-group title.'
+);
+$assert(
+	'Retry' === ($hostileSettingsPayloadDiff['/mail/retry']['label'] ?? '')
+	&& 'Plugin setting' === ($hostileSettingsPayloadDiff['/mail/retry']['group'] ?? '')
+	&& str_contains(
+		(string) ($hostileSettingsPayloadDiff['/mail/retry']['explanation'] ?? ''),
+		'ConfigOps Hostile Fixture plugin'
+	),
+	'Adapterless nested fields should be readable while explicitly disclosing that their plugin semantics are unmapped.'
+);
+$assert(
+	'ConfigOps Hostile Fixture' === ($hostileSettingsPayload['source']['displayName'] ?? '')
+	&& '2.0.0' === ($hostileSettingsPayload['source']['version'] ?? '')
+	&& 'caller' === ($hostileSettingsPayload['source']['basis'] ?? '')
+	&& 'configops-hostile-fixture' === ($hostileSettingsPayload['source']['component'] ?? ''),
+	'The review transport should expose a readable owner and the captured plugin version while retaining the technical source slug.'
+);
+
+$registeredOption = $fixtureClass::REGISTERED_OPTION;
+$registeredSession = $captures->start('Settings API ownership', 0, '/wp-admin/options.php');
+update_option($registeredOption, array('mail' => array('retry' => 7)), false);
+$captures->stop();
+$registeredRows = $mutations->forSession($registeredSession);
+$assert(1 === count($registeredRows), 'A Core-performed write to a plugin-registered setting should remain one observable mutation.');
+$registeredMutation = $registeredRows[0];
+$assert(
+	'core' !== (string) $registeredMutation->source_type
+	&& 'plugin' === (string) $registeredMutation->source_type
+	&& 'configops-hostile-fixture' === (string) $registeredMutation->source_component
+	&& 'registered-setting' === (string) $registeredMutation->source_basis
+	&& '2.0.0' === (string) $registeredMutation->component_version,
+	'The Settings API contract should retain registered plugin ownership without calling it the causal writer.'
+);
+$assert(
+	'' === (string) ($registeredMutation->adapter_id ?? '')
+	&& 1 === (int) $registeredMutation->restorable,
+	'Registered ownership should improve provenance without impersonating an adapter or changing generic undo eligibility.'
+);
+$registeredPayload = $hostilePayloadFactory->mutationPage($registeredSession);
+$registeredPayloadMutation = $registeredPayload['groups'][0]['mutations'][0] ?? array();
+$assert(
+	'ConfigOps Hostile Fixture settings' === ($registeredPayload['groups'][0]['title'] ?? '')
+	&& 'registered-setting' === ($registeredPayloadMutation['source']['basis'] ?? '')
+	&& str_contains(
+		(string) ($registeredPayloadMutation['diff'][0]['explanation'] ?? ''),
+		'WordPress performed the captured option write'
+	),
+	'The review should distinguish Settings API ownership from a direct plugin caller in both transport and explanation.'
+);
+$restore->restoreMutation((int) $registeredMutation->id);
+$assert(
+	array('mail' => array('retry' => 2)) === get_option($registeredOption),
+	'Registered Settings API ownership must not weaken the ordinary current-value check or prevent exact undo.'
+);
+unregister_setting('cofx_fixture', $registeredOption);
+$unregisteredSession = $captures->start('Removed Settings API ownership', 0, '/wp-admin/options.php');
+update_option($registeredOption, array('mail' => array('retry' => 9)), false);
+$captures->stop();
+$unregisteredRows = $mutations->forSession($unregisteredSession);
+$assert(
+	1 === count($unregisteredRows)
+	&& 'core' === (string) $unregisteredRows[0]->source_type
+	&& 'caller' === (string) $unregisteredRows[0]->source_basis,
+	'Unregistering a setting must remove its request-local plugin ownership instead of leaving stale provenance.'
+);
+$restore->restoreMutation((int) $unregisteredRows[0]->id);
 $hostilePayloadSignals = array_merge(
 	...array_map(
 		static fn (array $group): array => $group['writeSignals'],

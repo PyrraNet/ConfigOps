@@ -29,12 +29,12 @@ final class LegacySiteTableMigrator
 			'review_change_count', 'technical_change_count', 'secret_change_count',
 			'safe_restore_change_count', 'classification', 'classification_reason', 'adapter_id',
 			'adapter_schema_version', 'component_version', 'source_type', 'source_component',
-			'source_file', 'source_line', 'request_method', 'request_uri', 'admin_screen',
+			'source_basis', 'source_file', 'source_line', 'request_method', 'request_uri', 'admin_screen',
 			'actor_id', 'occurred_at',
 		),
 		'configops_write_signals' => array(
 			'session_id', 'request_id', 'operation', 'table_name', 'occurrence_count',
-			'source_type', 'source_component', 'source_file', 'source_line', 'request_method',
+			'source_type', 'source_component', 'source_basis', 'source_file', 'source_line', 'request_method',
 			'request_uri', 'admin_screen', 'actor_id', 'occurred_at',
 		),
 		'configops_restore_runs' => array(
