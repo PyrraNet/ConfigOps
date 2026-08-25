@@ -470,6 +470,13 @@ try {
 	await packWorkbench.getByText('Configuration Packs', { exact: true }).waitFor();
 	await packWorkbench.getByRole('button', { name: 'Save session as Pack' }).click();
 	await packWorkbench.getByRole('heading', { name: 'Save this Change Session as a Pack' }).waitFor();
+	const exportRows = packWorkbench.locator('.configops-pack-setting-list > li');
+	for (let rowIndex = 0; rowIndex < await exportRows.count(); rowIndex += 1) {
+		const row = exportRows.nth(rowIndex);
+		if (await row.locator('code').innerText() !== 'blogdescription' && await row.locator('input[type="checkbox"]').isChecked()) {
+			await row.locator('input[type="checkbox"]').uncheck();
+		}
+	}
 	await page.screenshot({ path: new URL('configops-pack-export-desktop.png', artifacts).pathname, fullPage: true });
 	await page.setViewportSize({ width: 390, height: 844 });
 	await assertNoHorizontalOverflow('Pack export');
