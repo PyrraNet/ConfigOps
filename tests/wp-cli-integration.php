@@ -101,6 +101,7 @@ $expectedCommands = array(
 	'configops mutations list',
 	'configops mutation inspect',
 	'configops restore plan',
+	'configops restore apply',
 	'configops capture start',
 	'configops capture stop',
 );
@@ -111,6 +112,15 @@ $assert(
 $assert(
 	false === (WP_CLI::$commands['configops restore plan']['args']['synopsis'][0]['optional'] ?? true),
 	'The restore-plan command must require an explicit mutation ID.'
+);
+$applySynopsis = WP_CLI::$commands['configops restore apply']['args']['synopsis'] ?? array();
+$assert(
+	false === ($applySynopsis[0]['optional'] ?? true)
+	&& 'mutation' === ($applySynopsis[0]['name'] ?? '')
+	&& false === ($applySynopsis[1]['optional'] ?? true)
+	&& 'flag' === ($applySynopsis[1]['type'] ?? '')
+	&& 'dangerously-run-undo' === ($applySynopsis[1]['name'] ?? ''),
+	'The restore-apply command must require both a mutation ID and the explicit danger flag.'
 );
 
 wp_set_current_user(1);
@@ -123,6 +133,44 @@ $assert(
 	&& 'site' === ($stateOutput['scope']['type'] ?? ''),
 	'The WP-CLI transport should execute the registered ability and emit one versioned JSON object.'
 );
+
+$applyOption = 'fixture_wp_cli_agent_apply';
+update_option($applyOption, 'before', false);
+$applySession = $captures->start('WP-CLI agent apply', 1, '/wp-cli/configops');
+update_option($applyOption, 'after', false);
+$captures->stop();
+$mutationRepository = new \ConfigOps\Database\MutationRepository($wpdb);
+$applyMutation = $mutationRepository->forSession($applySession)[0] ?? null;
+$assert(is_object($applyMutation), 'The WP-CLI apply fixture should produce one mutation.');
+$applyCommand = WP_CLI::$commands['configops restore apply']['callback'];
+$unconfirmedApplyRejected = false;
+try {
+	$applyCommand(array(), array('mutation' => (int) $applyMutation->id));
+} catch (RuntimeException) {
+	$unconfirmedApplyRejected = true;
+}
+$assert(
+	$unconfirmedApplyRejected && 'after' === get_option($applyOption),
+	'The WP-CLI apply command must not write when the danger flag is absent.'
+);
+WP_CLI::$lines = array();
+$applyCommand(
+	array(),
+	array(
+		'mutation'             => (int) $applyMutation->id,
+		'dangerously-run-undo' => true,
+	)
+);
+$applyOutput = json_decode(WP_CLI::$lines[0] ?? '', true);
+$assert(
+	is_array($applyOutput)
+	&& '2' === ($applyOutput['schemaVersion'] ?? '')
+	&& 'restored' === ($applyOutput['data']['status'] ?? '')
+	&& 'before' === get_option($applyOption),
+	'The explicit WP-CLI danger flag should execute one guarded mutation restore and return JSON.'
+);
+delete_option($applyOption);
+
 wp_set_current_user(0);
 $anonymousReadRejected = false;
 try {

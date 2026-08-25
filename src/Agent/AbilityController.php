@@ -147,6 +147,33 @@ final readonly class AbilityController
 			true
 		);
 		$this->registerAbility(
+			'configops/apply-restore',
+			__('Dangerously apply a ConfigOps restore', 'configops'),
+			__('Undo one mutation after explicitly acknowledging that automation is replacing human confirmation. All restore safety checks remain active.', 'configops'),
+			fn (mixed $input): array|WP_Error => $this->execute(
+				fn (): array => $this->service->applyRestore($this->arrayInput($input))
+			),
+			'configops_apply',
+			$this->objectInput(
+				array(
+					'mutationId' => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __('Mutation ID to undo.', 'configops'),
+					),
+					'dangerouslyRunUndo' => array(
+						'type'        => 'boolean',
+						'enum'        => array(true),
+						'description' => __('Explicit acknowledgement that automation may execute the undo without human confirmation.', 'configops'),
+					),
+				),
+				array('mutationId', 'dangerouslyRunUndo')
+			),
+			false,
+			true,
+			false
+		);
+		$this->registerAbility(
 			'configops/start-capture',
 			__('Start a ConfigOps capture', 'configops'),
 			__('Start a named capture that groups later settings saves on the current site. Requires configops_capture.', 'configops'),

@@ -8,8 +8,8 @@
 <p align="center"><strong>The undo layer for WordPress settings.</strong></p>
 
 <p align="center">
-  <strong>Agent-ready. Human-authorized.</strong><br>
-  <sub>Agents can inspect and plan. Restore apply stays in wp-admin.</sub>
+	<strong>Agent-ready. Human by default.</strong><br>
+	<sub>Agents can inspect and plan. One explicit danger flag can authorize a guarded undo.</sub>
 </p>
 
 <p align="center">
@@ -99,15 +99,16 @@ Requires WordPress 7.0 or newer and PHP 8.2 or newer. PHP 8.2 is the oldest supp
 
 ## Automation and agents
 
-ConfigOps is **Agent Ready** through native WordPress Abilities and machine-readable JSON `wp configops` commands. An authorized tool can inspect site state and recorded mutations, start or stop a named Change Session, and run the real conflict and reference checks as a read-only restore plan. Compatible MCP adapters can expose the same abilities as tools.
+ConfigOps is **Agent Ready** through native WordPress Abilities and machine-readable JSON `wp configops` commands. An authorized tool can inspect site state and recorded mutations, start or stop a named Change Session, and run the real conflict and reference checks as a read-only restore plan. Human approval remains the default. A service user with the separate `configops_apply` capability can intentionally replace that approval for one mutation by sending `dangerouslyRunUndo: true` or the matching WP-CLI flag. Compatible MCP adapters can expose the same abilities as tools.
 
 ```bash
 wp --user=configops-agent configops state
 wp --user=configops-agent configops captures list --limit=20
 wp --user=configops-agent configops restore plan --mutation=842
+wp --user=configops-agent configops restore apply --mutation=842 --dangerously-run-undo
 ```
 
-There is no generic option writer or automated restore apply. Plan results explicitly report `applySupported: false`; restore remains a human-authorized action until short-lived confirmation, retry idempotency, and agent provenance have a complete tested contract. Native abilities can be discovered through authenticated WordPress REST and translated by compatible MCP adapters. See [Automation & agents](docs/guide/automation.md) for the complete vocabulary, capability map, privacy boundary, and service-user guidance.
+The danger flag skips only the human confirmation step. Apply still repeats site-scope, active-capture, eligibility, reference, filtered-read, autoload, current-value, adapter, lock, audit, verification, and compensation checks through the ordinary restore service. The command is limited to one mutation, is marked destructive and non-idempotent, and exposes no generic option writer. Native abilities can be discovered through authenticated WordPress REST and translated by compatible MCP adapters. See [Automation & agents](docs/guide/automation.md) for the complete vocabulary, capability map, privacy boundary, and service-user guidance.
 
 ## Safety model
 

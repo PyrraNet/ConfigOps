@@ -27,7 +27,7 @@ ConfigOps uses dedicated WordPress tables for observation sessions, mutations, v
 
 The REST interface is local to WordPress, scope- and capability-gated, and returns private `no-store` responses. Network routes additionally require `manage_network_options`. There is no ConfigOps account, cloud collector, or remote control plane in 0.5.1.
 
-Version 0.5.1 registers site-scoped native WordPress Abilities and machine-readable JSON `wp configops` commands. These are authenticated transports over the existing application services, not a second control plane. Read operations require `configops_view`, capture control requires `configops_capture`, and non-writing restore validation requires `configops_plan`. See [Automation & agents](/guide/automation).
+Version 0.5.1 registers site-scoped native WordPress Abilities and machine-readable JSON `wp configops` commands. These are authenticated transports over the existing application services, not a second control plane. Read operations require `configops_view`, capture control requires `configops_capture`, and non-writing restore validation requires `configops_plan`. Single-mutation automated apply additionally requires `configops_apply` and an explicit `dangerously-run-undo` acknowledgement; it retains the ordinary restore checks and audit. See [Automation & agents](/guide/automation).
 
 ## Retention
 

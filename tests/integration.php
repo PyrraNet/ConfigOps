@@ -2291,6 +2291,7 @@ $abilityNames = array(
 	'configops/list-mutations',
 	'configops/inspect-mutation',
 	'configops/plan-restore',
+	'configops/apply-restore',
 	'configops/start-capture',
 	'configops/stop-capture',
 );
@@ -2301,11 +2302,11 @@ $stateAbility = wp_get_ability('configops/get-state');
 $stateAbilityResult = $stateAbility?->execute();
 $assert(
 	is_array($stateAbilityResult)
-	&& '1' === ($stateAbilityResult['schemaVersion'] ?? '')
+	&& '2' === ($stateAbilityResult['schemaVersion'] ?? '')
 	&& true === ($stateAbilityResult['ok'] ?? false)
 	&& 'site' === ($stateAbilityResult['scope']['type'] ?? '')
-	&& false === ($stateAbilityResult['data']['capabilities']['applyRestore'] ?? true),
-	'Agent state should use a versioned, site-pinned envelope and advertise restore apply as unavailable.'
+	&& true === ($stateAbilityResult['data']['capabilities']['applyRestore'] ?? false),
+	'Agent state should use a versioned, site-pinned envelope and advertise explicitly authorized restore apply.'
 );
 $stateAbilityMeta = $stateAbility?->get_meta() ?? array();
 $assert(
@@ -2361,10 +2362,40 @@ $assert(
 	is_array($planAbilityResult)
 	&& (int) $agentPlanMutation->id === ($planAbilityResult['data']['plan']['targetId'] ?? 0)
 	&& true === ($planAbilityResult['data']['plan']['requiresConfirmation'] ?? false)
-	&& false === ($planAbilityResult['data']['plan']['applySupported'] ?? true)
+	&& true === ($planAbilityResult['data']['plan']['applySupported'] ?? false)
+	&& 'dangerously-run-undo' === ($planAbilityResult['data']['plan']['requiredConfirmation'] ?? '')
 	&& 64 === strlen((string) ($planAbilityResult['data']['plan']['stateFingerprint'] ?? ''))
 	&& 'after' === get_option($agentPlanOption),
 	'Restore planning should validate current state and return a non-writing confirmation boundary.'
+);
+$applyAbility = wp_get_ability('configops/apply-restore');
+$applyAbilityMeta = $applyAbility?->get_meta() ?? array();
+$assert(
+	false === ($applyAbilityMeta['annotations']['readonly'] ?? true)
+	&& true === ($applyAbilityMeta['annotations']['destructive'] ?? false)
+	&& false === ($applyAbilityMeta['annotations']['idempotent'] ?? true),
+	'Automated restore apply should advertise an explicitly destructive, non-idempotent tool contract.'
+);
+$unconfirmedApplyResult = $applyAbility?->execute(array('mutationId' => (int) $agentPlanMutation->id));
+$assert(
+	is_wp_error($unconfirmedApplyResult)
+	&& 'after' === get_option($agentPlanOption),
+	'Automated restore apply must perform no write when the explicit danger acknowledgement is absent.'
+);
+$applyAbilityResult = $applyAbility?->execute(
+	array(
+		'mutationId'        => (int) $agentPlanMutation->id,
+		'dangerouslyRunUndo' => true,
+	)
+);
+$assert(
+	is_array($applyAbilityResult)
+	&& 'restored' === ($applyAbilityResult['data']['status'] ?? '')
+	&& (int) $agentPlanMutation->id === ($applyAbilityResult['data']['mutationId'] ?? 0)
+	&& true === ($applyAbilityResult['data']['safetyChecksRevalidated'] ?? false)
+	&& 64 === strlen((string) ($applyAbilityResult['data']['plannedStateFingerprint'] ?? ''))
+	&& 'before' === get_option($agentPlanOption),
+	'Explicitly authorized automation should undo one mutation through the ordinary guarded restore service.'
 );
 $inspectAbility = wp_get_ability('configops/inspect-mutation');
 $inspectAbilityResult = $inspectAbility?->execute(array('id' => (int) $agentPlanMutation->id));
@@ -2423,6 +2454,17 @@ $assert(
 	is_wp_error($viewerPlanResult)
 	&& 'ability_invalid_permissions' === $viewerPlanResult->get_error_code(),
 	'Read-only operators must not validate restore plans without configops_plan authority.'
+);
+$viewerApplyResult = $applyAbility?->execute(
+	array(
+		'mutationId'        => (int) $agentPlanMutation->id,
+		'dangerouslyRunUndo' => true,
+	)
+);
+$assert(
+	is_wp_error($viewerApplyResult)
+	&& 'ability_invalid_permissions' === $viewerApplyResult->get_error_code(),
+	'Read-only operators must not use the danger acknowledgement to bypass configops_apply authority.'
 );
 $viewerExperimentRequest = new WP_REST_Request('POST', '/configops/v1/experiments/generic-array-undo');
 $viewerExperimentRequest->set_body_params(array('enabled' => true));

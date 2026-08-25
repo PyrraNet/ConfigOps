@@ -8,7 +8,7 @@ Stable tag: 0.5.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Record WordPress settings writes, inspect redacted diffs, and undo values that still match. Agents can read evidence and validate restore plans.
+Record WordPress settings writes, inspect redacted diffs, and undo values that still match. Agents can plan and explicitly authorize one guarded undo.
 
 == Description ==
 
@@ -16,11 +16,11 @@ Record WordPress settings writes, inspect redacted diffs, and undo values that s
 
 WordPress shows you the settings form. ConfigOps shows you what the save actually changed.
 
-= Agent-ready. Human-authorized. =
+= Agent-ready. Human by default. =
 
 WordPress Abilities and machine-readable JSON WP-CLI commands let an authorized tool list recorded changes, inspect redacted diffs, control named Change Sessions, and run the restore checks without writing. Compatible MCP adapters can expose the same abilities as agent tools.
 
-Automation gets evidence and a plan. Humans retain write authority. ConfigOps exposes no generic option writer, raw SQL tool, plugin installer, or automated restore apply. The current agent boundary can produce a conflict-checked restore plan, but a human remains responsible for the actual undo.
+Humans retain write authority by default. A service user with the separate `configops_apply` capability can replace human confirmation for one mutation only by sending `dangerouslyRunUndo: true` or `--dangerously-run-undo`. That acknowledgement does not bypass scope, conflict, reference, lock, audit, verification, or compensation checks. ConfigOps exposes no generic option writer, raw SQL tool, or plugin installer.
 
 Visit the [ConfigOps website](https://configops.pyrra.net/) or read the [documentation](https://configops.pyrra.net/docs/).
 
@@ -45,6 +45,7 @@ ConfigOps is not plugin-version rollback. It works with configuration values, no
 * Agent-ready discovery through the native WordPress Abilities API.
 * Machine-readable JSON `wp configops` commands designed for scripts and language-model tool use.
 * Read-only restore planning that checks scope, conflicts, references, autoload state, filtered option reads, adapters, and verified generic-array paths without writing.
+* Explicit agent undo for one mutation when `configops_apply` and the `dangerously-run-undo` acknowledgement are both present; all ordinary restore checks remain active.
 * Automatic local evidence for authorized settings changes made through WordPress admin, REST, and WP-CLI requests.
 * Plain-language nested diffs that turn option arrays into recognizable settings.
 * An immediate link to the recorded diff and whole-save Undo only when every value passes the restore policy.
@@ -124,9 +125,9 @@ Yes. Version 0.5 supports network activation, isolated per-site evidence, lifecy
 
 = Can automation tools operate ConfigOps? =
 
-Yes. ConfigOps is agent-ready through site-scoped native WordPress Abilities and machine-readable JSON WP-CLI commands for authenticated state, capture and mutation reads, named capture control, and read-only restore planning. The same discoverable abilities can be exposed by compatible MCP adapters.
+Yes. ConfigOps is agent-ready through site-scoped native WordPress Abilities and machine-readable JSON WP-CLI commands for authenticated state, capture and mutation reads, named capture control, restore planning, and deliberately authorized single-mutation undo. The same discoverable abilities can be exposed by compatible MCP adapters.
 
-Use a dedicated least-privilege WordPress service user. Mutation evidence may contain non-secret configuration values, even though probable credentials are removed before storage. Automated restore apply and generic option-writing tools are not available.
+Use a dedicated least-privilege WordPress service user. Mutation evidence may contain non-secret configuration values, even though probable credentials are removed before storage. Do not grant `configops_apply` unless the agent may actually change settings. The danger acknowledgement skips human confirmation but never the normal safety checks. Generic option-writing tools are not available.
 
 Example commands:
 
@@ -135,6 +136,8 @@ Example commands:
 `wp --user=configops-agent configops captures list --limit=20`
 
 `wp --user=configops-agent configops restore plan --mutation=842`
+
+`wp --user=configops-agent configops restore apply --mutation=842 --dangerously-run-undo`
 
 = Can ConfigOps undo an array without a plugin adapter? =
 
@@ -166,7 +169,7 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 
 = 0.5.1 =
 
-Adds agent-readable WordPress Abilities, JSON WP-CLI commands, and read-only restore planning. Restore apply remains a human action in wp-admin.
+Adds agent-readable WordPress Abilities, JSON WP-CLI commands, restore planning, and capability-gated single-mutation apply behind an explicit danger acknowledgement.
 
 = 0.5.0 =
 
@@ -184,9 +187,9 @@ Verified key undo beyond dedicated adapters is available as an opt-in site setti
 
 = 0.5.1 =
 
-* Adds eight site-scoped WordPress Abilities for state, evidence discovery, named Change Sessions, and read-only restore planning.
+* Adds nine site-scoped WordPress Abilities for state, evidence discovery, named Change Sessions, restore planning, and explicitly authorized single-mutation undo.
 * Adds machine-readable JSON `wp configops` commands with the same capability checks and bounded response contracts.
-* Keeps restore apply human-authorized: automation can inspect evidence and validate a plan but cannot write settings.
+* Keeps restore apply human-authorized by default while allowing a `configops_apply` service user to acknowledge `dangerously-run-undo`; the flag does not bypass restore checks, locking, audit, verification, or compensation.
 * Records WP-CLI observations without `--user` as shell-authorized actor ID 0 instead of silently dropping them.
 * Refuses site and network undo before writing when a `pre_*` filter or path-relevant missing-row default virtualizes the target, without falsely blocking normal post-read transforms such as Yoast's `option_wpseo`.
 * Avoids synchronous all-site traversal on large-network activation and provisions existing sites lazily.

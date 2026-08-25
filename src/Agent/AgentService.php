@@ -18,7 +18,7 @@ use ConfigOps\Restore\RestoreService;
 
 final readonly class AgentService
 {
-	public const SCHEMA_VERSION = '1';
+	public const SCHEMA_VERSION = '2';
 
 	public function __construct(
 		private CaptureRepository $captures,
@@ -46,7 +46,7 @@ final readonly class AgentService
 					'view'         => current_user_can('configops_view'),
 					'capture'      => current_user_can('configops_capture'),
 					'planRestore'  => current_user_can('configops_plan'),
-					'applyRestore' => false,
+					'applyRestore' => current_user_can('configops_apply'),
 				),
 				'limits'        => array(
 					'capturePageSize'  => 50,
@@ -170,6 +170,38 @@ final readonly class AgentService
 				'warnings' => array(
 					'This plan performs no write and must be validated again immediately before a future apply operation.',
 				),
+			)
+		);
+	}
+
+	/**
+	 * Apply one mutation restore after an explicit automation danger acknowledgement.
+	 *
+	 * @param array<string, mixed> $input Validated transport input.
+	 * @return array<string, mixed>
+	 */
+	public function applyRestore(array $input): array
+	{
+		$this->siteBoundary->assertCurrentSite();
+		if (true !== ($input['dangerouslyRunUndo'] ?? false)) {
+			throw new AgentException(
+				'dangerous_confirmation_required',
+				'Automated undo requires the explicit dangerously-run-undo acknowledgement.',
+				400
+			);
+		}
+
+		$id   = max(0, (int) ($input['mutationId'] ?? 0));
+		$plan = $this->restore->planMutation($id);
+		$this->restore->restoreMutation($id);
+
+		return $this->envelope(
+			array(
+				'status'                  => 'restored',
+				'mutationId'              => $id,
+				'captureId'               => (int) $plan['sessionId'],
+				'plannedStateFingerprint' => (string) $plan['stateFingerprint'],
+				'safetyChecksRevalidated' => true,
 			)
 		);
 	}

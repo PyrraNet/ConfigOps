@@ -63,9 +63,9 @@ final class RestoreService
 	/**
 	 * Validate a mutation restore without changing WordPress state.
 	 *
-	 * This is the read-only half of the agent-safe plan/apply boundary. A future
-	 * apply command must repeat every validation immediately before writing; a
-	 * successful plan is evidence, not authority to skip conflict checks.
+	 * This is the read-only half of the agent-safe plan/apply boundary. Apply
+	 * repeats every validation immediately before writing; a successful plan is
+	 * evidence, not authority to skip conflict checks.
 	 *
 	 * @return array{
 	 *   targetType: string,
@@ -76,7 +76,8 @@ final class RestoreService
 	 *   changeCount: int,
 	 *   stateFingerprint: string,
 	 *   requiresConfirmation: bool,
-	 *   applySupported: bool
+	 *   applySupported: bool,
+	 *   requiredConfirmation: string
 	 * }
 	 */
 	public function planMutation(int $mutationId): array
@@ -136,7 +137,8 @@ final class RestoreService
 			'changeCount'          => $changeCount,
 			'stateFingerprint'     => hash_hmac('sha256', $fingerprintSource, wp_salt('auth')),
 			'requiresConfirmation' => true,
-			'applySupported'       => false,
+			'applySupported'       => true,
+			'requiredConfirmation' => 'dangerously-run-undo',
 		);
 	}
 

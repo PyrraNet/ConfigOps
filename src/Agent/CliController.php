@@ -89,6 +89,23 @@ final class CliController
 			)
 		);
 		\WP_CLI::add_command(
+			'configops restore apply',
+			fn (array $args, array $assocArgs): null => $this->invoke(
+				'configops/apply-restore',
+				array(
+					'mutationId'        => $this->integerArg($assocArgs, 'mutation'),
+					'dangerouslyRunUndo' => true === ($assocArgs['dangerously-run-undo'] ?? false),
+				)
+			),
+			array(
+				'shortdesc' => 'Dangerously undo one mutation after all ConfigOps safety checks pass.',
+				'synopsis'  => array(
+					$this->requiredAssoc('mutation'),
+					$this->requiredFlag('dangerously-run-undo'),
+				),
+			)
+		);
+		\WP_CLI::add_command(
 			'configops capture start',
 			fn (array $args, array $assocArgs): null => $this->invoke(
 				'configops/start-capture',
@@ -149,7 +166,7 @@ final class CliController
 			),
 			JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
 		);
-		\WP_CLI::error(is_string($encoded) ? $encoded : '{"schemaVersion":"1","ok":false}');
+		\WP_CLI::error(is_string($encoded) ? $encoded : '{"schemaVersion":"2","ok":false}');
 
 		throw new \RuntimeException('WP-CLI did not terminate after a ConfigOps command error.');
 	}
@@ -176,5 +193,13 @@ final class CliController
 	private function optionalAssoc(string $name): array
 	{
 		return array('type' => 'assoc', 'name' => $name, 'optional' => true);
+	}
+
+	/**
+	 * @return array<string, string|bool>
+	 */
+	private function requiredFlag(string $name): array
+	{
+		return array('type' => 'flag', 'name' => $name, 'optional' => false);
 	}
 }
