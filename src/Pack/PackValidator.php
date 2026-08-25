@@ -107,6 +107,7 @@ final class PackValidator
 			$normalized = $this->setting($setting, $nodes);
 			$option     = $normalized['option'];
 			if (isset($seen[$option])) {
+				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes this validation message.
 				throw $this->runtimeFailure("The Pack declares {$option} more than once.");
 			}
 			$seen[$option]         = true;
@@ -169,27 +170,33 @@ final class PackValidator
 		}
 		$state = isset($setting['state']) ? $this->requiredString($setting, 'state', 12) : 'present';
 		if (! in_array($state, array('present', 'absent'), true)) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes this validation message.
 			throw $this->runtimeFailure("The Pack state for {$option} is invalid.");
 		}
 		if ('present' === $state && ! array_key_exists('value', $setting)) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes this validation message.
 			throw $this->runtimeFailure("The Pack setting {$option} has no desired value.");
 		}
 		if ('absent' === $state && array_key_exists('value', $setting)) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes this validation message.
 			throw $this->runtimeFailure("The absent Pack setting {$option} must not contain a value.");
 		}
 
 		$adapter = $setting['adapter'] ?? null;
 		if (null !== $adapter) {
 			if (! is_array($adapter)) {
+				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes this validation message.
 				throw $this->runtimeFailure("The adapter contract for {$option} is invalid.");
 			}
 			$this->assertOnlyKeys($adapter, array('id', 'schema_version'));
 			$adapterId = $this->requiredString($adapter, 'id', 191);
 			if (1 !== preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $adapterId)) {
+				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes this validation message.
 				throw $this->runtimeFailure("The adapter ID for {$option} is invalid.");
 			}
 			$schemaVersion = $adapter['schema_version'] ?? null;
 			if (! is_int($schemaVersion) || $schemaVersion < 1 || $schemaVersion > 1000000) {
+				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes this validation message.
 				throw $this->runtimeFailure("The adapter schema for {$option} is invalid.");
 			}
 			$adapter = array('id' => $adapterId, 'schema_version' => $schemaVersion);
@@ -296,6 +303,7 @@ final class PackValidator
 	{
 		$unknown = array_diff(array_keys($value), $allowed);
 		if (! empty($unknown)) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes untrusted field names.
 			throw $this->runtimeFailure('The Pack contains unsupported fields: ' . implode(', ', $unknown) . '.');
 		}
 	}
@@ -307,10 +315,12 @@ final class PackValidator
 	{
 		$result = $value[$key] ?? null;
 		if (! is_string($result)) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes this validation message.
 			throw $this->runtimeFailure("The Pack field {$key} is required.");
 		}
 		$result = trim($result);
 		if ('' === $result || strlen($result) > $maxBytes || 1 === preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $result)) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes this validation message.
 			throw $this->runtimeFailure("The Pack field {$key} is invalid.");
 		}
 
@@ -327,10 +337,12 @@ final class PackValidator
 		}
 		$result = $value[$key];
 		if (! is_string($result)) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes this validation message.
 			throw $this->runtimeFailure("The Pack field {$key} is invalid.");
 		}
 		$result = trim($result);
 		if (strlen($result) > $maxBytes || 1 === preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $result)) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes this validation message.
 			throw $this->runtimeFailure("The Pack field {$key} is invalid.");
 		}
 

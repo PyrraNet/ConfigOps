@@ -418,6 +418,7 @@ final class PackService
 				$option = (string) $item['option'];
 				$current = $this->readState($option);
 				if (! hash_equals((string) $item['baseline'], $current['fingerprint'])) {
+					// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes this conflict message.
 					throw $this->runtimeFailure("Conflict: {$option} changed while the Pack was being applied.");
 				}
 				$applied[$option] = $current;
@@ -444,12 +445,15 @@ final class PackService
 				$compensationFailed[] = 'capture-ledger';
 			}
 			if (! empty($compensationFailed)) {
+				// phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message; the previous throwable is metadata.
 				throw $this->runtimeFailure(
 					$error->getMessage() . ' ConfigOps could not verify compensation for: ' . implode(', ', $compensationFailed) . '.',
 					$error
 				);
+				// phpcs:enable WordPress.Security.EscapeOutput.ExceptionNotEscaped
 			}
 
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes the message; the previous throwable is metadata.
 			throw $this->runtimeFailure($error->getMessage() . ' Earlier Pack writes were compensated.', $error);
 		}
 
@@ -467,6 +471,7 @@ final class PackService
 	private function readState(string $option): array
 	{
 		if ($this->filteredOptionRead($option)) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes this option-specific message.
 			throw $this->runtimeFailure("ConfigOps cannot safely read {$option} because WordPress filters its runtime value.");
 		}
 		$sentinel = new \stdClass();
@@ -476,6 +481,7 @@ final class PackService
 		$this->siteBoundary->assertCurrentSite();
 		$encoded = $value === $sentinel ? $this->codec->missing() : $this->codec->encode($value, $option);
 		if (! $encoded->restorable || $encoded->redacted) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes this option-specific message.
 			throw $this->runtimeFailure("ConfigOps cannot safely retain the current value of {$option} for compensation.");
 		}
 
@@ -517,12 +523,14 @@ final class PackService
 		$this->siteBoundary->assertCurrentSite();
 		if ('absent' === $setting['state']) {
 			if ($stored !== $sentinel || $exists) {
+				// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes this option-specific message.
 				throw $this->runtimeFailure("WordPress did not preserve the desired absence of {$option}.");
 			}
 
 			return;
 		}
 		if ($stored === $sentinel || ! $exists || ! $this->codec->semanticallyEqual($stored, $setting['value'])) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes this option-specific message.
 			throw $this->runtimeFailure("WordPress did not preserve the desired Pack value for {$option}.");
 		}
 	}
@@ -543,6 +551,7 @@ final class PackService
 		}
 		$restored = $this->readState($option);
 		if (! hash_equals($state['fingerprint'], $restored['fingerprint'])) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- runtimeFailure() escapes this option-specific message.
 			throw $this->runtimeFailure("ConfigOps could not restore {$option} after a failed Pack apply.");
 		}
 	}
