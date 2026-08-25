@@ -54,6 +54,7 @@ jobs:
         run: npm run test:docs
         env:
           DOCS_BASE: /docs/
+          CONFIGOPS_CHROME_PATH: /usr/bin/google-chrome
 
   public-sync:
     name: Verify Vercel-hosted documentation
