@@ -20,19 +20,14 @@ page.on('pageerror', (error) => runtimeErrors.push(error.message));
 try {
 	const loginUrl = `${baseUrl}/wp-login.php`;
 	await page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
-	const loginResponse = await page.request.post(loginUrl, {
-		form: {
-			log: 'admin',
-			pwd: 'password',
-			'wp-submit': 'Log In',
-			redirect_to: `${baseUrl}/wp-admin/network/`,
-			testcookie: '1',
-		},
-		maxRedirects: 0,
-	});
-	if (loginResponse.status() !== 302) {
-		throw new Error(`Network Admin authentication returned HTTP ${loginResponse.status()}.`);
-	}
+	await page.locator('#user_login').fill('admin');
+	await page.locator('#user_pass').fill('password');
+	await page.locator('input[name="redirect_to"]').evaluate(
+		(element, redirectTo) => { element.value = redirectTo; },
+		`${baseUrl}/wp-admin/network/`
+	);
+	await page.locator('#wp-submit').click();
+	await page.waitForURL(/\/wp-admin\/network\//);
 
 	await page.goto(`${baseUrl}/wp-admin/network/settings.php`, { waitUntil: 'networkidle' });
 	const networkName = page.locator('#site_name');
