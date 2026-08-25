@@ -24,6 +24,7 @@ Secrets must never be pasted into an issue, commit, terminal transcript, release
 4. Run the complete test and release gates. `npm run build:plugin` produces the deterministic `dist/configops-<version>.zip` archive.
 5. Push the release-candidate commit to `main` and wait for CI to pass.
 6. From GitHub Actions, run **WordPress.org release** manually with the current version. This validates the exact payload against SVN without committing it and does not need SVN credentials.
+7. In the private `configops-web` repository, prepare the immutable `configops-docs-source` dependency, shared release metadata, visible support copy, and website tests for the same verified ConfigOps commit. Do not deploy a tagged Playground URL until that tag exists.
 
 ## Publish
 
@@ -31,8 +32,10 @@ Secrets must never be pasted into an issue, commit, terminal transcript, release
 2. Create a GitHub Release from that tag and review its notes. A draft is safe; it does not deploy.
 3. Publish the release only when the `wordpress-org` environment and both secrets are ready.
 4. Approve the protected environment deployment, if configured.
-5. Verify the workflow attached both the deterministic ZIP and its SHA-256 file to the GitHub Release.
-6. WordPress.org sends a separate release-confirmation request for the new SVN tag. Confirm it in the plugin release dashboard or email link, then verify `https://wordpress.org/plugins/configops/` shows the intended stable version and assets.
-7. In the plugin's WordPress.org **Advanced** view, test the preview, then set **Live Preview** to public. Confirm the directory page exposes the Preview button and that it lands on WP Mail SMTP rather than the Plugins screen.
+5. Push the prepared `configops-web` commit. Vercel must build the website and bundled handbook from the immutable plugin commit; verify the homepage, `/docs/`, and `/docs/releases/<version>` all show the same release.
+6. Run **Validate ConfigOps documentation source** manually with **Verify public** enabled. This checks the Vercel-hosted handbook instead of publishing an unused GitHub Pages site.
+7. Verify the WordPress.org workflow attached both the deterministic ZIP and its SHA-256 file to the GitHub Release.
+8. WordPress.org sends a separate release-confirmation request for the new SVN tag. Confirm it in the plugin release dashboard or email link, then verify `https://wordpress.org/plugins/configops/` shows the intended stable version and assets.
+9. In the plugin's WordPress.org **Advanced** view, test the preview, then set **Live Preview** to public. Confirm the directory page exposes the Preview button and that it lands on WP Mail SMTP rather than the Plugins screen.
 
 The workflow rejects prereleases, tags that do not equal the plugin version, commits outside `main`, non-reproducible archives, inconsistent metadata, missing assets, and manual attempts to perform a live deployment.

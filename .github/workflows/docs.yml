@@ -1,4 +1,4 @@
-name: Publish ConfigOps documentation
+name: Validate ConfigOps documentation source
 
 on:
   push:
@@ -11,14 +11,18 @@ on:
       - "package-lock.json"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
+    inputs:
+      verify_public:
+        description: Verify that the Vercel-hosted public docs match this release
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: docs-source-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -46,30 +50,27 @@ jobs:
       - name: Reject high-impact tooling vulnerabilities
         run: npm audit --audit-level=high
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
-      - name: Build documentation
-        run: npm run docs:build
+      - name: Build and exercise every documentation route
+        run: npm run test:docs
         env:
           DOCS_BASE: /docs/
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/.vitepress/dist
-
-  deploy:
-    name: Deploy GitHub Pages
-    environment:
-      name: github-pages
-      url: https://configops.pyrra.net/docs/
+  public-sync:
+    name: Verify Vercel-hosted documentation
+    if: ${{ inputs.verify_public }}
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
-      - name: Deploy documentation
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Verify public version and release page
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          docs_html="$(curl --fail --silent --show-error --retry 3 https://configops.pyrra.net/docs/)"
+          release_html="$(curl --fail --silent --show-error --retry 3 "https://configops.pyrra.net/docs/releases/$version")"
+          grep -Fq "Documentation · $version" <<<"$docs_html"
+          grep -Fq "ConfigOps $version" <<<"$release_html"

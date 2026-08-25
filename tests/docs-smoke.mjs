@@ -20,6 +20,7 @@ const routes = [
 	'/guide/first-capture',
 	'/guide/read-change',
 	'/guide/undo-safely',
+	'/guide/automation',
 	'/security/secrets-privacy',
 	'/security/failure-model',
 	'/reference/support',
