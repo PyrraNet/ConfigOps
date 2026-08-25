@@ -470,6 +470,7 @@ try {
 	await packWorkbench.getByText('Configuration Packs', { exact: true }).waitFor();
 	await packWorkbench.getByRole('button', { name: 'Save session as Pack' }).click();
 	await packWorkbench.getByRole('heading', { name: 'Save this Change Session as a Pack' }).waitFor();
+	await packWorkbench.getByRole('button', { name: 'Download .configops.json' }).waitFor();
 	const exportRows = packWorkbench.locator('.configops-pack-setting-list > li');
 	for (let rowIndex = 0; rowIndex < await exportRows.count(); rowIndex += 1) {
 		const row = exportRows.nth(rowIndex);
