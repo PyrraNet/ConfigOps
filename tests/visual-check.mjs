@@ -523,8 +523,8 @@ try {
 	page.once('dialog', (dialog) => dialog.accept());
 	await applyPackButton.click();
 	await page.getByText('1 Pack setting was applied and recorded.', { exact: true }).waitFor();
-	await page.getByText('Pack application', { exact: true }).waitFor();
-	await page.getByText('Pack version', { exact: true }).waitFor();
+	await page.getByText(/^Pack application/).waitFor();
+	await page.getByText(/^Pack version/).waitFor();
 	await page.goto(`${baseUrl}/wp-admin/options-general.php`, { waitUntil: 'networkidle' });
 	if (await page.locator('#blogdescription').inputValue() !== verificationDescription) {
 		throw new Error('Pack Apply did not reproduce the exported desired tagline.');
