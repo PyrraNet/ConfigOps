@@ -1,23 +1,25 @@
 ---
 title: Known limits
-description: Capabilities ConfigOps 0.6.0 deliberately does not claim.
+description: Capabilities ConfigOps 0.7.0 deliberately does not claim.
 ---
 
 # Known limits
 
-Version 0.6.0 is deliberately narrower than a configuration-management platform.
+Version 0.7.0 begins a local configuration-management workflow while keeping its transport and execution boundary deliberately narrow.
 
 ## Not shipped
 
 - whole-network-change undo, network option deletion undo, authority or plugin-lifecycle restoration, and derived network-counter undo;
 - cross-site aggregation, cross-site bulk actions, or continuing one site capture across `switch_to_blog()` transitions;
-- remote apply, cross-site synchronization, or fleet control;
+- remote apply, cross-site synchronization, or fleet control; Pack files are imported by an operator on one destination at a time;
 - generic rollback for plugin custom tables or direct SQL;
 - content, media-file, theme-file, or filesystem deployment;
 - database snapshots or transactional rollback;
 - reversal of email, webhooks, API calls, cache purges, or other external side effects;
 - generic semantic understanding for every WordPress plugin;
-- cloud storage, team accounts, approvals, drift monitoring, Policies, or Release Packs.
+- cloud storage, team accounts, approvals, public Pack discovery/signing, variable substitution, Pack stacking, drift monitoring, or Policies.
+
+Private Configuration Packs are shipped. They transport only safe, complete, adapter-backed site option desired states and deliberately exclude old values, autoload metadata, protected or partial options, Network Options, and custom tables. A portability warning does not transform a URL, path, email, environment value, or local reference. See [Configuration Packs](/guide/configuration-packs).
 
 ConfigOps pins site observations to their originating WordPress site. If unsupported cross-site code calls `switch_to_blog()` and then writes configuration, ConfigOps ignores that value instead of attaching it to the wrong site's history. Any already-running site capture is marked incomplete and cannot use whole-change undo. Supported Network Options API changes use a separate network scope and never join a site's capture. Named Network Change Sessions group network-owned evidence only and deliberately do not enable whole-session undo.
 

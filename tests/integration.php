@@ -56,6 +56,9 @@ $sessionTable = $wpdb->prefix . 'configops_capture_sessions';
 $sessionColumns = $wpdb->get_col("SHOW COLUMNS FROM `{$sessionTable}`", 0);
 $assert(
 	in_array('capture_mode', $sessionColumns, true)
+	&& in_array('origin_type', $sessionColumns, true)
+	&& in_array('origin_id', $sessionColumns, true)
+	&& in_array('origin_version', $sessionColumns, true)
 	&& in_array('network_id', $sessionColumns, true)
 	&& in_array('blog_id', $sessionColumns, true)
 	&& in_array('capture_error_count', $sessionColumns, true)
@@ -82,10 +85,10 @@ update_option('configops_schema_version', 10, false);
 $mutationColumns = $wpdb->get_col("SHOW COLUMNS FROM `{$mutationTable}`", 0);
 $signalColumns = $wpdb->get_col("SHOW COLUMNS FROM `{$signalTable}`", 0);
 $assert(
-	11 === (int) get_option('configops_schema_version')
+	12 === (int) get_option('configops_schema_version')
 	&& in_array('source_basis', $mutationColumns, true)
 	&& in_array('source_basis', $signalColumns, true),
-	'A version 10 installation should add both source-basis columns before committing schema 11.'
+	'A version 10 installation should add provenance and Pack-origin columns before committing schema 12.'
 );
 $restoreRunTable = $wpdb->prefix . 'configops_restore_runs';
 $restoreRunColumns = $wpdb->get_col("SHOW COLUMNS FROM `{$restoreRunTable}`", 0);
@@ -97,7 +100,7 @@ $assert(
 );
 update_option('configops_schema_version', 8, false);
 (new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
-$assert(11 === (int) get_option('configops_schema_version'), 'A stale schema version should upgrade idempotently under the schema lock.');
+$assert(12 === (int) get_option('configops_schema_version'), 'A stale schema version should upgrade idempotently under the schema lock.');
 
 update_option('configops_schema_version', 8, false);
 $hideSchemaTables = static function (string $query): string {
@@ -114,7 +117,7 @@ remove_filter('query', $hideSchemaTables, PHP_INT_MIN);
 $assert($schemaFailureRejected, 'Schema verification should reject a storage layer that cannot prove its tables exist.');
 $assert(8 === (int) get_option('configops_schema_version'), 'A failed schema verification must never advance the committed schema version.');
 (new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
-$assert(11 === (int) get_option('configops_schema_version'), 'A schema upgrade should recover after the injected storage failure clears.');
+$assert(12 === (int) get_option('configops_schema_version'), 'A schema upgrade should recover after the injected storage failure clears.');
 
 $sharedStorageLock = new \ConfigOps\Database\SharedStorageLock($wpdb);
 $nestedSharedLockRejected = false;
@@ -2284,6 +2287,125 @@ $assert(
 $defaultStopResponse = $restServer->dispatch(new WP_REST_Request('POST', '/configops/v1/captures/active/stop'));
 $assert(200 === $defaultStopResponse->get_status(), 'A default-named capture should stop through the shared command service.');
 
+$packOptionOriginal = get_option('blogdescription');
+$packDesiredValue = 'Portable ConfigOps state ' . wp_generate_password(12, false);
+$packDestinationBaseline = 'Destination baseline ' . wp_generate_password(12, false);
+$packSourceStart = new WP_REST_Request('POST', '/configops/v1/captures');
+$packSourceStart->set_body_params(array('name' => 'Pack source contract'));
+$packSourceStartResponse = $restServer->dispatch($packSourceStart);
+$packSourceStartData = $packSourceStartResponse->get_data();
+$packSourceSessionId = (int) ($packSourceStartData['active']['id'] ?? 0);
+$assert(
+	200 === $packSourceStartResponse->get_status() && $packSourceSessionId > 0,
+	'A Pack source should begin as an ordinary named Change Session.'
+);
+update_option('blogdescription', $packDesiredValue, false);
+$packSourceStopResponse = $restServer->dispatch(new WP_REST_Request('POST', '/configops/v1/captures/active/stop'));
+$assert(200 === $packSourceStopResponse->get_status(), 'The Pack source session should complete before export.');
+
+$packDraftRequest = new WP_REST_Request('GET', "/configops/v1/captures/{$packSourceSessionId}/pack-draft");
+$packDraftRequest->set_param('id', $packSourceSessionId);
+$packDraftResponse = $restServer->dispatch($packDraftRequest);
+$packDraftData = $packDraftResponse->get_data();
+$packDraftItem = is_array($packDraftData)
+	? current(array_filter($packDraftData['items'] ?? array(), static fn (array $item): bool => 'blogdescription' === ($item['option'] ?? '')))
+	: false;
+$assert(
+	200 === $packDraftResponse->get_status()
+	&& is_array($packDraftItem)
+	&& true === ($packDraftItem['eligible'] ?? false)
+	&& 'present' === ($packDraftItem['state'] ?? ''),
+	'A completed Core setting should become an explicitly selectable, declarative Pack candidate.'
+);
+
+$packExportRequest = new WP_REST_Request('POST', "/configops/v1/captures/{$packSourceSessionId}/pack");
+$packExportRequest->set_param('id', $packSourceSessionId);
+$packExportRequest->set_body_params(
+	array(
+		'name'         => 'Integration Agency Base',
+		'description'  => 'Portable integration contract.',
+		'pack_version' => '1.0.0',
+		'selected'     => array((string) $packDraftItem['key']),
+	)
+);
+$packExportResponse = $restServer->dispatch($packExportRequest);
+$packExportData = $packExportResponse->get_data();
+$packJson = is_array($packExportData) ? (string) ($packExportData['json'] ?? '') : '';
+$pack = '' === $packJson ? null : json_decode($packJson, true, 64, JSON_THROW_ON_ERROR);
+$assert(
+	200 === $packExportResponse->get_status()
+	&& is_array($pack)
+	&& 'configops-pack' === ($pack['format'] ?? '')
+	&& 1 === ($pack['schema_version'] ?? 0)
+	&& 'wordpress-core' === ($pack['settings'][0]['adapter']['id'] ?? '')
+	&& ! str_contains((string) $packJson, 'old_value')
+	&& ! str_contains((string) $packJson, 'wp_options')
+	&& str_contains((string) $packJson, '"plugins": {}'),
+	'A Pack export must describe only the desired adapter-owned state, never a database snapshot or old value.'
+);
+
+update_option('blogdescription', $packDestinationBaseline, false);
+$packPreviewRequest = new WP_REST_Request('POST', '/configops/v1/packs/preview');
+$packPreviewRequest->set_body_params(array('pack' => $pack));
+$packPreviewResponse = $restServer->dispatch($packPreviewRequest);
+$packPreview = $packPreviewResponse->get_data();
+$packPlanToken = is_array($packPreview) ? (string) ($packPreview['planToken'] ?? '') : '';
+$assert(
+	200 === $packPreviewResponse->get_status()
+	&& true === ($packPreview['canApply'] ?? false)
+	&& 1 === ($packPreview['counts']['willChange'] ?? 0)
+	&& 'present' === ($packPreview['items'][0]['beforeState'] ?? '')
+	&& 'present' === ($packPreview['items'][0]['afterState'] ?? '')
+	&& 48 === strlen($packPlanToken)
+	&& $packDestinationBaseline === get_option('blogdescription'),
+	'Apply Preview must remain read-only while exposing the complete current-to-desired Pack diff.'
+);
+
+$packApplyRequest = new WP_REST_Request('POST', '/configops/v1/packs/apply');
+$packApplyRequest->set_body_params(array('pack' => $pack, 'plan_token' => $packPlanToken));
+$packApplyResponse = $restServer->dispatch($packApplyRequest);
+$packApply = $packApplyResponse->get_data();
+$packApplySessionId = is_array($packApply) ? (int) ($packApply['packApply']['sessionId'] ?? 0) : 0;
+$packApplySession = $freshCaptures->find($packApplySessionId);
+$assert(
+	200 === $packApplyResponse->get_status()
+	&& $packApplySessionId > 0
+	&& $packDesiredValue === get_option('blogdescription')
+	&& is_object($packApplySession)
+	&& 'pack' === (string) $packApplySession->capture_mode
+	&& 'pack' === (string) $packApplySession->origin_type
+	&& (string) $pack['id'] === (string) $packApplySession->origin_id
+	&& '1.0.0' === (string) $packApplySession->origin_version,
+	'Applying a Pack should create a normal completed History session with durable Pack provenance.'
+);
+$restore->restoreSession($packApplySessionId);
+$assert(
+	$packDestinationBaseline === get_option('blogdescription'),
+	'Undo Pack must use the ordinary whole-session conflict checks and restore the destination baseline.'
+);
+
+$stalePackPreviewRequest = new WP_REST_Request('POST', '/configops/v1/packs/preview');
+$stalePackPreviewRequest->set_body_params(array('pack' => $pack));
+$stalePackPreviewResponse = $restServer->dispatch($stalePackPreviewRequest);
+$stalePackPreview = $stalePackPreviewResponse->get_data();
+$packDriftValue = 'Drift after preview ' . wp_generate_password(12, false);
+update_option('blogdescription', $packDriftValue, false);
+$stalePackApplyRequest = new WP_REST_Request('POST', '/configops/v1/packs/apply');
+$stalePackApplyRequest->set_body_params(
+	array(
+		'pack'       => $pack,
+		'plan_token' => is_array($stalePackPreview) ? (string) ($stalePackPreview['planToken'] ?? '') : '',
+	)
+);
+$stalePackApplyResponse = $restServer->dispatch($stalePackApplyRequest);
+$assert(
+	409 === $stalePackApplyResponse->get_status()
+	&& 'configops_operation_failed' === ($stalePackApplyResponse->get_data()['code'] ?? '')
+	&& $packDriftValue === get_option('blogdescription'),
+	'A Pack Apply must fail before its first write when the destination drifts after preview.'
+);
+update_option('blogdescription', $packOptionOriginal, false);
+
 $abilityNames = array(
 	'configops/get-state',
 	'configops/list-captures',
@@ -2441,6 +2563,19 @@ $assert(
 	&& 'rest_forbidden' === ($viewerStartResponse->get_data()['code'] ?? ''),
 	'Read-only operators must not start captures through the Agent API.'
 );
+$viewerPackPreviewRequest = new WP_REST_Request('POST', '/configops/v1/packs/preview');
+$viewerPackPreviewRequest->set_body_params(array('pack' => $pack));
+$viewerPackPreviewResponse = $restServer->dispatch($viewerPackPreviewRequest);
+$viewerPackApplyRequest = new WP_REST_Request('POST', '/configops/v1/packs/apply');
+$viewerPackApplyRequest->set_body_params(array('pack' => $pack, 'plan_token' => str_repeat('0', 48)));
+$viewerPackApplyResponse = $restServer->dispatch($viewerPackApplyRequest);
+$assert(
+	$viewerPackPreviewResponse->get_status() >= 400
+	&& 'rest_forbidden' === ($viewerPackPreviewResponse->get_data()['code'] ?? '')
+	&& $viewerPackApplyResponse->get_status() >= 400
+	&& 'rest_forbidden' === ($viewerPackApplyResponse->get_data()['code'] ?? ''),
+	'Read-only operators must not preview or apply private configuration values through Pack endpoints.'
+);
 $viewerRestoreRequest = new WP_REST_Request('POST', "/configops/v1/mutations/{$firstBulkMutationId}/restore");
 $viewerRestoreRequest->set_param('id', $firstBulkMutationId);
 $viewerRestoreResponse = $restServer->dispatch($viewerRestoreRequest);
@@ -2574,12 +2709,14 @@ $assert(
 );
 
 set_transient('configops_flash_uninstall_fixture', array('code' => 'fixture'), MINUTE_IN_SECONDS);
+set_transient('configops_pack_plan_uninstall_fixture', array('baselines' => array()), MINUTE_IN_SECONDS);
 add_option('configops_operation_lock_uninstall_fixture', array('token' => 'fixture', 'expires_at' => time() + 60), '', false);
 update_option(\ConfigOps\Experiment\ExperimentalFeatures::GENERIC_ARRAY_UNDO_OPTION, 1, false);
 \ConfigOps\Uninstall::run();
 $assert(false === wp_next_scheduled(\ConfigOps\Maintenance\HistoryRetention::HOOK), 'Uninstall must remove the scheduled retention event.');
 $assert(false === get_option('configops_schema_version', false), 'Uninstall must remove ConfigOps installation options.');
 $assert(false === get_transient('configops_flash_uninstall_fixture'), 'Uninstall must remove per-user ConfigOps flash transients.');
+$assert(false === get_transient('configops_pack_plan_uninstall_fixture'), 'Uninstall must remove outstanding one-use Pack plans.');
 $assert(false === get_option('configops_operation_lock_uninstall_fixture', false), 'Uninstall must remove outstanding ConfigOps operation locks.');
 $assert(
 	false === get_option(\ConfigOps\Experiment\ExperimentalFeatures::GENERIC_ARRAY_UNDO_OPTION, false),

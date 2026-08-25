@@ -1,14 +1,14 @@
-=== ConfigOps – Agent-Ready Settings Undo ===
+=== ConfigOps – WordPress Configuration Management ===
 Contributors: pyrra
-Tags: settings, rollback, wp-cli, automation, ai
+Tags: settings, configuration, rollback, wp-cli, automation
 Requires at least: 7.0
 Tested up to: 7.1
 Requires PHP: 8.2
-Stable tag: 0.6.0
+Stable tag: 0.7.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Record WordPress settings writes, inspect redacted diffs, and undo values that still match. Agents can plan and explicitly authorize one guarded undo.
+Capture, reproduce, and safely undo WordPress configuration with redacted evidence and private portable Packs.
 
 == Description ==
 
@@ -28,7 +28,11 @@ Change a supported WordPress or plugin setting as usual. ConfigOps automatically
 
 A compact evidence card states how many values WordPress wrote, separates likely decisions from housekeeping, and links to the stored diff. Whole-save Undo appears only when every recorded value is restorable and still passes the conflict check.
 
-Version 0.5 adds opt-in verified key undo for ordinary associative plugin settings even when ConfigOps has no dedicated adapter. It restores only snapshot-verified keys that still match and preserves unrelated later changes.
+Version 0.7 adds private Configuration Packs. Save a completed Change Session as a declarative `.configops.json` desired state, remove individual settings, import it on another website, inspect the complete Apply Preview, and apply it as an ordinary undoable History session.
+
+Packs are not database snapshots. They contain no old values, autoload flags, table names, SQL, or executable code. Complete options containing protected data are excluded before export. Import rechecks the destination's WordPress and plugin versions, adapter ownership, local references, protected values, current baselines, and site scope before writing. URLs, absolute paths, email addresses, and environment-specific values are warned instead of silently rewritten.
+
+Private Packs remain deliberately local files. Version 0.7 includes no cloud, marketplace, account, synchronization, variable substitution, or drift engine.
 
 One action. The hidden writes behind it. A clear diff. A conflict-checked undo.
 
@@ -50,6 +54,10 @@ ConfigOps is not plugin-version rollback. It works with configuration values, no
 * Plain-language nested diffs that turn option arrays into recognizable settings.
 * An immediate link to the recorded diff and whole-save Undo only when every value passes the restore policy.
 * Named Change Sessions for planned maintenance, support cases, and investigations that span several requests.
+* Private declarative Configuration Packs exported from completed Change Sessions.
+* Complete Apply Preview with requirements, matching state, changes, skips, conflicts, and portability warnings.
+* One-use, expiring Apply plans with destination drift checks before the first write.
+* Pack application recorded in History with Pack ID/version provenance and ordinary whole-session Undo.
 * Provenance for the user, request, component, code path, capture-time plugin version, and direct-versus-registered source basis where ConfigOps can determine it.
 * Secret redaction before mutation history is stored.
 * Conflict checks before every restore.
@@ -85,13 +93,13 @@ The **Support contracts** screen lists each tested plugin version, mapped settin
 
 Plugins without a dedicated adapter still retain their source slug and, when WordPress can resolve the owning plugin file, the version observed when the setting was saved. When WordPress Core performs the final write for an option that a plugin registered through the Settings API, the review says **Setting registered by** instead of pretending that the plugin directly called the Options API. Their nested leaf keys receive readable labels, but ConfigOps explicitly marks the plugin meaning as unmapped instead of inventing semantics.
 
-= Multisite in version 0.5 =
+= Multisite in version 0.7 =
 
 On a network-active installation, each site keeps its own isolated evidence lifecycle. On Multi-Network installations, ConfigOps derives the network from the actual site record after every internal context switch, refuses lifecycle work that crosses networks, and excludes foreign Network Options writes from the current network ledger. An affected open capture is marked incomplete instead of silently appearing trustworthy. Network Admin receives a separate network-wide ledger for supported Network Options API changes, with guarded mutation-level undo for complete additions and updates.
 
 Network option deletes remain review-only because WordPress reports them after the previous value is gone. Named Network Change Sessions can group network-owned evidence, but whole-network-change undo, cross-site aggregation, and bulk operations are not available.
 
-Version 0.6 is a local single-site and Multisite undo and evidence layer for supported WordPress settings. It is not a staging plugin, backup, content migration, database synchronization, fleet manager, or generic activity log.
+Version 0.7 is a local single-site and Multisite evidence layer plus private, site-scoped Configuration Packs for supported WordPress settings. Packs are not available for the Network Options ledger. ConfigOps is not a staging service, backup, content migration, database synchronization, fleet manager, or generic activity log.
 
 == Installation ==
 
@@ -121,7 +129,13 @@ WP-CLI's optional --user parameter is not required for observation. A shell-auth
 
 = Does ConfigOps support WordPress Multisite? =
 
-Yes. Version 0.6 supports network activation, isolated per-site evidence, lifecycle and retention across sites, Multi-Network ownership boundaries, and a separate Network Admin ledger for supported Network Options changes. Named Network Change Sessions can group a planned task, and complete network additions and updates can be undone one mutation at a time. Network deletes, whole-network-change undo, cross-site aggregation, and bulk actions are not supported.
+Yes. Version 0.7 supports network activation, isolated per-site evidence, lifecycle and retention across sites, Multi-Network ownership boundaries, and a separate Network Admin ledger for supported Network Options changes. Named Network Change Sessions can group a planned task, and complete network additions and updates can be undone one mutation at a time. Packs remain site-scoped; Network Packs, network deletes, whole-network-change undo, cross-site aggregation, and bulk actions are not supported.
+
+= What is inside a Configuration Pack? =
+
+A Pack is strict JSON containing a format and schema version, stable Pack identity and version, a name and description, WordPress/plugin requirements, and a list of desired option states pinned to adapter schemas. It contains no before-state, database metadata, SQL, PHP, callbacks, or executable templates. Reserved variable and extension objects must remain empty in schema version 1.
+
+Export is conservative: only complete, restorable, non-secret options owned by a currently available tested adapter are selectable. Import repeats those checks against the destination. A warning is not an automatic rewrite; remove a questionable setting from the preview or configure that value explicitly after Apply.
 
 = Can automation tools operate ConfigOps? =
 
@@ -167,6 +181,10 @@ Email felix@pyrra.net. Do not post credentials, configuration values, database e
 
 == Upgrade Notice ==
 
+= 0.7.0 =
+
+Adds private declarative Configuration Packs with complete Apply Preview, protected-value exclusion, conflict-checked Apply, History provenance, and ordinary Undo.
+
 = 0.6.0 =
 
 Adds WooCommerce support, precise adapterless provenance, and capability-gated single-mutation agent undo behind an explicit danger acknowledgement.
@@ -188,6 +206,15 @@ Verified key undo beyond dedicated adapters is available as an opt-in site setti
 5. Enable verified key undo for ordinary plugin settings arrays without a dedicated adapter and review the exact structures it refuses.
 
 == Changelog ==
+
+= 0.7.0 =
+
+* Saves safe, complete, adapter-backed settings from a completed Change Session as a private `.configops.json` desired state.
+* Excludes complete options containing protected data and warns about source URLs, absolute paths, email addresses, environment values, and local references.
+* Previews WordPress/plugin requirements and every destination diff before writing; one-use plans are invalidated by destination drift.
+* Applies under the ordinary site safety boundary with per-write verification and compensation, then records Pack identity/version in History.
+* Makes Pack applications undoable through the existing whole-session conflict checks.
+* Reserves variables and extensions for a future schema while keeping both non-executable and empty in version 1; no cloud, marketplace, accounts, or sync are included.
 
 = 0.6.0 =
 

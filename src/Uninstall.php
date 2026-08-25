@@ -112,8 +112,8 @@ final class Uninstall
 		$prefixes = array(
 			'configops_operation_lock_',
 			'configops_pending_evidence_',
-			'_transient_configops_flash_',
-			'_transient_timeout_configops_flash_',
+			'_transient_configops_',
+			'_transient_timeout_configops_',
 		);
 		$quotedOptions  = '`' . str_replace('`', '``', $database->options) . '`';
 		$dynamicOptions = $database->get_col(
@@ -135,11 +135,11 @@ final class Uninstall
 		);
 		foreach (is_array($dynamicOptions) ? $dynamicOptions : array() as $option) {
 			$option = (string) $option;
-			if (str_starts_with($option, '_transient_configops_flash_')) {
+			if (str_starts_with($option, '_transient_configops_')) {
 				delete_transient(substr($option, strlen('_transient_')));
 				continue;
 			}
-			if (str_starts_with($option, '_transient_timeout_configops_flash_')) {
+			if (str_starts_with($option, '_transient_timeout_configops_')) {
 				delete_transient(substr($option, strlen('_transient_timeout_')));
 				continue;
 			}

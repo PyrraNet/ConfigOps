@@ -75,6 +75,7 @@ export default function Sessions() {
 									<span className="configops-session-head">
 										<span className="configops-session-name">
 											{session.mode === 'automatic' && <small>{__('AUTO', 'configops')}</small>}
+											{session.mode === 'pack' && <small>{__('PACK', 'configops')}</small>}
 											{session.name}
 										</span>
 										<time dateTime={session.startedAt}>{sprintf(__('%s ago', 'configops'), session.startedAtLabel)}</time>

@@ -98,7 +98,7 @@ final class WpMailSmtpAdapter extends AbstractOptionAdapter implements ChangeAwa
 				array('id' => 'secrets', 'label' => 'Redact credentials', 'level' => 'full', 'note' => 'Passwords, API keys, OAuth secrets, access-key IDs, signed account links, and license keys are removed before storage.'),
 				array('id' => 'noise', 'label' => 'Classify runtime values', 'level' => 'full', 'note' => 'Version, activation, debug, migration, counters, notices, scheduler, and provider-usage state are separated.'),
 				array('id' => 'restore', 'label' => 'Conflict-checked undo', 'level' => 'partial', 'note' => 'Supported non-secret fields use conflict checks and can be undone without reading or replacing a stored credential.'),
-				array('id' => 'apply', 'label' => 'Cross-site apply', 'level' => 'planned', 'note' => 'Cross-site apply is not implemented; credentials and per-site mail endpoints need a separate transport contract.'),
+				array('id' => 'apply', 'label' => 'Cross-site apply', 'level' => 'partial', 'note' => 'Configuration Packs apply only complete non-secret options. Credentials are excluded and environment-specific mail values are warned before Apply.'),
 			),
 			array(
 				'Sender identity, delivery method, SMTP, and every bundled Lite mailer',

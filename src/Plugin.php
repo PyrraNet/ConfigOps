@@ -55,6 +55,10 @@ use ConfigOps\Multisite\SiteBoundaryGuard;
 use ConfigOps\Multisite\SiteLifecycle;
 use ConfigOps\Multisite\SiteScope;
 use ConfigOps\Noise\NoiseClassifier;
+use ConfigOps\Pack\PackExporter;
+use ConfigOps\Pack\PackPortabilityInspector;
+use ConfigOps\Pack\PackService;
+use ConfigOps\Pack\PackValidator;
 use ConfigOps\Privacy\PrivacyPolicy;
 use ConfigOps\Restore\NetworkRestorePolicy;
 use ConfigOps\Restore\NetworkRestoreService;
@@ -144,6 +148,29 @@ final class Plugin
 			$genericArrayUndo
 		);
 		$commands  = new CaptureCommands($captures, $restore, $automatic, $siteBoundary);
+		$packValidator = new PackValidator();
+		$packPortability = new PackPortabilityInspector();
+		$packExporter = new PackExporter(
+			$captures,
+			$mutations,
+			$codec,
+			$adapters,
+			$packPortability,
+			$packValidator
+		);
+		$packs = new PackService(
+			$packValidator,
+			$adapters,
+			$codec,
+			new NestedDiff(),
+			$packPortability,
+			new InternalOptionPolicy(),
+			$captures,
+			$metadata,
+			$operationLock,
+			$siteBoundary,
+			$automatic
+		);
 		$presenter = new ReviewPresenter($adapters);
 		$payloads  = new AdminPayloadFactory(
 			$captures,
@@ -173,7 +200,9 @@ final class Plugin
 			$payloads,
 			$evidenceNotices,
 			$siteBoundary,
-			$experimentalFeatures
+			$experimentalFeatures,
+			$packExporter,
+			$packs
 		))->register();
 		(new AdminController($captures, $commands, new FlashNoticeStore(), $payloads, $siteBoundary))->register();
 

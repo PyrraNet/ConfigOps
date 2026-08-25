@@ -88,6 +88,12 @@ $configopsSiteUrl = get_admin_url(get_current_blog_id(), 'admin.php?page=configo
 		</div>
 		<?php endif; ?>
 
+		<?php if (true === ($bootstrap['capabilities']['packs'] ?? false)) : ?>
+		<section id="configops-packs-island" class="configops-packs-island configops-island" aria-live="polite" aria-busy="true">
+			<div class="configops-island-placeholder configops-island-placeholder--controls"><span></span><span></span></div>
+		</section>
+		<?php endif; ?>
+
 		<div class="configops-workspace">
 			<aside id="configops-sessions-island" class="configops-session-rail configops-island" aria-label="<?php esc_attr_e('Recorded changes', 'configops'); ?>" aria-busy="true">
 				<div class="configops-island-placeholder configops-island-placeholder--sessions">

@@ -6,7 +6,7 @@ const root = 'assets/ui';
 const limits = {
 	runtime: 3 * 1024,
 	total: 24 * 1024,
-	styles: 8 * 1024,
+	styles: 10 * 1024,
 	wordmark: 16 * 1024,
 };
 

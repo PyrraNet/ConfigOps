@@ -1,4 +1,4 @@
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { chromium } from 'playwright-core';
 
 const baseUrl = process.env.CONFIGOPS_TEST_URL || 'http://127.0.0.1:9400';
@@ -70,7 +70,7 @@ try {
 		const diagnostic = await page.locator('body').innerText().catch(() => 'Body unavailable.');
 		throw new Error(`The authenticated ConfigOps review did not become ready at ${page.url()}: ${diagnostic.slice(0, 500)}`);
 	}
-	for (const removedCopy of ['See what WordPress changed.', 'Capture / Technical spike', 'Configuration control', 'Packs', 'Policies', 'Drift']) {
+	for (const removedCopy of ['See what WordPress changed.', 'Capture / Technical spike', 'Configuration control', 'Policies', 'Drift']) {
 		if (await page.getByText(removedCopy, { exact: true }).count()) {
 			throw new Error(`Operational screen still contains removed marketing or future-product copy: ${removedCopy}.`);
 		}
@@ -465,6 +465,72 @@ try {
 	await page.unroute('**/*', injectIncompleteCapture);
 
 	await page.setViewportSize({ width: 1440, height: 1100 });
+	await page.reload({ waitUntil: 'networkidle' });
+	const packWorkbench = page.locator('#configops-packs-island');
+	await packWorkbench.getByText('Configuration Packs', { exact: true }).waitFor();
+	await packWorkbench.getByRole('button', { name: 'Save session as Pack' }).click();
+	await packWorkbench.getByRole('heading', { name: 'Save this Change Session as a Pack' }).waitFor();
+	await page.screenshot({ path: new URL('configops-pack-export-desktop.png', artifacts).pathname, fullPage: true });
+	await page.setViewportSize({ width: 390, height: 844 });
+	await assertNoHorizontalOverflow('Pack export');
+	await page.screenshot({ path: new URL('configops-pack-export-mobile.png', artifacts).pathname, fullPage: true });
+	await page.setViewportSize({ width: 1440, height: 1100 });
+	const packDownloadPromise = page.waitForEvent('download');
+	await packWorkbench.getByRole('button', { name: 'Download .configops.json' }).click();
+	const packDownload = await packDownloadPromise;
+	const packPath = await packDownload.path();
+	if (!packPath || !packDownload.suggestedFilename().endsWith('.configops.json')) {
+		throw new Error(`Pack export did not produce a portable ConfigOps filename: ${packDownload.suggestedFilename()}.`);
+	}
+	const exportedPack = JSON.parse(await readFile(packPath, 'utf8'));
+	const serializedPack = JSON.stringify(exportedPack);
+	if (
+		exportedPack.format !== 'configops-pack'
+		|| exportedPack.schema_version !== 1
+		|| exportedPack.settings?.[0]?.option !== 'blogdescription'
+		|| serializedPack.includes('old_value')
+		|| serializedPack.includes('wp_options')
+	) {
+		throw new Error(`Pack export violated the declarative schema: ${serializedPack.slice(0, 600)}.`);
+	}
+
+	await page.goto(`${baseUrl}/wp-admin/options-general.php`, { waitUntil: 'networkidle' });
+	await page.locator('#blogdescription').fill(previousDescription);
+	await page.locator('#submit').click();
+	await page.waitForLoadState('networkidle');
+	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops`, { waitUntil: 'networkidle' });
+	await page.locator('#configops-packs-island').getByRole('button', { name: 'Import Pack' }).click();
+	await page.locator('#configops-packs-island input[type="file"]').setInputFiles(packPath);
+	await page.getByRole('heading', { name: 'Preview every Pack setting before Apply' }).waitFor();
+	await page.locator('.configops-pack-counts').getByText('1', { exact: true }).first().waitFor();
+	await page.screenshot({ path: new URL('configops-pack-preview-desktop.png', artifacts).pathname, fullPage: true });
+	await page.setViewportSize({ width: 390, height: 844 });
+	await assertNoHorizontalOverflow('Pack Apply Preview');
+	await page.screenshot({ path: new URL('configops-pack-preview-mobile.png', artifacts).pathname, fullPage: true });
+	await page.setViewportSize({ width: 1440, height: 1100 });
+	const applyPackButton = page.getByRole('button', { name: 'Apply Pack' });
+	if (await applyPackButton.isDisabled()) {
+		throw new Error('A compatible, changed WordPress Core setting did not produce an applicable Pack plan.');
+	}
+	page.once('dialog', (dialog) => dialog.accept());
+	await applyPackButton.click();
+	await page.getByText('1 Pack setting was applied and recorded.', { exact: true }).waitFor();
+	await page.getByText('Pack application', { exact: true }).waitFor();
+	await page.getByText('Pack version', { exact: true }).waitFor();
+	await page.goto(`${baseUrl}/wp-admin/options-general.php`, { waitUntil: 'networkidle' });
+	if (await page.locator('#blogdescription').inputValue() !== verificationDescription) {
+		throw new Error('Pack Apply did not reproduce the exported desired tagline.');
+	}
+	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops`, { waitUntil: 'networkidle' });
+	page.once('dialog', (dialog) => dialog.accept());
+	await page.getByRole('button', { name: 'Undo capture' }).click();
+	await page.getByText('1 option was restored.', { exact: true }).waitFor();
+	await page.goto(`${baseUrl}/wp-admin/options-general.php`, { waitUntil: 'networkidle' });
+	if (await page.locator('#blogdescription').inputValue() !== previousDescription) {
+		throw new Error('Undoing the Pack Change Session did not restore the pre-Apply tagline.');
+	}
+
+	await page.setViewportSize({ width: 1440, height: 1100 });
 	await page.goto(`${baseUrl}/wp-admin/admin.php?page=configops&view=support`, { waitUntil: 'networkidle' });
 	await page.getByRole('heading', { name: 'Support contracts', exact: true }).waitFor();
 	if (await page.locator('.configops-support-row').count() !== 4) {
@@ -520,8 +586,8 @@ try {
 	);
 	const firstSupport = page.locator('.configops-support-row').first();
 	await firstSupport.locator('summary').click();
-	if (await firstSupport.locator('.configops-support-capability').count() !== 5) {
-		throw new Error('The expanded plugin row does not disclose all five current capabilities.');
+	if (await firstSupport.locator('.configops-support-capability').count() !== 6) {
+		throw new Error('The expanded plugin row does not disclose all six current capabilities.');
 	}
 	if (await page.getByText('Know what ConfigOps understands.', { exact: true }).count()) {
 		throw new Error('The removed support marketing copy is still rendered.');

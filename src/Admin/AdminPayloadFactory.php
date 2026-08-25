@@ -141,6 +141,8 @@ final class AdminPayloadFactory
 				'capture'         => current_user_can('configops_capture'),
 				'rollback'        => current_user_can('configops_rollback'),
 				'sessionRollback' => current_user_can('configops_rollback'),
+				'packs'           => current_user_can('configops_plan'),
+				'applyPacks'      => current_user_can('configops_apply'),
 			),
 			'notice'       => array(
 				'code' => sanitize_key($noticeCode),
@@ -420,6 +422,11 @@ final class AdminPayloadFactory
 			'id'               => (int) $session->id,
 			'name'             => (string) $session->name,
 			'mode'             => (string) ($session->capture_mode ?? 'manual'),
+			'origin'           => array(
+				'type'    => (string) ($session->origin_type ?? 'capture'),
+				'id'      => (string) ($session->origin_id ?? ''),
+				'version' => (string) ($session->origin_version ?? ''),
+			),
 			'status'           => (string) $session->status,
 			'mutationCount'    => $mutationCount,
 			'reviewChangeCount' => $reviewChangeCount,

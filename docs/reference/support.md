@@ -1,11 +1,11 @@
 ---
 title: Support contracts
-description: Exact WordPress, PHP, database, Multisite, adapter, and verified key undo support for ConfigOps 0.6.0.
+description: Exact runtime, Multisite, adapter, Configuration Pack, and undo support for ConfigOps 0.7.0.
 ---
 
 # Support contracts
 
-Support means a tested contract, not a best-effort badge. Version 0.6.0 fails its release checks if its runtime metadata, Multisite boundaries, adapter fixtures, generic array policy, public Playground flow, compatibility scan, browser flows, or coverage boundaries drift.
+Support means a tested contract, not a best-effort badge. Version 0.7.0 fails its release checks if its runtime metadata, Multisite boundaries, adapter fixtures, Pack schema/apply path, generic array policy, public Playground flow, compatibility scan, browser flows, or coverage boundaries drift.
 
 ## Runtime matrix
 
@@ -14,7 +14,7 @@ Support means a tested contract, not a best-effort badge. Version 0.6.0 fails it
 | WordPress | 7.0–7.1 | WordPress 7.0, 7.1 RC4, and latest stable in CI |
 | PHP | 8.2–8.5 | Parser, unit, hostile-input, and WordPress integration paths across the matrix |
 | Database | WordPress-supported MySQL/MariaDB | Native MySQL 8.4 and MariaDB 11.4 integration lanes |
-| Browser UI | Current JavaScript-capable admin browser | Real Chromium site and Network Admin settings, review, and undo flows |
+| Browser UI | Current JavaScript-capable admin browser | Real Chromium site and Network Admin settings, Pack export/import, review, Apply, and undo flows |
 | Site model | Single-site, network-active Multisite, and Multi-Network isolation | Isolated site ledgers plus a separate Network Admin ledger, exercised by 167 Multisite assertions |
 
 PHP 8.2 is the oldest supported branch. A lifecycle check expires that claim after upstream security support ends on 2026-12-31 instead of silently keeping an unsafe floor.
@@ -41,6 +41,18 @@ Network undo excludes authority and plugin-lifecycle state plus derived counters
 | Plugins without an adapter | Detected caller or Settings API owner | Options API evidence | Source basis, captured version, and readable leaf keys; semantics unverified | Conservative heuristic | Exact full-value undo; opt-in experimental key patch for verified associative arrays |
 
 Versions outside an adapter’s tested range keep generic evidence. Adapter-dependent explanations, field patches, and automatic undo fail closed until the contract is verified.
+
+## Configuration Pack matrix
+
+| Surface | Version 0.7 contract | Deliberate limit |
+| --- | --- | --- |
+| Export | Completed, integrity-clean named site sessions; complete restorable option states owned by the recorded current adapter schema | No automatic observation, Network Options, derived state, partial patch, adapterless option, protected option, or custom table |
+| Format | Strict JSON desired state, 1 MiB and 250-setting bounds, WordPress/plugin requirements, adapter/schema identity | Reserved variables and extensions must be empty; no executable content or signature model |
+| Preview | Read-only requirement, ownership, value, reference, filter, site, current-state, and portability inspection | Warnings do not rewrite source-specific values |
+| Apply | One site, one user-bound expiring plan, one mutex, baseline revalidation, per-write verification, reverse compensation | No active named session, Network Pack, cross-site bulk action, or asynchronous fleet operation |
+| History and Undo | Completed Pack session with Pack ID/version; ordinary whole-session conflict-checked Undo | Undo refuses any applied target that changed afterward |
+
+All four built-in adapters advertise **partial** cross-site Apply. That means schema version 1 can move only a complete option that passes the same adapter’s destination contract. It does not mean every mapped field is portable. Credentials, high-risk addresses, unavailable local references, protected WooCommerce records, unsupported storage switches, and incomplete options remain blocked.
 
 For a regular plugin without an adapter, ConfigOps stores the bounded source slug and the plugin version observed through its source or active main file when available. Review groups use a readable source name, nested paths use their exact humanized leaf key, and Technical evidence retains the raw slug and file location. If Core performs the final write for an option registered during the same request through `register_setting()`, ConfigOps stores that registration as a separate source basis. A direct plugin, must-use plugin, or theme caller always wins; `unregister_setting()` removes the request-local ownership immediately, malformed hook events are ignored, and the registration map has a fixed 1,000-option ceiling with independent trace accounting. The label is presentation only: classification and restore eligibility do not gain plugin semantics from it.
 

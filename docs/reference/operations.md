@@ -11,6 +11,7 @@ ConfigOps is suitable for production observation only when it sits inside ordina
 
 - Let automatic request-local observations cover ordinary settings saves.
 - Keep named Change Sessions short and scoped to one operator task.
+- Treat exported Pack files as private configuration material and review every destination warning.
 - Avoid upgrades, imports, bulk jobs, and deployments during a named Change Session.
 - Give `configops_rollback` to fewer people than `configops_view`.
 - On Multisite, reserve Network Admin evidence, named Network Change Sessions, and mutation undo for super administrators with `manage_network_options`.
@@ -25,9 +26,9 @@ Automatic observation is limited to authorized administrative, REST, and WP-CLI 
 
 ConfigOps uses dedicated WordPress tables for observation sessions, mutations, value-free write signals, and restore audit runs. The internal table identifiers retain `capture` for schema compatibility. On Multisite the shared tables use the network base prefix, and every site-owned row is pinned to its network and blog identity. Network evidence reserves blog ID zero and uses separate network-owned state. Evidence remains in the WordPress database.
 
-The REST interface is local to WordPress, scope- and capability-gated, and returns private `no-store` responses. Network routes additionally require `manage_network_options`. There is no ConfigOps account, cloud collector, or remote control plane in 0.6.0.
+The REST interface is local to WordPress, scope- and capability-gated, and returns private `no-store` responses. Network routes additionally require `manage_network_options`. There is no ConfigOps account, cloud collector, public Pack registry, or remote control plane in 0.7.0.
 
-Version 0.6.0 registers site-scoped native WordPress Abilities and machine-readable JSON `wp configops` commands. These are authenticated transports over the existing application services, not a second control plane. Read operations require `configops_view`, capture control requires `configops_capture`, and non-writing restore validation requires `configops_plan`. Single-mutation automated apply additionally requires `configops_apply` and an explicit `dangerously-run-undo` acknowledgement; it retains the ordinary restore checks and audit. See [Automation & agents](/guide/automation).
+Version 0.7.0 registers site-scoped native WordPress Abilities and machine-readable JSON `wp configops` commands. These are authenticated transports over the existing application services, not a second control plane. Read operations require `configops_view`, capture control requires `configops_capture`, and non-writing restore validation requires `configops_plan`. Pack draft/export and Apply Preview also require `configops_plan`; Pack Apply requires `configops_apply`. Single-mutation automated undo additionally requires an explicit `dangerously-run-undo` acknowledgement. See [Automation & agents](/guide/automation) and [Configuration Packs](/guide/configuration-packs).
 
 ## Retention
 
@@ -54,6 +55,7 @@ After installation or an incident, verify:
 6. WordPress and PHP logs contain no ConfigOps warnings, notices, or deprecations.
 7. The daily `configops_history_retention` event is scheduled.
 8. If the generic array experiment is enabled, a harmless unknown-plugin array update shows **Undo verified keys**, preserves an unrelated later key, and refuses a deliberately changed target key without writing.
+9. A harmless Core Change Session can export one Pack, preview a changed destination without writing, apply it as Pack History, and undo it to the destination baseline.
 
 On Multisite, also verify one disposable site's evidence cannot be read from another site, **Network Admin → ConfigOps** identifies its network-wide scope, and a harmless Network Options update can be reviewed and undone by a super administrator. Networks WordPress classifies as large are provisioned lazily per site instead of being synchronously traversed during activation; new sites still use the normal initialization hook. Deactivation closes open site evidence with one network-scoped storage update and lets each skipped site's stale active pointer reconcile on its next ConfigOps request.
 

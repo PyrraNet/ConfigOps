@@ -75,7 +75,7 @@ final class WooCommerceAdapter extends AbstractOptionAdapter implements ChangeAw
 				array('id' => 'secrets', 'label' => 'Redact protected values', 'level' => 'full', 'note' => 'The generated share key, BACS bank-account records, and credential-shaped nested values are removed before storage.'),
 				array('id' => 'noise', 'label' => 'Classify runtime values', 'level' => 'partial', 'note' => 'Known version, inbox, scheduler, onboarding, task-list, empty-selector, note, and rewrite state stays technical. Unknown custom-table writes remain visible.'),
 				array('id' => 'restore', 'label' => 'Conflict-checked undo', 'level' => 'partial', 'note' => 'Mapped Options API settings can be undone after a current-value check. Referenced pages must still exist; order-storage and content-schema switches are refused.'),
-				array('id' => 'apply', 'label' => 'Cross-site apply', 'level' => 'planned', 'note' => 'Store addresses, currencies, local page IDs, email recipients, tax tables, shipping zones, and payment credentials need an explicit destination contract.'),
+				array('id' => 'apply', 'label' => 'Cross-site apply', 'level' => 'partial', 'note' => 'Configuration Packs apply complete safe Options API settings only. Protected payment data and local references are blocked; environment values are warned.'),
 			),
 			array(
 				'Store location, selling and shipping countries, taxes, coupons, currency, and price display',

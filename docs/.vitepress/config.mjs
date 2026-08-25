@@ -4,7 +4,7 @@ const base = process.env.DOCS_BASE || (process.env.GITHUB_ACTIONS === 'true' ? '
 
 export default defineConfig({
 	title: 'ConfigOps',
-	description: 'See what WordPress and plugin settings changed, then undo matching values—even without a dedicated adapter.',
+	description: 'Observe, capture, reproduce, and safely undo WordPress configuration with private Configuration Packs.',
 	lang: 'en-US',
 	base,
 	cleanUrls: true,
@@ -27,7 +27,7 @@ export default defineConfig({
 			{ text: 'Use ConfigOps', link: '/guide/getting-started' },
 			{ text: 'Safety', link: '/security/secrets-privacy' },
 			{ text: 'Reference', link: '/reference/support' },
-			{ text: 'v0.6.0', link: '/releases/0.6.0' },
+			{ text: 'v0.7.0', link: '/releases/0.7.0' },
 		],
 		sidebar: [
 			{
@@ -36,6 +36,7 @@ export default defineConfig({
 					{ text: 'Install & record', link: '/guide/getting-started' },
 					{ text: 'Observe a change', link: '/guide/first-capture' },
 					{ text: 'Read the evidence', link: '/guide/read-change' },
+					{ text: 'Configuration Packs', link: '/guide/configuration-packs' },
 					{ text: 'Undo safely', link: '/guide/undo-safely' },
 					{ text: 'Automation & agents', link: '/guide/automation' },
 				],
@@ -68,6 +69,7 @@ export default defineConfig({
 			{
 				text: 'Releases',
 				items: [
+					{ text: '0.7.0', link: '/releases/0.7.0' },
 					{ text: '0.6.0', link: '/releases/0.6.0' },
 					{ text: '0.5.1', link: '/releases/0.5.1' },
 					{ text: '0.5.0', link: '/releases/0.5.0' },

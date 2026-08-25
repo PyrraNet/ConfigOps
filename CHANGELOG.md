@@ -4,6 +4,31 @@ ConfigOps follows semantic versioning. While the major version is `0`, adapter c
 
 ## Unreleased
 
+## 0.7.0 — 2026-08-25
+
+The private Configuration Packs release.
+
+### Shipped
+
+- A completed Change Session can become a strict, declarative `.configops.json` Pack after the operator removes any setting that should not travel.
+- Import provides a complete, read-only Apply Preview with WordPress/plugin requirements, already-matching settings, pending changes, exclusions, conflicts, and portability warnings.
+- Apply uses one-use expiring plans, rechecks every destination baseline under a site-scoped mutex, verifies each write, and compensates earlier writes if a later setting fails.
+- Successful applications appear as ordinary Pack sessions in History with Pack ID/version provenance and use the existing conflict-checked whole-session Undo path.
+- Schema version 1 reserves empty variable and extension objects for future evolution without executing templates, extensions, PHP, callbacks, or SQL.
+
+### Safety boundary
+
+- Exports contain desired states only: no old values, autoload flags, table names, database snapshots, or source-site connection metadata.
+- Complete options containing protected data are excluded. Only restorable, adapter-backed whole-option states are portable in this release.
+- Import revalidates adapter/schema ownership, component versions, value safety, local references, filtered option reads, current site scope, and destination drift.
+- URLs, absolute paths, email addresses, adapter-declared environment values, and local references receive visible warnings; ConfigOps does not silently rewrite them.
+- Packs are private local files. Cloud storage, accounts, public discovery, signing, variables, stacking, synchronization, Network Packs, and drift detection remain unshipped.
+
+### Verified against
+
+- Strict schema and portability unit contracts plus REST integration coverage for export, read-only preview, Apply provenance, ordinary Undo, and post-preview drift refusal.
+- The complete browser flow from a real Core Change Session through file download, destination import, Apply Preview, Pack History, and Undo at desktop and mobile breakpoints.
+
 ## 0.6.0 — 2026-08-25
 
 The WooCommerce and explicitly authorized agent undo release.

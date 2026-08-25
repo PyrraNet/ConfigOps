@@ -8,7 +8,7 @@ on:
       version:
         description: Version to validate against main (manual runs are always dry runs)
         required: true
-        default: 0.6.0
+        default: 0.7.0
         type: string
 
 permissions:

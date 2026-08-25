@@ -16,6 +16,7 @@ use ConfigOps\Capture\InternalOptionPolicy;
 use ConfigOps\Capture\RequestContext;
 use ConfigOps\Capture\ValueCodec;
 use ConfigOps\Diff\NestedDiff;
+use ConfigOps\Pack\PackValidator;
 
 final class ConfigOpsAdversarialWakeupProbe
 {
@@ -191,6 +192,54 @@ if (is_resource($resource)) {
 
 $pointerDiff = (new NestedDiff())->compare(array('a/b' => array('x~y' => 1)), array('a/b' => array('x~y' => 2)));
 $assert('/a~1b/x~0y' === ($pointerDiff[0]['path'] ?? ''), 'JSON Pointer evidence must escape slash and tilde keys without collision.');
+
+$packValidator = new PackValidator();
+$packFixture = static function (array $settingOverrides = array(), array $packOverrides = array()): array {
+	$setting = array_merge(
+		array(
+			'option'  => 'blogdescription',
+			'state'   => 'present',
+			'value'   => 'Desired state',
+			'adapter' => array('id' => 'wordpress-core', 'schema_version' => 1),
+		),
+		$settingOverrides
+	);
+
+	return array_merge(
+		array(
+			'format'         => 'configops-pack',
+			'schema_version' => 1,
+			'id'             => '5e1c8412-273b-4b25-8f20-4371ea2f52a1',
+			'pack_version'   => '1.0.0',
+			'name'           => 'Hostile fixture',
+			'description'    => '',
+			'created_at'     => '2026-08-25T10:00:00+00:00',
+			'created_with'   => '0.7.0',
+			'requirements'   => array('wordpress' => '>=7.0 <7.2', 'plugins' => array()),
+			'variables'      => array(),
+			'settings'       => array($setting),
+			'extensions'     => array(),
+		),
+		$packOverrides
+	);
+};
+foreach (
+	array(
+		$packFixture(array('callback' => 'system')),
+		$packFixture(array(), array('variables' => array('site_url' => '{{runtime()}}'))),
+		$packFixture(array(), array('requirements' => array('wordpress' => '>=7.0; phpinfo()', 'plugins' => array()))),
+		$packFixture(array('state' => 'absent')),
+		$packFixture(array('value' => str_repeat('x', 262145))),
+	) as $hostilePack
+) {
+	$rejected = false;
+	try {
+		$packValidator->validate($hostilePack);
+	} catch (RuntimeException) {
+		$rejected = true;
+	}
+	$assert($rejected, 'Pack schema validation must reject executable fields, active templates, injected constraints, inconsistent absence, and oversized values.');
+}
 
 unset($_COOKIE[IntentContext::COOKIE_NAME]);
 fwrite(STDOUT, "ConfigOps adversarial checks passed ({$assertions} assertions).\n");

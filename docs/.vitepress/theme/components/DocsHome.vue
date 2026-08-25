@@ -15,21 +15,43 @@ import wordmarkDark from '../../../../assets/brand/configops-wordmark-dark.svg';
 					<img :src="wordmarkLight" width="232" height="52" alt="ConfigOps">
 				</picture>
 				<span aria-hidden="true"></span>
-				<p>Documentation · 0.6.0</p>
+				<p>Documentation · 0.7.0</p>
 			</div>
-			<p class="co-kicker">Settings evidence for WordPress</p>
-			<h1 id="co-home-title">The undo button<br>WordPress forgot.</h1>
-			<p class="co-hero__dek">After a WordPress settings save, ConfigOps records the Options API writes behind it. Authorized tools can inspect that evidence and validate a restore plan. Human confirmation remains the default; a separately authorized service user can explicitly acknowledge one guarded undo.</p>
+			<p class="co-kicker">Configuration management for WordPress</p>
+			<h1 id="co-home-title">Capture the state.<br>Know every change.</h1>
+			<p class="co-hero__dek">ConfigOps records the settings writes behind WordPress, turns safe Change Sessions into private portable Packs, previews every destination difference, and keeps the result conflict-checkable and undoable.</p>
 			<div class="co-actions" aria-label="Start reading">
-				<a class="co-action co-action--primary" :href="withBase('/guide/getting-started')">Install and record a change</a>
+				<a class="co-action co-action--primary" :href="withBase('/guide/configuration-packs')">Build a Configuration Pack</a>
 				<a class="co-action" :href="withBase('/security/failure-model')">Read the failure model</a>
 			</div>
 			<dl class="co-release-facts" aria-label="Current project facts">
-				<div><dt>Release</dt><dd>0.6.0 · guarded agent undo</dd></div>
+				<div><dt>Release</dt><dd>0.7.0 · private Configuration Packs</dd></div>
 				<div><dt>Runtime</dt><dd>WordPress 7.0–7.1 · PHP 8.2–8.5</dd></div>
 				<div><dt>Storage</dt><dd>Local database · no account</dd></div>
-				<div><dt>Test coverage</dt><dd>78.90% production lines · 79.92% trust boundaries</dd></div>
+				<div><dt>Release gates</dt><dd>Runtime matrix · real browser workflows</dd></div>
 			</dl>
+		</section>
+
+		<section class="co-reading-path" aria-labelledby="co-pack-path-title">
+			<header class="co-section-heading">
+				<p class="co-kicker">New in 0.7 · private and declarative</p>
+				<h2 id="co-pack-path-title">From one proven change to a reusable desired state.</h2>
+				<p>A Pack is not a database snapshot. It carries only selected desired settings plus explicit WordPress, plugin, and adapter requirements.</p>
+			</header>
+			<ol>
+				<li>
+					<span>01</span>
+					<div><h3>Capture</h3><p>Complete a named Change Session and remove anything protected, incomplete, or specific to that source.</p></div>
+				</li>
+				<li>
+					<span>02</span>
+					<div><h3>Preview</h3><p>Import one local JSON file and inspect requirements, matching settings, changes, exclusions, warnings, and conflicts.</p></div>
+				</li>
+				<li>
+					<span>03</span>
+					<div><h3>Apply and undo</h3><p>Recheck every baseline, record one Pack session in History, and use ordinary conflict-checked Undo when needed.</p><a :href="withBase('/guide/configuration-packs')">Read the Pack contract →</a></div>
+				</li>
+			</ol>
 		</section>
 
 		<section class="co-proof" aria-labelledby="co-proof-title">

@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-<p align="center"><strong>The undo layer for WordPress settings.</strong></p>
+<p align="center"><strong>Configuration management for WordPress.</strong></p>
 
 <p align="center">
 	<strong>Agent-ready. Human by default.</strong><br>
@@ -13,13 +13,13 @@
 </p>
 
 <p align="center">
-  v0.6.0
-  &nbsp;·&nbsp; Agent-readable operations
+  v0.7.0
+  &nbsp;·&nbsp; Private Configuration Packs
   &nbsp;·&nbsp; No account required
 </p>
 
 <p align="center">
-  <a href="https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2FPyrraNet%2FConfigOps%2Fv0.6.0%2F.wordpress-org%2Fblueprints%2Fblueprint.json">Try the live demo</a>
+  <a href="https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2FPyrraNet%2FConfigOps%2Fv0.7.0%2F.wordpress-org%2Fblueprints%2Fblueprint.json">Try the live demo</a>
   &nbsp;·&nbsp;
   <a href="https://configops.pyrra.net/docs/">Read the operations &amp; safety docs</a>
 </p>
@@ -58,9 +58,37 @@ WP Mail SMTP → SMTP password
 
 Every undo is checked against the current value first. If the website changed again, ConfigOps refuses to overwrite it. If observation evidence is incomplete, whole-save undo is disabled rather than presented as safe.
 
+## Configuration Packs
+
+Version 0.7 turns a completed Change Session into a private, portable desired state. Choose **Save session as Pack**, remove anything that should stay local, name and describe the Pack, then download one `.configops.json` file. On another website, import the file and inspect the complete Apply Preview before ConfigOps writes anything.
+
+```json
+{
+  "format": "configops-pack",
+  "schema_version": 1,
+  "name": "Agency Base",
+  "requirements": {
+    "wordpress": ">=7.0 <7.2",
+    "plugins": {}
+  },
+  "settings": [
+    {
+      "option": "blogdescription",
+      "state": "present",
+      "value": "A deliberately configured WordPress site",
+      "adapter": { "id": "wordpress-core", "schema_version": 1 }
+    }
+  ]
+}
+```
+
+This is not a `wp_options` snapshot. A Pack contains desired settings, adapter and version requirements, and no old values, autoload flags, table names, SQL, or executable code. ConfigOps excludes complete options that contain protected data, refuses unknown or incompatible ownership, warns about URLs, paths, email addresses, environment values, and local references, and checks every destination baseline again at Apply. A successful application becomes a normal **Pack** session in History, so **Undo capture** restores the pre-Apply destination state through the existing conflict checks.
+
+Schema version 1 deliberately has no cloud, marketplace, accounts, synchronization, signatures, variable substitution, or drift engine. The reserved `variables` and `extensions` objects keep the format evolvable without pretending those capabilities already exist. See [Configuration Packs](docs/guide/configuration-packs.md) for the exact file and safety contract.
+
 ## Verified key undo without an adapter
 
-Version 0.6 can undo verified setting keys from ordinary plugin arrays even when ConfigOps has no dedicated adapter for that plugin. Those captures retain the responsible plugin slug and, when WordPress can resolve its main file, the installed version observed at save time. When a plugin registers an option through the WordPress Settings API but Core performs the final write, ConfigOps records that registered ownership separately instead of claiming the plugin called `update_option()`. Nested leaf keys receive readable labels, while the review still states that ConfigOps does not know their plugin-specific meaning. A site administrator explicitly enables **Verified key undo for plugin arrays** under **ConfigOps → Support contracts**. For an unclaimed associative `wp_options` update, ConfigOps then treats the captured before value, captured after value, and current value as a three-way check:
+Version 0.7 can undo verified setting keys from ordinary plugin arrays even when ConfigOps has no dedicated adapter for that plugin. Those captures retain the responsible plugin slug and, when WordPress can resolve its main file, the installed version observed at save time. When a plugin registers an option through the WordPress Settings API but Core performs the final write, ConfigOps records that registered ownership separately instead of claiming the plugin called `update_option()`. Nested leaf keys receive readable labels, while the review still states that ConfigOps does not know their plugin-specific meaning. A site administrator explicitly enables **Verified key undo for plugin arrays** under **ConfigOps → Support contracts**. For an unclaimed associative `wp_options` update, ConfigOps then treats the captured before value, captured after value, and current value as a three-way check:
 
 <p align="center">
   <img src=".wordpress-org/screenshot-5.png" width="1120" alt="ConfigOps Support contracts showing verified key undo for plugin arrays and the structures it refuses">
@@ -95,7 +123,7 @@ Plugin ranges cover every version line that the official WordPress.org usage API
 
 Requires WordPress 7.0 or newer and PHP 8.2 or newer. PHP 8.2 is the oldest supported runtime; production sites should prefer a newer actively supported PHP branch.
 
-> **Version 0.6 scope:** ConfigOps supports both single-site WordPress and network-active Multisite. Site evidence remains isolated per site; Network Admin has automatic and named Network Options evidence plus guarded add/update undo. Opt-in verified key undo extends site-option patches beyond dedicated adapters, but ConfigOps remains neither a backup nor a generic database rollback, cross-site bulk console, or fleet manager.
+> **Version 0.7 scope:** ConfigOps supports private Pack export and explicit one-site-at-a-time Apply for safe, complete, adapter-backed site options. Site evidence remains isolated; Network Admin Packs, cloud sync, public distribution, variables, and drift monitoring are not shipped. ConfigOps remains neither a backup nor a generic database rollback, cross-site bulk console, or fleet manager.
 
 ## Automation and agents
 

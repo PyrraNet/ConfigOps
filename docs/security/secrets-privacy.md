@@ -26,6 +26,12 @@ Opaque or structurally unsafe values can also become non-restorable. This favors
 
 No heuristic can guarantee that an unusually named secret is detected. Plugin authors should provide explicit adapter schemas, and operators should restrict who can view local evidence.
 
+## Pack files
+
+Pack export is stricter than History. If any protected or unsupported content prevents ConfigOps from reconstructing one complete option, the complete option is excluded instead of exporting a partially redacted desired state. Files contain no old values, autoload metadata, table names, SQL, callbacks, or executable templates.
+
+A non-secret Pack can still contain private business configuration, site names, URLs, email addresses, and plugin choices. ConfigOps warns about common source-specific values but does not upload or sanitize the downloaded file after export. Store and transfer it as private deployment configuration. Import is an explicit local browser action; there is no ConfigOps cloud, catalog, telemetry, or remote Pack fetch.
+
 ## Browser intent evidence
 
 The admin observer can correlate a settings save with bounded field names and visible labels. It does not read field values. The short-lived local cookie is limited in bytes, field count, nesting depth, and age. It binds to a named session ID or remains unbound until the same save request lazily creates its automatic observation; malformed or ambiguous evidence is ignored.
@@ -34,19 +40,19 @@ Intent evidence may improve a label for review. It cannot change classification,
 
 ## Access control
 
-Version 0.6.0 uses separate WordPress capabilities for its site observation surface. The identifiers retain `capture` for API compatibility:
+Version 0.7.0 uses separate WordPress capabilities for its site observation and Pack surface. The identifiers retain `capture` for API compatibility:
 
 | Capability | Grants |
 | --- | --- |
 | `configops_view` | Read ConfigOps state and observation evidence |
 | `configops_capture` | Start and stop named Change Sessions |
 | `configops_rollback` | Attempt mutation or whole-change undo |
-| `configops_plan` | Validate a read-only automation restore plan |
-| `configops_apply` | Apply one site mutation through automation after the exact danger acknowledgement |
+| `configops_plan` | Validate read-only restore plans; draft/export and preview private Packs |
+| `configops_apply` | Apply a previewed Pack or one automation mutation with its required acknowledgement |
 
 These are the capabilities used by the site observation REST routes. Administrators receive the set on activation. Sites with custom roles should grant only the minimum active capabilities needed.
 
-Native Abilities and `wp configops` use the same WordPress user and capability checks. Capture summaries are value-free, but mutation-list and mutation-inspection responses can contain non-secret before/after evidence. A connected external client receives that evidence at the operator's request; ConfigOps itself does not initiate transmission. Use a dedicated service user and grant `configops_view`, `configops_capture`, or `configops_plan` independently. Grant `configops_apply` only when the service user may intentionally replace human confirmation for one mutation; apply still requires the exact danger acknowledgement and repeats the ordinary restore checks.
+Native Abilities and `wp configops` use the same WordPress user and capability checks. Capture summaries are value-free, but mutation-list, mutation-inspection, Pack draft, and Pack preview responses can contain non-secret configuration values. A connected external client receives that evidence at the operator's request; ConfigOps itself does not initiate transmission. Use a dedicated service user and grant `configops_view`, `configops_capture`, or `configops_plan` independently. Grant `configops_apply` only when the user may intentionally change settings. Automated mutation undo still requires the exact danger acknowledgement; browser Pack Apply requires its one-use preview token, and both repeat their ordinary safety checks.
 
 Changing the site-local generic array experiment requires WordPress's `manage_options` capability. The switch does not grant undo authority: using eligible verified key undo still requires `configops_rollback`. Its setting contains only an enabled/disabled flag and is removed on uninstall.
 

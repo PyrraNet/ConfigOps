@@ -57,6 +57,7 @@ try {
 	configureStore(JSON.parse(bootstrapNode?.textContent || '{}'));
 	mount('configops-support-island', () => import('./islands/SupportMatrix.jsx'));
 	mount('configops-capture-island', () => import('./islands/CaptureControls.jsx'));
+	mount('configops-packs-island', () => import('./islands/PackWorkbench.jsx'));
 	onIdle(() => mount('configops-sessions-island', () => import('./islands/Sessions.jsx')));
 	whenVisible(
 		document.getElementById('configops-review-island'),
@@ -64,7 +65,7 @@ try {
 	);
 } catch (error) {
 	window.console.error('ConfigOps bootstrap could not be parsed.', error);
-	for (const id of ['configops-support-island', 'configops-capture-island', 'configops-sessions-island', 'configops-review-island']) {
+	for (const id of ['configops-support-island', 'configops-capture-island', 'configops-packs-island', 'configops-sessions-island', 'configops-review-island']) {
 		const element = document.getElementById(id);
 		if (element) {
 			renderFailure(element);

@@ -19,7 +19,7 @@ final class LegacySiteTableMigrator
 	/** @var array<string, list<string>> */
 	private const COLUMNS = array(
 		'configops_capture_sessions' => array(
-			'name', 'capture_mode', 'status', 'actor_id', 'initial_url', 'mutation_count',
+			'name', 'capture_mode', 'origin_type', 'origin_id', 'origin_version', 'status', 'actor_id', 'initial_url', 'mutation_count',
 			'review_change_count', 'technical_change_count', 'write_signal_count',
 			'capture_error_count', 'last_error_code', 'last_error_at', 'started_at', 'ended_at',
 		),

@@ -19,6 +19,7 @@ const routes = [
 	'/guide/getting-started',
 	'/guide/first-capture',
 	'/guide/read-change',
+	'/guide/configuration-packs',
 	'/guide/undo-safely',
 	'/guide/automation',
 	'/security/secrets-privacy',
@@ -31,6 +32,7 @@ const routes = [
 	'/adapters',
 	'/frontend',
 	'/wordpress-org-release',
+	'/releases/0.7.0',
 	'/releases/0.6.0',
 	'/releases/0.5.1',
 	'/releases/0.5.0',
@@ -116,14 +118,14 @@ try {
 					const home = await page.evaluate(() => ({
 						text: document.body.textContent || '',
 						hasCurrentReleaseLink: [...document.querySelectorAll('a')].some((link) => (
-							'v0.6.0' === link.textContent?.trim()
-							&& link.getAttribute('href')?.includes('/releases/0.6.0')
+							'v0.7.0' === link.textContent?.trim()
+							&& link.getAttribute('href')?.includes('/releases/0.7.0')
 						)),
 						proofAlt: document.querySelector('.co-proof__figure img')?.getAttribute('alt') || '',
 						smartUndoAlt: document.querySelector('.co-proof__figure--smart img')?.getAttribute('alt') || '',
 					}));
 					if (!home.hasCurrentReleaseLink) {
-						throw new Error(`${profile.name} home does not link the current 0.6.0 release`);
+						throw new Error(`${profile.name} home does not link the current 0.7.0 release`);
 					}
 					if (!home.text.includes('Save normally. ConfigOps appears with the evidence.')) {
 						throw new Error(`${profile.name} home does not lead with the automatic evidence proof`);

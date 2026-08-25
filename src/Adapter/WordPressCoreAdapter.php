@@ -41,7 +41,7 @@ final class WordPressCoreAdapter extends AbstractOptionAdapter implements Option
 				array('id' => 'secrets', 'label' => 'Redact credentials', 'level' => 'full', 'note' => 'The mapped Core settings contain no credentials; ConfigOps still applies its conservative global secret detector.'),
 				array('id' => 'noise', 'label' => 'Classify runtime values', 'level' => 'full', 'note' => 'Core caches, update state, rewrite rules, cron, locks, and migration markers remain outside the settings decision set.'),
 				array('id' => 'restore', 'label' => 'Conflict-checked undo', 'level' => 'partial', 'note' => 'Ordinary settings use conflict-checked undo. Site URLs are review-only, and referenced media or pages must still exist.'),
-				array('id' => 'apply', 'label' => 'Cross-site apply', 'level' => 'planned', 'note' => 'Per-website values and local object references must be resolved before a Core setting can move between sites.'),
+				array('id' => 'apply', 'label' => 'Cross-site apply', 'level' => 'partial', 'note' => 'Configuration Packs apply only complete safe options. Per-website values are warned; local references and high-risk site addresses remain blocked.'),
 			),
 			array(
 				'General identity, locale, registration, date, time, and privacy-page settings',

@@ -17,6 +17,8 @@ use ConfigOps\Database\MutationRepository;
 use ConfigOps\Experiment\ExperimentalFeatures;
 use ConfigOps\Multisite\SiteBoundaryGuard;
 use ConfigOps\Multisite\SiteScope;
+use ConfigOps\Pack\PackExporter;
+use ConfigOps\Pack\PackService;
 use Throwable;
 use WP_Error;
 use WP_REST_Request;
@@ -34,7 +36,9 @@ final class RestController
 		private readonly AdminPayloadFactory $payloads,
 		private readonly ?EvidenceNoticeStore $evidenceNotices = null,
 		?SiteBoundaryGuard $siteBoundary = null,
-		private readonly ?ExperimentalFeatures $experimentalFeatures = null
+		private readonly ?ExperimentalFeatures $experimentalFeatures = null,
+		private readonly ?PackExporter $packExporter = null,
+		private readonly ?PackService $packs = null
 	) {
 		$this->siteBoundary = $siteBoundary ?? new SiteBoundaryGuard(SiteScope::current(), $captures);
 	}
@@ -137,6 +141,52 @@ final class RestController
 			'configops_rollback',
 			array('id' => array('type' => 'integer', 'minimum' => 1, 'required' => true))
 		);
+
+		if (null !== $this->packExporter && null !== $this->packs) {
+			$this->registerRoute(
+				'/captures/(?P<id>\d+)/pack-draft',
+				WP_REST_Server::READABLE,
+				'packDraft',
+				'configops_plan',
+				array('id' => array('type' => 'integer', 'minimum' => 1, 'required' => true))
+			);
+			$this->registerRoute(
+				'/captures/(?P<id>\d+)/pack',
+				WP_REST_Server::CREATABLE,
+				'exportPack',
+				'configops_plan',
+				array(
+					'id'           => array('type' => 'integer', 'minimum' => 1, 'required' => true),
+					'name'         => array('type' => 'string', 'maxLength' => 120, 'required' => true),
+					'description'  => array('type' => 'string', 'maxLength' => 2000, 'default' => ''),
+					'pack_version' => array('type' => 'string', 'maxLength' => 32, 'required' => true),
+					'selected'     => array(
+						'type'     => 'array',
+						'required' => true,
+						'minItems' => 1,
+						'maxItems' => 250,
+						'items'    => array('type' => 'string', 'maxLength' => 64),
+					),
+				)
+			);
+			$this->registerRoute(
+				'/packs/preview',
+				WP_REST_Server::CREATABLE,
+				'previewPack',
+				'configops_plan',
+				array('pack' => array('type' => 'object', 'required' => true))
+			);
+			$this->registerRoute(
+				'/packs/apply',
+				WP_REST_Server::CREATABLE,
+				'applyPack',
+				'configops_apply',
+				array(
+					'pack'       => array('type' => 'object', 'required' => true),
+					'plan_token' => array('type' => 'string', 'minLength' => 48, 'maxLength' => 48, 'required' => true),
+				)
+			);
+		}
 	}
 
 	/**
@@ -257,6 +307,45 @@ final class RestController
 				$count = $this->commands->restoreSession($sessionId);
 
 				return $this->payloads->state($sessionId, 'session-restored', (string) $count);
+			}
+		);
+	}
+
+	public function packDraft(WP_REST_Request $request): WP_REST_Response|WP_Error
+	{
+		return $this->command(fn (): array => $this->packExporter?->draft((int) $request['id']) ?? array());
+	}
+
+	public function exportPack(WP_REST_Request $request): WP_REST_Response|WP_Error
+	{
+		return $this->command(
+			fn (): array => $this->packExporter?->export(
+				(int) $request['id'],
+				(string) $request['name'],
+				(string) $request['description'],
+				(string) $request['pack_version'],
+				array_values(array_filter((array) $request['selected'], 'is_string'))
+			) ?? array()
+		);
+	}
+
+	public function previewPack(WP_REST_Request $request): WP_REST_Response|WP_Error
+	{
+		return $this->command(fn (): array => $this->packs?->preview((array) $request['pack']) ?? array());
+	}
+
+	public function applyPack(WP_REST_Request $request): WP_REST_Response|WP_Error
+	{
+		return $this->command(
+			function () use ($request): array {
+				$result = $this->packs?->apply((array) $request['pack'], (string) $request['plan_token']);
+				if (! is_array($result)) {
+					return array();
+				}
+				$state = $this->payloads->state((int) $result['sessionId'], 'pack-applied', (string) $result['changed']);
+				$state['packApply'] = $result;
+
+				return $state;
 			}
 		);
 	}

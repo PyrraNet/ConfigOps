@@ -1,6 +1,6 @@
 ---
 title: Install and record a change
-description: Install ConfigOps 0.6.0, record one WordPress settings save, and test opt-in verified key undo in staging.
+description: Install ConfigOps 0.7.0, record one WordPress settings save, and create a private Configuration Pack.
 ---
 
 # Install and record a change
@@ -9,7 +9,7 @@ ConfigOps automatically observes configuration mutations made by authorized admi
 
 ## Requirements
 
-| Contract | Supported in 0.6.0 |
+| Contract | Supported in 0.7.0 |
 | --- | --- |
 | WordPress | 7.0 or 7.1, single-site or network-active Multisite |
 | PHP | 8.2, 8.3, 8.4, or 8.5 |
@@ -23,9 +23,9 @@ ConfigOps is a local configuration evidence layer. It is not a database backup, 
 
 ## Install
 
-To inspect the workflow before installing anything, open the [disposable ConfigOps live demo](https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2FPyrraNet%2FConfigOps%2Fv0.6.0%2F.wordpress-org%2Fblueprints%2Fblueprint.json). It starts with ConfigOps and WP Mail SMTP active, then guides one sender-email save through Evidence, Review, and Undo.
+To inspect the workflow before installing anything, open the [disposable ConfigOps live demo](https://playground.wordpress.net/?blueprint-url=https%3A%2F%2Fraw.githubusercontent.com%2FPyrraNet%2FConfigOps%2Fv0.7.0%2F.wordpress-org%2Fblueprints%2Fblueprint.json). It starts with ConfigOps and WP Mail SMTP active, then guides one sender-email save through Evidence, Review, and Undo.
 
-1. Obtain `configops-0.6.0.zip` from a trusted release channel.
+1. Obtain `configops-0.7.0.zip` from a trusted release channel.
 2. In WordPress, open **Plugins → Add Plugin → Upload Plugin**.
 3. Select the archive, install it, and activate **ConfigOps**.
 4. Open **ConfigOps** in the WordPress admin menu.
@@ -44,6 +44,12 @@ On Multisite, use **Network Admin → Plugins** to network-activate ConfigOps. E
 Automatic observations are request-local: concurrent admin requests do not share an observation boundary. For a planned task that spans several requests, start a named **Change Session** in ConfigOps, perform only that task, then stop and review it.
 
 Network Settings changes use a stricter boundary. ConfigOps records supported Network Options API mutations automatically, and complete additions or updates may expose mutation-level undo. Network deletes and whole-change undo remain unavailable.
+
+## Reproduce the first configuration
+
+After completing a small named Change Session, select **Save session as Pack**. ConfigOps excludes protected, partial, derived, and adapterless options before building the file. Download the Pack, then use **Import Pack** on a disposable destination and read the complete Apply Preview before Apply.
+
+The application becomes a Pack session in History. Verify the destination in its native settings screen, then exercise **Undo capture** while the applied value still matches. Continue with [Configuration Packs](/guide/configuration-packs) for schema, portability warnings, and the exact Apply boundary.
 
 ## Undo plugin settings without an adapter
 

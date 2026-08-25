@@ -135,7 +135,7 @@ final class YoastSeoAdapter extends AbstractOptionAdapter implements DatabaseWri
 				array('id' => 'secrets', 'label' => 'Redact credentials', 'level' => 'full', 'note' => 'MyYoast, Semrush, Wincher, and OAuth credentials are removed before storage.'),
 				array('id' => 'noise', 'label' => 'Classify runtime values', 'level' => 'full', 'note' => 'Indexing, caches, migrations, dismissals, tracking, LLMs.txt generation state, and maintenance writes are separated.'),
 				array('id' => 'restore', 'label' => 'Conflict-checked undo', 'level' => 'partial', 'note' => 'Supported settings use field-level conflict checks; media and content IDs must still resolve before undo.'),
-				array('id' => 'apply', 'label' => 'Cross-site apply', 'level' => 'planned', 'note' => 'Cross-site apply is not implemented; local IDs need an explicit reference-resolution contract.'),
+				array('id' => 'apply', 'label' => 'Cross-site apply', 'level' => 'partial', 'note' => 'Configuration Packs apply complete safe options only. Protected values and local content, media, or user references remain blocked.'),
 			),
 			array(
 				'Site features, analyses, integrations, crawl cleanup, bot rules, IndexNow, schema, and AI controls',

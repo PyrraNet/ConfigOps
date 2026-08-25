@@ -1,9 +1,9 @@
 {
   "name": "configops",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
-  "description": "The undo and evidence layer for WordPress settings.",
+  "description": "Local configuration management for WordPress: observe, capture, reproduce, and undo.",
   "scripts": {
     "build:ui": "node build/build-ui.mjs",
     "build:wp-assets": "node build/build-wordpress-assets.mjs",

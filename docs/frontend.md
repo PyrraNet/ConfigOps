@@ -10,8 +10,9 @@ ConfigOps uses route-specific React roots inside a minimal PHP shell:
 1. **Evidence feedback** is dependency-free and appears after a completed automatic observation.
 2. **Change Session controls** hydrate immediately on the ConfigOps screen for explicitly bounded multi-request work.
 3. **History** hydrates when the browser is idle.
-4. **Review ledger** imports only near the viewport, then requests its first mutation connection.
-5. **Support contracts** loads only on its server-routed view, renders the live WordPress and plugin adapter compatibility contracts, and exposes the site-local generic array experiment only to users who can manage site options.
+4. **Configuration Packs** imports with the main site workspace and opens a compact export or import workbench only on command.
+5. **Review ledger** imports only near the viewport, then requests its first mutation connection.
+6. **Support contracts** loads only on its server-routed view, renders the live WordPress and plugin adapter compatibility contracts, and exposes the site-local generic array experiment only to users who can manage site options.
 
 The shell includes real headings, product orientation, bounded placeholders, an initial observation/session snapshot, and a minimal no-script stop action for an active named Change Session. It does not serialize diff history. This keeps first paint independent from history size and still avoids a request waterfall for the primary controls.
 
@@ -20,6 +21,8 @@ React, React DOM, API fetching, and translations are WordPress-owned externals. 
 The experimental toggle is a normal capability-gated REST command, not browser-only state. Its response replaces the support snapshot immediately, while restore eligibility is recalculated from persisted evidence whenever Review is loaded. The toggle exposes its persisted pressed state, uses a semantic status label, and renders a dismissible alert when the command fails. The UI labels eligible mutations as **Experimental**, says which keys will be reversed, and warns that one conflicting target cancels the complete patch.
 
 A separate dependency-free observer runs on supported wp-admin settings screens. It remembers only touched field names, visible labels, nearby section headings, and the submit action in a short-lived same-site cookie. It never reads configuration field values. PHP correlates that bounded metadata with the actual Options API diff in the save request, whether the request creates an automatic observation or belongs to a named Change Session; unmatched or ambiguous observations disappear instead of becoming guessed intent. The React ledger presents the resulting explanation but does not use it to authorize undo.
+
+The Pack workbench extends the same forensic instrument language rather than introducing a dashboard or marketplace surface. Export is a checklist beside the selected History session. Import presents requirements, five compact counts, per-setting status, current and desired typed values, warnings, and blockers before the Apply command. Native file input, checkbox, confirmation, and focus behavior keep the trust boundary inspectable without a component framework or modal stack.
 
 ## Brand layer
 
@@ -45,7 +48,7 @@ GraphQL belongs later at the optional control-plane boundary, where a fleet scre
 
 - critical ConfigOps loader: maximum 3 KiB gzip;
 - all ConfigOps-owned JavaScript: maximum 24 KiB gzip;
-- scoped admin CSS: maximum 8 KiB gzip and no gradients;
+- scoped admin CSS: maximum 10 KiB gzip and no gradients;
 - packaged wordmark: maximum 16 KiB gzip;
 - no diff data in the PHP bootstrap;
 - mutation pages: maximum 25 rows and approximately 512 KiB encoded payload;

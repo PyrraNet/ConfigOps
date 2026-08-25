@@ -482,7 +482,7 @@ export default function ReviewLedger() {
 		? { className: 'is-live', label: __('Recording', 'configops') }
 		: ['interrupted', 'stopping'].includes(selected?.status)
 			? { className: 'is-incomplete', label: __('Interrupted', 'configops') }
-			: { className: 'is-recorded', label: selected?.mode === 'automatic' ? __('Automatic', 'configops') : __('Recorded', 'configops') };
+			: { className: 'is-recorded', label: selected?.mode === 'automatic' ? __('Automatic', 'configops') : selected?.mode === 'pack' ? __('Pack applied', 'configops') : __('Recorded', 'configops') };
 	const sessionUndo = review.summary.lastSessionRestore;
 	const sessionUndoSucceeded = sessionUndo?.status === 'succeeded';
 	const sessionUndoUncertain = ['running', 'compensation_failed'].includes(sessionUndo?.status);
@@ -569,7 +569,8 @@ export default function ReviewLedger() {
 						{state.scope?.type === 'network' && (
 							<span className="is-network">{__('Network-wide', 'configops')}</span>
 						)}
-						<span>{selected.mode === 'automatic' ? __('Automatic change', 'configops') : __('Change session', 'configops')} <code>#{selected.id}</code></span>
+						<span>{selected.mode === 'automatic' ? __('Automatic change', 'configops') : selected.mode === 'pack' ? __('Pack application', 'configops') : __('Change session', 'configops')} <code>#{selected.id}</code></span>
+						{selected.mode === 'pack' && selected.origin?.version && <span>{__('Pack version', 'configops')} <code>{selected.origin.version}</code></span>}
 					</div>
 					<h2>{selected.name}</h2>
 					<p>{selected.actorName}<span aria-hidden="true"> · </span><time dateTime={selected.startedAt}>{selected.startedDisplay}</time></p>

@@ -45,6 +45,28 @@ final class CaptureRepository
 
 	public function start(string $name, int $actorId, string $initialUrl): int
 	{
+		return $this->startNamed($name, $actorId, $initialUrl, 'manual', 'capture', null, null);
+	}
+
+	public function startPack(
+		string $name,
+		int $actorId,
+		string $initialUrl,
+		string $packId,
+		string $packVersion
+	): int {
+		return $this->startNamed($name, $actorId, $initialUrl, 'pack', 'pack', $packId, $packVersion);
+	}
+
+	private function startNamed(
+		string $name,
+		int $actorId,
+		string $initialUrl,
+		string $captureMode,
+		string $originType,
+		?string $originId,
+		?string $originVersion
+	): int {
 		if (null !== $this->activeSession()) {
 			throw new RuntimeException('A capture session is already active.');
 		}
@@ -54,14 +76,17 @@ final class CaptureRepository
 		$inserted = $this->database->insert(
 			$this->table,
 			$this->storage->row(array(
-				'name'        => $name,
-				'capture_mode' => 'manual',
-				'status'      => 'starting',
-				'actor_id'    => $actorId,
-				'initial_url' => $initialUrl,
-				'started_at'  => current_time('mysql', true),
+				'name'           => $name,
+				'capture_mode'   => $captureMode,
+				'origin_type'    => $originType,
+				'origin_id'      => $originId,
+				'origin_version' => $originVersion,
+				'status'         => 'starting',
+				'actor_id'       => $actorId,
+				'initial_url'    => $initialUrl,
+				'started_at'     => current_time('mysql', true),
 			)),
-			$this->storage->rowFormats(array('%s', '%s', '%s', '%d', '%s', '%s'))
+			$this->storage->rowFormats(array('%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s'))
 		);
 
 		if (false === $inserted) {

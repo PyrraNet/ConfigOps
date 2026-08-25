@@ -14,7 +14,7 @@ use wpdb;
 
 final class Schema
 {
-	private const VERSION = 11;
+	private const VERSION = 12;
 
 	public function __construct(private readonly wpdb $database)
 	{
@@ -64,6 +64,9 @@ final class Schema
 			legacy_id bigint(20) unsigned NULL,
 			name varchar(191) NOT NULL,
 			capture_mode varchar(16) NOT NULL DEFAULT 'manual',
+			origin_type varchar(16) NOT NULL DEFAULT 'capture',
+			origin_id varchar(64) NULL,
+			origin_version varchar(32) NULL,
 			status varchar(20) NOT NULL DEFAULT 'active',
 			actor_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			initial_url text NULL,
@@ -200,6 +203,9 @@ final class Schema
 				'legacy_id',
 				'name',
 				'capture_mode',
+				'origin_type',
+				'origin_id',
+				'origin_version',
 				'status',
 				'actor_id',
 				'initial_url',

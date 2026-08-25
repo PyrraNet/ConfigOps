@@ -31,6 +31,8 @@ use ConfigOps\Capture\IntentContext;
 use ConfigOps\Capture\SourceAttributor;
 use ConfigOps\Noise\NoiseClassifier;
 use ConfigOps\Admin\SourcePresentation;
+use ConfigOps\Pack\PackPortabilityInspector;
+use ConfigOps\Pack\PackValidator;
 
 $assertions = 0;
 
@@ -676,6 +678,73 @@ $throwingOwnershipRegistry = new AdapterRegistry(array($throwingOwnershipAdapter
 $assert(
 	! $throwingOwnershipRegistry->isOptionUnclaimed('fixture_unknown_after_failure'),
 	'An adapter ownership failure must block generic restore instead of being treated as no owner.'
+);
+
+$packValidator = new PackValidator();
+$validPack = $packValidator->validate(
+	array(
+		'format'         => 'configops-pack',
+		'schema_version' => 1,
+		'id'             => '5e1c8412-273b-4b25-8f20-4371ea2f52a1',
+		'pack_version'   => '1.0.0',
+		'name'           => 'Agency Base',
+		'description'    => 'Portable defaults.',
+		'created_at'     => '2026-08-25T10:00:00+00:00',
+		'created_with'   => '0.7.0',
+		'requirements'   => array(
+			'wordpress' => '>=7.0 <7.2',
+			'plugins'   => array('woocommerce/woocommerce.php' => '>=10.3 <11.1'),
+		),
+		'variables'      => array(),
+		'settings'       => array(
+			array(
+				'option'  => 'woocommerce_enable_guest_checkout',
+				'state'   => 'present',
+				'value'   => 'yes',
+				'adapter' => array('id' => 'woocommerce', 'schema_version' => 1),
+			),
+		),
+		'extensions' => array(),
+	)
+);
+$assert(
+	'yes' === $validPack['settings'][0]['value']
+	&& '>=10.3 <11.1' === $validPack['requirements']['plugins']['woocommerce/woocommerce.php'],
+	'The Pack validator should preserve typed desired values and normalized dependency contracts.'
+);
+$assert(
+	$packValidator->versionMatches('10.9.4', '>=10.3 <10.4 || >=10.9 <11.1')
+	&& ! $packValidator->versionMatches('10.8.2', '>=10.3 <10.4 || >=10.9 <11.1'),
+	'Pack dependency checks should honor the same bounded alternative ranges as adapter support.'
+);
+$unsafePackRejected = false;
+try {
+	$packValidator->validate(array_merge($validPack, array('variables' => array('site_url' => array('source' => 'wordpress.site_url')))));
+} catch (RuntimeException) {
+	$unsafePackRejected = true;
+}
+$assert($unsafePackRejected, 'Schema version 1 must reserve variables without evaluating a template language.');
+$executablePackRejected = false;
+try {
+	$packValidator->validate(array_merge($validPack, array('script' => 'update_option("x", "y")')));
+} catch (RuntimeException) {
+	$executablePackRejected = true;
+}
+$assert($executablePackRejected, 'Unknown executable-style Pack fields must fail strict schema validation.');
+
+$portabilityWarnings = (new PackPortabilityInspector())->inspect(
+	array(
+		'callback' => home_url('/checkout'),
+		'owner'    => 'agency@example.test',
+	),
+	array(array('kind' => 'environment'))
+);
+$portabilityCodes = array_column($portabilityWarnings, 'code');
+$assert(
+	in_array('environment', $portabilityCodes, true)
+	&& in_array('source_site_url', $portabilityCodes, true)
+	&& in_array('email', $portabilityCodes, true),
+	'Pack portability inspection should flag adapter semantics, the source URL, and email addresses without rewriting them.'
 );
 
 fwrite(STDOUT, "ConfigOps unit checks passed ({$assertions} assertions).\n");

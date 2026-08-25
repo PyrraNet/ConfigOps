@@ -36,3 +36,25 @@ export const setGenericArrayUndoRequest = (enabled) => apiFetch({
 	method: 'POST',
 	data: { enabled: Boolean(enabled) },
 });
+
+export const fetchPackDraft = (sessionId) => apiFetch({
+	path: `${API_ROOT}/captures/${sessionId}/pack-draft`,
+});
+
+export const exportPackRequest = (sessionId, details) => apiFetch({
+	path: `${API_ROOT}/captures/${sessionId}/pack`,
+	method: 'POST',
+	data: details,
+});
+
+export const previewPackRequest = (pack) => apiFetch({
+	path: `${API_ROOT}/packs/preview`,
+	method: 'POST',
+	data: { pack },
+});
+
+export const applyPackRequest = (pack, planToken) => apiFetch({
+	path: `${API_ROOT}/packs/apply`,
+	method: 'POST',
+	data: { pack, plan_token: planToken },
+});

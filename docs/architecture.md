@@ -5,7 +5,7 @@ Date: 2026-08-19
 
 ## Decision
 
-ConfigOps is a native WordPress plugin whose supported floor is PHP 8.2. Its site boundary is request-local automatic observations plus optional named Change Sessions, Options API mutations, semantic nested diffs, provenance, and compensating restore. On a network-active Multisite installation, the 0.4 boundary also observes Network Options API mutations into a separate Network Admin ledger and can undo complete additions and updates one mutation at a time.
+ConfigOps is a native WordPress plugin whose supported floor is PHP 8.2. Its site boundary is request-local automatic observations plus optional named Change Sessions, Options API mutations, semantic nested diffs, provenance, and compensating restore. Version 0.7 can capture complete safe adapter-backed site option states as private declarative Packs and reproduce them through a previewed, conflict-checked Pack session. On a network-active Multisite installation, the 0.4 boundary also observes Network Options API mutations into a separate Network Admin ledger and can undo complete additions and updates one mutation at a time.
 
 JavaScript is the interaction layer and may later observe labels, field names, tabs, and client-side requests, but only the PHP observer can assert that WordPress actually persisted a mutation. The wp-admin interface uses code-split React islands over a capability-gated REST boundary. Site-scoped WordPress Abilities and machine-readable JSON WP-CLI commands reuse the same PHP application services for bounded automation. Restore planning is read-only; a separate `configops_apply` capability plus an exact danger acknowledgement can authorize one mutation apply through the same guarded restore service. There is no Node service, monolithic SPA, cloud account, generic settings writer, or remote control plane in the evidence layer.
 
@@ -25,7 +25,8 @@ PHP 8.2 is the oldest branch in the 0.4.0 runtime contract. The full parser, uni
 | Noise | Conservative built-in rules plus versioned WP Mail SMTP, Yoast, and WooCommerce contracts | Registry fixtures and adapter normalization |
 | Secrets | Redact before persistence; preserve during field-level undo | Secret references and target-local resolution |
 | Rollback | Conflict-checked full or adapter-backed field undo for site settings; conflict-checked full-value undo for ordinary network settings additions and updates | Network delete reconstruction plus authority/lifecycle commands and whole-capture undo |
-| Storage | Dedicated session, mutation, write-signal, and restore-run tables | Packs, deployment runs, snapshots, and drift tables when used |
+| Pack transport | Private strict JSON desired state; no server-side Pack library | Signed/public distribution, variables, stacking, and drift evaluation |
+| Storage | Dedicated session, mutation, write-signal, and restore-run tables; Pack applications add origin metadata to ordinary sessions | Deployment runs, snapshots, and drift tables when used |
 | Local UI transport | Explicit REST resources and commands | Keep domain services independent from transport |
 | Fleet read model | Not present | GraphQL over asynchronously materialized fleet state |
 
@@ -42,6 +43,7 @@ PHP 8.2 is the oldest branch in the 0.4.0 runtime contract. The full parser, uni
 9. Incomplete evidence is a durable product state: it disables whole-change undo and cannot be presented as a clean observation.
 10. Every undo attempt creates a value-free audit record before its first configuration write.
 11. A local reference stores bounded identity evidence, never media contents or post bodies; undo refuses a referenced item that no longer exists.
+12. A Pack is a desired state, never a source database snapshot or an executable program.
 
 ## Hardening decisions
 
@@ -72,7 +74,8 @@ PHP 8.2 is the oldest branch in the 0.4.0 runtime contract. The full parser, uni
 - **Error reporting is also isolated.** Even a third-party listener that throws during `configops_capture_error` cannot escape into the settings request being observed. If a ConfigOps table fails while WordPress still saves the host setting, a bounded, value-free emergency marker in `wp_options` makes the session incomplete after storage recovers; unresolved markers produce a persistent administrator warning.
 - **Schema upgrades fail safe.** Upgrades are serialized, required tables and columns are verified before the version advances, and a failed normal boot disables ConfigOps with an administrator notice without taking WordPress down.
 - **Opaque credentials fail closed.** Adapter and heuristic detection covers nested PHP values plus recognizable JSON, malformed JSON, XML-like documents, DSNs, authorization headers, and private keys before persistence. Structured strings deeper than the inspection budget are redacted rather than partially trusted.
-- **Adapters are capability-scoped.** Observation ownership, field meaning, secret detection, and rollback eligibility form the current contract. Apply and verification do not appear on the interface until those engines exist, so observation support cannot be mistaken for deployment support.
+- **Adapters are capability-scoped.** Observation ownership, field meaning, secret detection, rollback eligibility, and complete-option Pack Apply form separate levels. The destination must resolve the exact Pack adapter schema; partial, secret-bearing, unsupported, or unclaimed options never inherit Apply from observation support.
+- **Pack plans are short-lived and state-bound.** Strict schema validation precedes destination analysis. An applicable preview stores only a user/site/Pack binding plus HMAC fingerprints for compatible baselines, expires after ten minutes, and is consumed once. Apply rebuilds the plan under the site mutex, compares every fingerprint, checks again before each write, verifies each desired state, and compensates prior writes in reverse order on failure.
 - **Meaning and provenance are pinned at observation time.** Adapter-owned mutations retain adapter ID, schema version, and installed component version. An adapterless plugin mutation retains the captured source owner and its version when WordPress can resolve the owning main file. Source basis is persisted as either a causal caller or an exact request-local Settings API registration; a registration may replace a Core/unknown caller, never another plugin, must-use plugin, or theme already present in the write stack. Historical fields are enriched only when the matching schema is still available; generic leaf labels improve readability but never acquire adapter semantics after the fact.
 - **Derived state stays out of rollback.** Cache, migration, tracking, version, and other adapter-declared runtime values remain visible under Technical. When they share an option with real settings, undo patches only the adapter-backed settings instead of reconstructing the whole option.
 - **Protected options are patched, never reconstructed.** When a supported option also contains a secret, ConfigOps checks and reverses only adapter-backed non-secret paths against the current value. Credentials and plugin housekeeping remain byte-for-byte under the owning plugin’s control.

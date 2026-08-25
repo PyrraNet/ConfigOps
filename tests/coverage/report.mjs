@@ -21,6 +21,7 @@ const criticalPrefixes = [
 	'src/Execution/',
 	'src/Maintenance/',
 	'src/Multisite/',
+	'src/Pack/',
 	'src/Reference/',
 	'src/Release/',
 	'src/Restore/',

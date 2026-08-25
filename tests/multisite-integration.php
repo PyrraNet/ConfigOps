@@ -64,7 +64,7 @@ $assert($foreignSiteId > 0 && $foreignSiteId !== $originSiteId, 'The Multisite f
 $assert(switch_to_blog($foreignSiteId), 'The integration check should enter the target site.');
 $assert($foreignSiteId === get_current_blog_id(), 'The target site should be current before its option write.');
 $assert(
-	11 === (int) get_option('configops_schema_version', 0),
+	12 === (int) get_option('configops_schema_version', 0),
 	'A network-active ConfigOps installation should provision storage state for a newly initialized site.'
 );
 $foreignAdministrator = get_role('administrator');
@@ -878,7 +878,7 @@ update_option(
 	false
 );
 (new \ConfigOps\Database\Schema($wpdb))->maybeUpgrade();
-$assert(11 === (int) get_option('configops_schema_version'), 'A legacy subsite should commit the shared-storage schema only after migration.');
+$assert(12 === (int) get_option('configops_schema_version'), 'A legacy subsite should commit the shared-storage schema only after migration.');
 
 $legacyScope = \ConfigOps\Multisite\SiteScope::current();
 $legacyCaptures = new \ConfigOps\Database\CaptureRepository($wpdb, $legacyScope);
@@ -1079,7 +1079,7 @@ $assert(
 (new \ConfigOps\Access\CapabilityManager())->maybeInstall();
 \ConfigOps\Maintenance\HistoryRetention::schedule();
 $assert(
-	11 === (int) get_option('configops_schema_version', 0)
+	12 === (int) get_option('configops_schema_version', 0)
 	&& get_role('administrator')->has_cap('configops_view')
 	&& false !== wp_next_scheduled(\ConfigOps\Maintenance\HistoryRetention::HOOK),
 	'The normal idempotent site boot path should lazily provision a skipped site after large-network activation.'
@@ -1191,7 +1191,7 @@ foreach ($uninstallSites as $uninstallSiteId) {
 	add_option('configops_operation_lock_multisite_uninstall_fixture', array('token' => 'fixture', 'expires_at' => time() + 60), '', false);
 	$siteAdministrator = get_role('administrator');
 	$assert(
-		11 === (int) get_option('configops_schema_version', 0)
+		12 === (int) get_option('configops_schema_version', 0)
 		&& $siteAdministrator
 		&& $siteAdministrator->has_cap('configops_view')
 		&& false !== wp_next_scheduled(\ConfigOps\Maintenance\HistoryRetention::HOOK),

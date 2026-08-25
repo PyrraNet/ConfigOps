@@ -1,5 +1,6 @@
 import {
 	createCapture,
+	applyPackRequest,
 	fetchMutationPage,
 	fetchState,
 	restoreMutationRequest,
@@ -118,6 +119,10 @@ export const restoreSession = (id) => runPending(`restore-session-${id}`, () => 
 export const setGenericArrayUndo = (enabled) => runPending(
 	'generic-array-undo',
 	() => setGenericArrayUndoRequest(enabled),
+);
+export const applyPack = (pack, planToken) => runPending(
+	'apply-pack',
+	() => applyPackRequest(pack, planToken),
 );
 
 export const selectSession = async (id) => {

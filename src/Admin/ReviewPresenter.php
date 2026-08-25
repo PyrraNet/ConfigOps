@@ -169,6 +169,11 @@ final class ReviewPresenter
 				_n('%d option was restored.', '%d options were restored.', (int) $message, 'configops'),
 				(int) $message
 			),
+			'pack-applied' => sprintf(
+				/* translators: %d: number of settings changed by a Pack. */
+				_n('%d Pack setting was applied and recorded.', '%d Pack settings were applied and recorded.', (int) $message, 'configops'),
+				(int) $message
+			),
 			'error' => $message,
 			default => '',
 		};
