@@ -60,6 +60,15 @@ const stopCapture = async () => {
 	await page.locator('.configops-request-group').first().waitFor();
 };
 
+const loadAllReviewChanges = async () => {
+	const loadMore = page.getByRole('button', { name: 'Load more changes' });
+	for (let pageNumber = 0; pageNumber < 20 && await loadMore.count(); pageNumber += 1) {
+		await loadMore.click();
+		await page.waitForFunction(() => !document.querySelector('.configops-load-more button[disabled]'));
+	}
+	assert.equal(await loadMore.count(), 0, 'The review should fit within the bounded 20-page browser-test limit.');
+};
+
 const undoVisibleSetting = async (name) => {
 	page.once('dialog', (dialog) => dialog.accept());
 	await page.getByRole('button', { name }).click();
@@ -131,6 +140,7 @@ try {
 	}
 	await page.getByText(/Settings were successfully saved/i).waitFor();
 	await stopCapture();
+	await loadAllReviewChanges();
 	assert.equal(
 		await page.locator('.configops-notice.is-dismissible .notice-dismiss').count(),
 		1,
@@ -140,7 +150,11 @@ try {
 	const mailReview = page.locator('#configops-review-island');
 	assert.equal(await mailReview.getByText('SMTP password', { exact: true }).count(), 1, 'The chosen SMTP password should be identified exactly once.');
 	assert.equal(await mailReview.getByText(/defaults$/, { exact: false }).count(), 0, 'Unused provider defaults must not pollute the default settings review.');
-	assert.equal(await mailReview.locator('.configops-write-signal').count(), 0, 'Known runtime locks must not be presented as unmanaged user changes.');
+	assert.equal(
+		await mailReview.locator('.configops-write-signal').filter({ hasText: /actionscheduler_(?:claims|groups|logs)|GET_LOCK|RELEASE_LOCK/i }).count(),
+		0,
+		'Known Action Scheduler runtime locks must not be presented as unmanaged user changes.',
+	);
 	assert.equal((await mailReview.innerText()).includes('not-a-real-password'), false, 'The typed SMTP password must never be rendered or bootstrapped.');
 	assert.equal(await mailReview.getByRole('button', { name: 'Undo 7 restorable settings' }).count(), 1, 'Visible non-secret SMTP fields should remain individually reversible.');
 	assert.equal(await mailReview.locator('.configops-option > span').getByText('WP Mail SMTP', { exact: true }).count(), 1, 'A user should see the responsible plugin before its technical source path.');

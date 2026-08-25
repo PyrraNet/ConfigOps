@@ -107,7 +107,7 @@ final class PackValidator
 			$normalized = $this->setting($setting, $nodes);
 			$option     = $normalized['option'];
 			if (isset($seen[$option])) {
-				throw new RuntimeException("The Pack declares {$option} more than once.");
+				throw $this->runtimeFailure("The Pack declares {$option} more than once.");
 			}
 			$seen[$option]         = true;
 			$normalizedSettings[] = $normalized;
@@ -169,28 +169,28 @@ final class PackValidator
 		}
 		$state = isset($setting['state']) ? $this->requiredString($setting, 'state', 12) : 'present';
 		if (! in_array($state, array('present', 'absent'), true)) {
-			throw new RuntimeException("The Pack state for {$option} is invalid.");
+			throw $this->runtimeFailure("The Pack state for {$option} is invalid.");
 		}
 		if ('present' === $state && ! array_key_exists('value', $setting)) {
-			throw new RuntimeException("The Pack setting {$option} has no desired value.");
+			throw $this->runtimeFailure("The Pack setting {$option} has no desired value.");
 		}
 		if ('absent' === $state && array_key_exists('value', $setting)) {
-			throw new RuntimeException("The absent Pack setting {$option} must not contain a value.");
+			throw $this->runtimeFailure("The absent Pack setting {$option} must not contain a value.");
 		}
 
 		$adapter = $setting['adapter'] ?? null;
 		if (null !== $adapter) {
 			if (! is_array($adapter)) {
-				throw new RuntimeException("The adapter contract for {$option} is invalid.");
+				throw $this->runtimeFailure("The adapter contract for {$option} is invalid.");
 			}
 			$this->assertOnlyKeys($adapter, array('id', 'schema_version'));
 			$adapterId = $this->requiredString($adapter, 'id', 191);
 			if (1 !== preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $adapterId)) {
-				throw new RuntimeException("The adapter ID for {$option} is invalid.");
+				throw $this->runtimeFailure("The adapter ID for {$option} is invalid.");
 			}
 			$schemaVersion = $adapter['schema_version'] ?? null;
 			if (! is_int($schemaVersion) || $schemaVersion < 1 || $schemaVersion > 1000000) {
-				throw new RuntimeException("The adapter schema for {$option} is invalid.");
+				throw $this->runtimeFailure("The adapter schema for {$option} is invalid.");
 			}
 			$adapter = array('id' => $adapterId, 'schema_version' => $schemaVersion);
 		}
@@ -296,7 +296,7 @@ final class PackValidator
 	{
 		$unknown = array_diff(array_keys($value), $allowed);
 		if (! empty($unknown)) {
-			throw new RuntimeException('The Pack contains unsupported fields: ' . implode(', ', $unknown) . '.');
+			throw $this->runtimeFailure('The Pack contains unsupported fields: ' . implode(', ', $unknown) . '.');
 		}
 	}
 
@@ -307,11 +307,11 @@ final class PackValidator
 	{
 		$result = $value[$key] ?? null;
 		if (! is_string($result)) {
-			throw new RuntimeException("The Pack field {$key} is required.");
+			throw $this->runtimeFailure("The Pack field {$key} is required.");
 		}
 		$result = trim($result);
 		if ('' === $result || strlen($result) > $maxBytes || 1 === preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $result)) {
-			throw new RuntimeException("The Pack field {$key} is invalid.");
+			throw $this->runtimeFailure("The Pack field {$key} is invalid.");
 		}
 
 		return $result;
@@ -327,13 +327,19 @@ final class PackValidator
 		}
 		$result = $value[$key];
 		if (! is_string($result)) {
-			throw new RuntimeException("The Pack field {$key} is invalid.");
+			throw $this->runtimeFailure("The Pack field {$key} is invalid.");
 		}
 		$result = trim($result);
 		if (strlen($result) > $maxBytes || 1 === preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $result)) {
-			throw new RuntimeException("The Pack field {$key} is invalid.");
+			throw $this->runtimeFailure("The Pack field {$key} is invalid.");
 		}
 
 		return $result;
+	}
+
+	private function runtimeFailure(string $message): RuntimeException
+	{
+		// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- The human-facing validation message is escaped before it leaves the Pack boundary.
+		return new RuntimeException(esc_html($message));
 	}
 }

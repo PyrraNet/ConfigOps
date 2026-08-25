@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name:       ConfigOps – WordPress Configuration Management
+ * Plugin Name:       ConfigOps – Configuration Management
  * Plugin URI:        https://configops.pyrra.net/
  * Description:       Record, reproduce, and safely undo WordPress configuration with redacted evidence and portable Configuration Packs.
  * Version:           0.7.0

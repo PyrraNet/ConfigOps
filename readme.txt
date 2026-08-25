@@ -1,4 +1,4 @@
-=== ConfigOps – WordPress Configuration Management ===
+=== ConfigOps – Configuration Management ===
 Contributors: pyrra
 Tags: settings, configuration, rollback, wp-cli, automation
 Requires at least: 7.0
