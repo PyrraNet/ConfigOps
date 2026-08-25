@@ -107,7 +107,7 @@ try {
 	assert.equal(loginResponse.status(), 302, 'The isolated Playground user should authenticate before plugin testing.');
 	let dashboardReady = false;
 	for (let attempt = 0; attempt < 6 && !dashboardReady; attempt += 1) {
-		await page.goto(`${baseUrl}/wp-admin/`, { waitUntil: 'domcontentloaded' });
+		await page.goto(`${baseUrl}/wp-admin/`, { waitUntil: 'domcontentloaded' }).catch(() => null);
 		dashboardReady = await page.getByRole('heading', { name: 'Dashboard', exact: true }).isVisible().catch(() => false);
 	}
 	assert.equal(dashboardReady, true, 'Plugin onboarding redirects should settle before the settings workflow begins.');
