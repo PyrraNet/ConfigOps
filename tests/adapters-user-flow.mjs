@@ -70,6 +70,11 @@ const loadAllReviewChanges = async () => {
 };
 
 const undoVisibleSetting = async (name) => {
+	const evidenceCards = page.locator('#configops-evidence-stack .configops-evidence-card');
+	while (await evidenceCards.count()) {
+		await evidenceCards.last().getByRole('button', { name: 'Dismiss recorded change' }).click();
+	}
+	assert.equal(await evidenceCards.count(), 0, 'Automatic evidence should be dismissed before exercising the in-page undo control.');
 	page.once('dialog', (dialog) => dialog.accept());
 	await page.getByRole('button', { name }).click();
 	await page.getByText(/current value matched the recording|option was restored/i).waitFor();
